@@ -8,7 +8,6 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 - Persistencia futura: localStorage, accedido solo a través de `js/storage.js`.
 - Tests de lógica: `node --test "tests/*.test.js"` (runner nativo de Node 22, sin instalar nada).
 - No instalar dependencias, incorporar frameworks ni añadir `package.json` sin aprobación explícita.
-- No instalar dependencias ni añadir `package.json` sin aprobación explícita.
 - Priorizar soluciones sencillas, mantenibles y adecuadas a la escala del proyecto.
 
 ## Ejecutar
@@ -98,6 +97,8 @@ tests/*.test.js # Tests de game.js y metrics.js.
 ### Control de versiones
 
 - No realizar commits sin aprobación del usuario.
+- Pregunta cada vez que consideres que se debe hacer un commit
+- No realizar push sin aprobación del usuario.
 - Mostrar los cambios relevantes antes de cada commit.
 - Realizar commits pequeños, coherentes y con mensajes descriptivos.
 - No descartar cambios existentes sin aprobación.
