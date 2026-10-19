@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypingQuest</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1 class="title">TypingQuest</h1>
+    <p class="subtitle">Entrena tu velocidad y precisión al teclado</p>
+  </header>
+
+  <main class="game">
+    <section class="stats" aria-label="Estadísticas en vivo">
+      <div class="stat">
+        <span class="stat-value" id="wpm">0</span>
+        <span class="stat-label">WPM</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="accuracy">100</span>
+        <span class="stat-label">% precisión</span>
+      </div>
+    </section>
+
+    <!-- Al hacer clic en el texto se enfoca el textarea oculto -->
+    <section class="text-display" id="text-display" aria-live="polite"></section>
+
+    <textarea
+      class="hidden-input"
+      id="typing-input"
+      aria-label="Escribe aquí el texto"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"></textarea>
+
+    <section class="results" id="results" hidden>
+      <h2>Resultados</h2>
+      <dl class="results-list">
+        <dt>WPM</dt><dd id="result-wpm">0</dd>
+        <dt>Precisión</dt><dd id="result-accuracy">0 %</dd>
+        <dt>Tiempo</dt><dd id="result-time">0 s</dd>
+        <dt>Errores</dt><dd id="result-errors">0</dd>
+      </dl>
+      <button class="button" id="restart-button" type="button">Reintentar</button>
+    </section>
+  </main>
+</body>
+</html>
