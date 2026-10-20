@@ -52,7 +52,7 @@
 
     <!-- Pantalla 2: escritura -->
     <section class="screen" id="play-screen" aria-label="Partida" hidden>
-      <div class="stats" aria-label="Estadísticas en vivo">
+      <div class="stats" role="group" aria-label="Estadísticas en vivo">
         <div class="stat">
           <span class="stat-value" id="wpm">0</span>
           <span class="stat-label">WPM</span>
@@ -82,12 +82,13 @@
       </div>
 
       <!-- Carril: vista previa arriba, fragmento activo en la posición de escritura -->
-      <div class="lane" id="lane">
-        <p class="chunk chunk-next" id="chunk-next" aria-label="Siguiente fragmento"></p>
-        <p class="chunk chunk-active" id="chunk-active" aria-label="Fragmento activo"></p>
-        <p class="focus-hint" id="focus-hint" hidden>Haz clic aquí para seguir escribiendo</p>
-        <!-- La tecla visual se dibuja con CSS sobre el espacio pendiente; este texto es para lectores de pantalla. -->
-        <p class="visually-hidden" id="space-hint" role="status" hidden>Pulsa la barra espaciadora para continuar</p>
+      <div class="lane" id="lane" role="group" aria-label="Texto para escribir">
+        <p class="visually-hidden">Siguiente fragmento:</p>
+        <p class="chunk chunk-next" id="chunk-next"></p>
+        <p class="visually-hidden">Fragmento activo:</p>
+        <p class="chunk chunk-active" id="chunk-active"></p>
+        <!-- Zona única de avisos contextuales: siempre presente y con altura reservada. -->
+        <p class="lane-notice" id="lane-notice" role="status" aria-live="polite"></p>
         <textarea
           class="hidden-input"
           id="typing-input"
@@ -96,6 +97,10 @@
           autocorrect="off"
           autocapitalize="off"
           spellcheck="false"></textarea>
+      </div>
+
+      <div class="play-actions">
+        <button class="button button-secondary" id="exit-button" type="button">Salir de la partida</button>
       </div>
     </section>
 
@@ -123,6 +128,10 @@
         <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>
       </div>
     </section>
+
+    <!-- Anuncia el resumen de resultados a lectores de pantalla. Fuera de las
+         pantallas para que siempre esté en el árbol de accesibilidad. -->
+    <p class="visually-hidden" id="results-announcer" role="status" aria-live="polite"></p>
   </main>
 </body>
 </html>

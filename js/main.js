@@ -28,7 +28,8 @@ const sound = createSoundPlayer({ enabled: CONFIG.soundEnabled });
 let session = null; // { state, chunks }
 let composing = false;
 let statsTimer = null;
-// Indicador de barra espaciadora: temporizador de interfaz, ajeno al motor.
+// Avisos contextuales: estado de interfaz, ajeno al motor y a las métricas.
+const notices = { focusLost: false, errorsBlocking: false, spaceReady: false };
 let spaceHintTimer = null;
 let spaceHintAt = null;
 
@@ -58,7 +59,7 @@ function handleSetupSubmit(event) {
 
 function enterPlay() {
   stopStatsTimer();
-  clearSpaceHint();
+  resetNotices();
   composing = false;
   ui.showScreen(els, 'play');
   ui.syncInput(els.input, session.state.typed);
@@ -80,10 +81,15 @@ function render() {
 function processInput() {
   if (!isPlaying()) return;
   const previous = session.state;
-  const next = applyInput(previous, els.input.value, performance.now());
+  const attempted = els.input.value;
+  const next = applyInput(previous, attempted, performance.now());
   if (next !== previous) {
     session.state = next;
     if (previous.status === 'idle') startStatsTimer();
+    notices.errorsBlocking = false;
+  } else if (attempted.length > previous.typed.length && ui.isFragmentBlocked(previous, session.chunks)) {
+    // Intento de avanzar con el fragmento lleno de errores: el motor lo rechazó.
+    notices.errorsBlocking = true;
   }
   // Rechazada: restaura el textarea. Aceptada: lo alinea con el texto normalizado.
   ui.syncInput(els.input, session.state.typed);
@@ -95,6 +101,7 @@ function processInput() {
     return;
   }
   updateSpaceHint();
+  updateNotice();
 }
 
 // Efectos al completar un fragmento intermedio. Solo presentación: el nuevo
@@ -105,13 +112,18 @@ function celebrateChunk(completedIndex) {
   sound.playChunkComplete();
 }
 
+// «Pulsa espacio» aparece tras esperar CONFIG.spaceHintDelayMs en el espacio final
+// de un fragmento correcto, y se retira en cuanto deja de cumplirse.
 function updateSpaceHint() {
   const position = isPlaying() ? ui.spaceHintPosition(session.state, session.chunks) : null;
   if (position === spaceHintAt) return;
   clearSpaceHint();
   spaceHintAt = position;
   if (position !== null) {
-    spaceHintTimer = setTimeout(() => ui.setSpaceHint(els, true), CONFIG.spaceHintDelayMs);
+    spaceHintTimer = setTimeout(() => {
+      notices.spaceReady = true;
+      updateNotice();
+    }, CONFIG.spaceHintDelayMs);
   }
 }
 
@@ -119,15 +131,25 @@ function clearSpaceHint() {
   clearTimeout(spaceHintTimer);
   spaceHintTimer = null;
   spaceHintAt = null;
-  ui.setSpaceHint(els, false);
+  notices.spaceReady = false;
+}
+
+function updateNotice() {
+  ui.renderNotice(els, ui.resolveNotice(notices));
+}
+
+function resetNotices() {
+  clearSpaceHint();
+  notices.focusLost = false;
+  notices.errorsBlocking = false;
+  updateNotice();
 }
 
 function finishGame() {
   stopStatsTimer();
-  clearSpaceHint();
+  resetNotices();
   const stats = getStats(session.state, performance.now());
   ui.renderResults(els, stats);
-  ui.setFocusHint(els, false);
   ui.showScreen(els, 'results');
   els.retryButton.focus();
 }
@@ -172,7 +194,7 @@ function handleInput(event) {
 function handleKeyDown(event) {
   // Una pulsación es una interacción válida para crear o reanudar el audio.
   sound.unlock();
-  const shortcut = (event.ctrlKey || event.metaKey) && BLOCKED_SHORTCUTS.has(event.key.toLowerCase());
+  const shortcut = (event.ctrlKey || event.metaKey) && BLOCKED_SHORTCUTS.has(event.key?.toLowerCase());
   if (NAVIGATION_KEYS.has(event.key) || shortcut) event.preventDefault();
 }
 
@@ -190,11 +212,17 @@ function bindTypingInput() {
     composing = false;
     processInput();
   });
-  for (const type of ['select', 'pointerup', 'focus']) input.addEventListener(type, keepCaretAtEnd);
+  // El textarea tiene pointer-events: none; el ratón llega a través del carril.
+  for (const type of ['select', 'focus']) input.addEventListener(type, keepCaretAtEnd);
   for (const type of ['paste', 'drop', 'cut']) input.addEventListener(type, (e) => e.preventDefault());
-  input.addEventListener('focus', () => ui.setFocusHint(els, false));
+  input.addEventListener('focus', () => {
+    notices.focusLost = false;
+    updateNotice();
+  });
   input.addEventListener('blur', () => {
-    if (isPlaying()) ui.setFocusHint(els, true);
+    if (!isPlaying()) return;
+    notices.focusLost = true;
+    updateNotice();
   });
   els.lane.addEventListener('click', () => {
     if (isPlaying()) input.focus();
@@ -204,17 +232,32 @@ function bindTypingInput() {
 // --- Resultados ----------------------------------------------------------------
 
 function handleRetry() {
+  ui.clearResultsAnnouncement(els);
   session.state = restartGame(session.state);
   enterPlay();
 }
 
 function handleNewText() {
+  returnToSetup();
+  els.sourceText.select();
+}
+
+// Abandona la partida en curso: se descarta el progreso y se vuelve a la
+// preparación con el texto original intacto para reutilizarlo o editarlo.
+function handleExit() {
+  returnToSetup();
+}
+
+// Vuelta a la preparación: detiene cronómetro, avisos y efectos de la partida.
+function returnToSetup() {
   stopStatsTimer();
-  clearSpaceHint();
+  resetNotices();
+  ui.clearChunkEffects(els);
+  ui.clearResultsAnnouncement(els);
+  composing = false;
   session = null;
   ui.showScreen(els, 'setup');
   els.sourceText.focus();
-  els.sourceText.select();
 }
 
 // --- Sonido --------------------------------------------------------------------
@@ -234,6 +277,7 @@ function init() {
   els.sourceText.addEventListener('input', updateSourceCount);
   els.retryButton.addEventListener('click', handleRetry);
   els.newTextButton.addEventListener('click', handleNewText);
+  els.exitButton.addEventListener('click', handleExit);
   els.soundToggle.addEventListener('click', handleSoundToggle);
   els.startButton.addEventListener('click', () => sound.unlock());
   bindTypingInput();

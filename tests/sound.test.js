@@ -75,6 +75,23 @@ describe('createSoundPlayer', () => {
     assert.equal(log.oscillators.length, 0);
   });
 
+  it('no crea el AudioContext en unlock() si el sonido está desactivado (B6)', () => {
+    const { FakeContext, log } = createFakeAudio();
+    const player = createSoundPlayer({ enabled: false, AudioContextClass: FakeContext });
+    player.unlock();
+    player.playChunkComplete();
+    assert.equal(log.contexts, 0);
+  });
+
+  it('crea el AudioContext en unlock() al reactivar el sonido', () => {
+    const { FakeContext, log } = createFakeAudio();
+    const player = createSoundPlayer({ enabled: false, AudioContextClass: FakeContext });
+    player.unlock();
+    player.setEnabled(true);
+    player.unlock();
+    assert.equal(log.contexts, 1);
+  });
+
   it('toggle alterna el estado y lo devuelve', () => {
     const { FakeContext } = createFakeAudio();
     const player = createSoundPlayer({ AudioContextClass: FakeContext });

@@ -4,8 +4,8 @@
   --color-border: #3a3d4a;
   --color-text: #e6e6e6;
   --color-muted: #9a9daa;
-  --color-pending: #7a7d8b;
-  --color-preview: #5f6270;
+  --color-pending: #adb0bd;   /* 6,43:1 sobre --color-surface */
+  --color-preview: #9396a3;   /* 4,72:1 sobre --color-surface (WCAG AA) */
   --color-correct: #6fcf97;
   --color-incorrect: #ff6b6b;
   --color-incorrect-bg: rgba(255, 107, 107, 0.28);
@@ -216,7 +216,7 @@ body {
   position: relative;
   /* Recorta el fragmento saliente para que no invada otros elementos. */
   overflow: clip;
-  padding: 1rem 1.5rem 1.5rem;
+  padding: 1rem 1.5rem;
   border: 1px solid transparent;
   border-radius: 0.5rem;
   background: var(--color-surface);
@@ -271,31 +271,41 @@ body {
   box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
-/* Indicador de barra espaciadora: tecla dibujada bajo el espacio pendiente.
-   Es absoluta respecto al carácter, así que no desplaza el texto. */
-.lane-space-hint .char-current.char-space {
-  position: relative;
+/* Zona única de avisos bajo el fragmento activo. Su altura está reservada
+   aunque esté vacía, así que mostrar u ocultar un aviso no desplaza nada. */
+.lane-notice {
+  /* Alto fijo (no min-height): el texto o la tecla no pueden agrandarla. */
+  height: 2.25rem;
+  overflow: hidden;
+  margin: 0.75rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  text-align: center;
 }
 
-.lane-space-hint .char-current.char-space::after {
-  content: "";
-  position: absolute;
-  top: calc(100% - 0.15em);
-  left: 0;
-  width: 2.6em;
-  height: 0.55em;
-  border: 2px solid var(--color-accent);
-  border-top-width: 1px;
-  border-radius: 0.2em;
-  box-shadow: 0 2px 0 rgba(242, 201, 76, 0.35);
-  opacity: 0.85;
-  pointer-events: none;
-  animation: space-hint-in 160ms ease-out;
+.lane-notice[data-kind="space"],
+.lane-notice[data-kind="focus"] {
+  color: var(--color-accent);
 }
 
-@keyframes space-hint-in {
-  from { opacity: 0; }
-  to { opacity: 0.85; }
+.lane-notice[data-kind="errors"] {
+  color: var(--color-incorrect);
+}
+
+/* Tecla de espacio reconocible: tecla ancha con borde y sombra inferior. */
+.key-space {
+  display: inline-block;
+  min-width: 6em;
+  padding: 0 0.75em;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 0 var(--color-accent);
+  font-family: inherit;
+  font-size: 0.875em;
+  line-height: 1.5;
 }
 
 /* Fragmento completado: copia decorativa que se superpone y sale. */
@@ -328,19 +338,6 @@ body {
   .chunk-leaving {
     animation-name: chunk-fade;
   }
-
-  .lane-space-hint .char-current.char-space::after {
-    animation: none;
-  }
-}
-
-.focus-hint {
-  position: absolute;
-  inset: auto 0 0.25rem;
-  margin: 0;
-  color: var(--color-accent);
-  font-size: 0.875rem;
-  text-align: center;
 }
 
 /* Fuera de la vista, pero enfocable para recibir los eventos de escritura. */
@@ -462,7 +459,7 @@ body {
   }
 
   .lane {
-    padding: 0.75rem 1rem 1.5rem;
+    padding: 0.75rem 1rem;
   }
 
   .chunk-active {
@@ -501,4 +498,12 @@ body {
   .result-main-value {
     font-size: 3.75rem;
   }
+}
+
+/* --- Acciones durante la partida --- */
+
+.play-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
 }

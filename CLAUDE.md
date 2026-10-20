@@ -18,24 +18,68 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ## Estructura
 
 ```
-index.html
-css/styles.css
-js/main.js      # Arranque: conecta motor e interfaz. Sin lógica de juego.
-js/game.js      # Motor PURO: estados y procesamiento de la entrada.
-js/metrics.js   # PURO: calcWpm, calcAccuracy.
-js/texts.js     # Textos de práctica.
-js/ui.js        # Única capa que toca el DOM.
-tests/*.test.js # Tests de game.js y metrics.js.
+index.html            # Tres pantallas: preparación, partida y resultados.
+css/styles.css        # Tema oscuro, carril de fragmentos, avisos, animaciones, responsive.
+js/config.js          # Parámetros configurables (CONFIG congelado).
+js/text-prep.js       # PURO: sanitizeText, validateText, prepareText, findUnsupportedChars.
+js/chunks.js          # PURO: splitIntoChunks (fragmentos de N palabras).
+js/game.js            # Motor PURO: estados, segmentos y procesamiento de la entrada.
+js/metrics.js         # PURO: calcWpm, calcAccuracy.
+js/ui.js              # Renderizado y DOM; incluye helpers puros testeables.
+js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
+js/main.js            # Coordinación: eventos, temporizadores y flujo entre pantallas.
+tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers puros) y sound.
+.claude/launch.json   # Servidor de vista previa para Claude Code.
 ```
 
 ## Arquitectura
 
-- `game.js` y `metrics.js` son puros: sin DOM, sin `Date.now()` ni `performance.now()`
-  directos. El instante actual se inyecta como parámetro (`now`) para poder testear.
+- Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
+  `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`. El instante actual se inyecta
+  como parámetro (`now`) para poder testear.
+- Módulos de interfaz: `ui.js` (pinta y manipula el DOM), `main.js` (escucha eventos,
+  gestiona foco, temporizadores y pantallas) y `sound.js` (audio).
+- `ui.js` exporta además helpers PUROS (`charStates`, `spaceHintPosition`,
+  `isFragmentBlocked`, `resolveNotice`, formatos) que se testean con Node.
+- Flujo: fuente de texto → `prepareText` → `splitIntoChunks` → `createGame(text, { segmentEnds })`
+  → `applyInput` en cada evento `input`. Cualquier fuente futura solo entrega un string.
 - Las funciones del motor no mutan el estado recibido: devuelven un estado nuevo.
+  Una entrada RECHAZADA devuelve el MISMO objeto (`resultado === state`).
 - Estados del juego: `idle` → `running` → `finished`.
+- Animaciones, sonido y avisos son solo presentación: nunca modifican el estado del
+  motor, las métricas ni el cronómetro.
 - Toda lógica nueva va en módulos puros y con tests escritos primero.
-- Separar la lógica del juego de la interfaz.
+
+## Configuración (`js/config.js`)
+
+- `wordsPerChunk: 7` — palabras por fragmento.
+- `maxTextLength: 5000` — límite de caracteres (puntos de código) tras sanear.
+- `chunkAnimationMs: 350` — duración de la animación al completar un fragmento.
+- `soundEnabled: true` — estado inicial del sonido (aún sin persistencia).
+- `spaceHintDelayMs: 1500` — espera antes de mostrar «Pulsa espacio».
+- `statsRefreshMs: 250` y `minWpmElapsedMs: 1000` — refresco y umbral del WPM en vivo.
+
+## Preparación del texto
+
+- `prepareText(raw, maxLength)` sanea y DESPUÉS valida (siempre usar esta función):
+  NFC, comillas/rayas/«…» tipográficos → equivalentes escribibles, saltos de línea y
+  tabulaciones → espacio, espacios repetidos → uno, recorte de extremos, eliminación
+  de invisibles y controles. Conserva tildes, ñ, ü, ¿ y ¡.
+- Rechaza: texto vacío, más de `maxTextLength` caracteres (sin recortar) y caracteres
+  que el motor no puede procesar: emojis y otros fuera del plano básico, marcas
+  combinantes sin componer y marcas aisladas (p. ej. al inicio del texto).
+
+## Fragmentos
+
+- `splitIntoChunks(text, wordsPerChunk)` devuelve rangos `[start, end)` contiguos que
+  reconstruyen el texto. El espacio final pertenece al fragmento que se completa; el
+  último fragmento no tiene espacio final.
+- El motor recibe `segmentEnds = chunks.map(c => c.end)`. Solo se edita dentro del
+  segmento activo; los fragmentos cerrados no se pueden modificar y no se puede
+  escribir más allá del final del activo mientras tenga errores.
+- Al escribir correctamente el espacio final, el siguiente segmento se activa en la
+  MISMA entrada: la primera letra del siguiente nunca queda bloqueada.
+- Fragmentos = divisiones visuales de UNA partida: cronómetro y métricas globales.
 
 ## Reglas de juego (decisiones aprobadas)
 
@@ -52,18 +96,60 @@ tests/*.test.js # Tests de game.js y metrics.js.
 - Precisión = pulsaciones correctas / pulsaciones totales × 100.
   Las pulsaciones de retroceso no cuentan como pulsaciones totales.
 - Con 0 ms o 0 pulsaciones las funciones devuelven 0, nunca `NaN` ni `Infinity`.
-- En el navegador el tiempo se mide con `performance.now()`.
+- WPM usa los caracteres correctos ACTUALES (neto); la precisión, todas las pulsaciones.
+- Las entradas rechazadas (pegado, exceso, fragmento cerrado) no cuentan como pulsaciones.
+- En el navegador el tiempo se mide con `performance.now()`. El WPM en vivo muestra «—»
+  hasta `minWpmElapsedMs` para evitar picos al empezar (solo presentación).
 
 ## Entrada de teclado
 
 - Capturar con el evento `input` de un `<textarea>` oculto, comparando su valor con
   el texto objetivo. No usar `keydown` para el texto: rompe las teclas muertas (á, é, ñ).
+- Escritura SECUENCIAL: el motor solo compara el prefijo común (limitación H2, ver
+  test `todo` en `tests/game.test.js`). La UI la controla:
+  - `beforeinput` solo admite insertar texto, componer y borrar hacia atrás; bloquea
+    pegar, soltar, Intro, deshacer y borrado hacia delante, y cualquier edición con el
+    cursor fuera del final.
+  - `keydown` bloquea flechas, Inicio/Fin, RePág/AvPág y Ctrl/Cmd+A/Z/Y.
+  - El cursor se recoloca al final en `select` y `focus`. El textarea tiene
+    `pointer-events: none`; el ratón enfoca a través del carril.
+- Composición (teclas muertas, IME): entre `compositionstart` y `compositionend` no se
+  llama al motor; se procesa el valor final.
+- Limitaciones conocidas: una composición que entrega varios caracteres a la vez (IME
+  de chino/japonés, teclados Android, tecla muerta + letra no combinable en algunos
+  navegadores) se rechaza como pegado. Comportamiento aceptado por ahora.
+
+## Interfaz de juego
+
+- Carril: vista previa del siguiente fragmento arriba y fragmento activo en una
+  posición estable debajo (altura reservada de 3 líneas por posición).
+- Colores: correcto en verde, incorrecto en rojo (espacios erróneos con fondo rojo),
+  cursor en el siguiente carácter, pendientes y vista previa con contraste ≥ 4,5:1.
+- Zona única de avisos (`#lane-notice`, `role="status"`, alto fijo), por prioridad:
+  1. «Haz clic aquí para seguir escribiendo» si el campo pierde el foco.
+  2. «Corrige los errores en rojo» al intentar avanzar con el fragmento lleno de errores.
+  3. «Pulsa espacio» tras `spaceHintDelayMs` en el espacio final de un fragmento correcto.
+  Se actualiza solo al cambiar el aviso, para no anunciarlo en cada tecla.
+- Animación al completar un fragmento: copia decorativa dorada (`aria-hidden`) que baja
+  la distancia real entre posiciones del carril y se desvanece en `chunkAnimationMs`.
+  El siguiente fragmento es escribible al instante. `prefers-reduced-motion`: solo fundido.
+- Sonido: un tono breve y suave por fragmento completado (y al terminar), nunca por tecla.
+  Botón de altavoz con `aria-pressed`. Sin `AudioContext` hasta interactuar y con el
+  sonido activado; si la Web Audio API falta o falla, el juego continúa sin errores.
+- Resultados: precisión, tiempo y errores; debajo, el WPM destacado (300 %) en dorado.
+  `corrections` se mantiene en el motor pero no se muestra. Un anunciador `role="status"`
+  lee el resumen a lectores de pantalla.
+- Navegación: «Salir de la partida» (durante la partida) y «Nuevo texto» vuelven a la
+  preparación conservando el texto; «Reintentar» repite el mismo texto. Todas detienen
+  cronómetro, avisos y efectos y descartan el progreso.
 
 ## Convenciones
 
 - Identificadores en inglés; textos de la interfaz y comentarios en español.
 - Nunca usar `innerHTML` con texto del juego o del usuario: usar `textContent`.
 - Funciones pequeñas (menos de 40 líneas) con una sola responsabilidad.
+- Accesibilidad: no usar `aria-label` en elementos sin rol (`<p>`, `<div>`); usar
+  `role="group"` o texto `visually-hidden`. Regiones vivas siempre presentes en el DOM.
 
 ## Flujo de trabajo (ECC)
 

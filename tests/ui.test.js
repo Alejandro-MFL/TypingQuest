@@ -6,6 +6,9 @@ import {
   charStates,
   formatLiveWpm,
   spaceHintPosition,
+  isFragmentBlocked,
+  resolveNotice,
+  formatResultsSummary,
 } from '../js/ui.js';
 import { splitIntoChunks } from '../js/chunks.js';
 import { createGame, applyInput } from '../js/game.js';
@@ -138,5 +141,102 @@ describe('spaceHintPosition', () => {
     assert.equal(spaceHintPosition(state, single), null);
     state = applyInput(state, 'ab', 0);
     assert.equal(spaceHintPosition(state, single), null);
+  });
+});
+
+// --- T5c: avisos contextuales (M1, M3) y mensaje de marcas aisladas (M2) -----
+
+describe('spaceHintPosition: solo con el fragmento correcto (M1)', () => {
+  const TEXT = 'uno dos tres';
+  const CHUNKS = splitIntoChunks(TEXT, 2); // "uno dos " · "tres"
+
+  function play(values) {
+    let state = createGame(TEXT, { segmentEnds: CHUNKS.map((c) => c.end) });
+    for (const value of values) state = applyInput(state, value, 0);
+    return state;
+  }
+
+  it('no avisa de pulsar espacio si hay errores antes del espacio final', () => {
+    const state = play(['u', 'un', 'unx', 'unx ', 'unx d', 'unx do', 'unx dos']);
+    assert.equal(spaceHintPosition(state, CHUNKS), null);
+  });
+
+  it('avisa cuando todo es correcto y solo falta el espacio final', () => {
+    const state = play(['u', 'un', 'uno', 'uno ', 'uno d', 'uno do', 'uno dos']);
+    assert.equal(spaceHintPosition(state, CHUNKS), 7);
+  });
+});
+
+describe('isFragmentBlocked (M3)', () => {
+  const TEXT = 'ab cd';
+  const CHUNKS = splitIntoChunks(TEXT, 1); // "ab " · "cd"
+
+  function play(values) {
+    let state = createGame(TEXT, { segmentEnds: CHUNKS.map((c) => c.end) });
+    for (const value of values) state = applyInput(state, value, 0);
+    return state;
+  }
+
+  it('está bloqueado cuando el fragmento está lleno y tiene errores', () => {
+    assert.equal(isFragmentBlocked(play(['a', 'ax', 'ax ']), CHUNKS), true);
+  });
+
+  it('no está bloqueado si el fragmento aún no está lleno', () => {
+    assert.equal(isFragmentBlocked(play(['a', 'ax']), CHUNKS), false);
+  });
+
+  it('no está bloqueado si el fragmento está lleno y correcto', () => {
+    assert.equal(isFragmentBlocked(play(['a', 'ab']), CHUNKS), false);
+  });
+
+  it('también detecta el último fragmento lleno con errores', () => {
+    assert.equal(isFragmentBlocked(play(['a', 'ab', 'ab ', 'ab c', 'ab cx']), CHUNKS), true);
+  });
+});
+
+describe('resolveNotice', () => {
+  it('no muestra nada sin condiciones', () => {
+    assert.equal(resolveNotice({ focusLost: false, errorsBlocking: false, spaceReady: false }), null);
+  });
+
+  it('muestra el aviso de espacio cuando procede', () => {
+    assert.equal(resolveNotice({ focusLost: false, errorsBlocking: false, spaceReady: true }), 'space');
+  });
+
+  it('da prioridad al aviso de errores sobre el de espacio', () => {
+    assert.equal(resolveNotice({ focusLost: false, errorsBlocking: true, spaceReady: true }), 'errors');
+  });
+
+  it('el aviso de foco perdido tiene prioridad: sin foco no se puede escribir', () => {
+    assert.equal(resolveNotice({ focusLost: true, errorsBlocking: true, spaceReady: true }), 'focus');
+  });
+});
+
+describe('formatValidationError: marcas combinantes aisladas (M2)', () => {
+  it('muestra una tilde aislada sobre un círculo punteado para que sea visible', () => {
+    const message = formatValidationError(prepareText('\u0301abc', 100));
+    assert.ok(message.includes('\u25CC\u0301'), message);
+  });
+
+  it('muestra una marca tras un espacio también sobre el círculo punteado', () => {
+    const message = formatValidationError(prepareText('a \u0301b', 100));
+    assert.ok(message.includes('\u25CC\u0301'), message);
+  });
+});
+
+describe('formatResultsSummary (B2)', () => {
+  it('resume los resultados en una frase para lectores de pantalla', () => {
+    assert.equal(
+      formatResultsSummary({ wpm: 19.4, accuracy: 97.6, elapsedMs: 26_000, errors: 2 }),
+      'Partida terminada. 19 palabras por minuto, 98 % de precisión, tiempo 0:26 y 2 errores.'
+    );
+  });
+
+  it('usa el singular con un solo error', () => {
+    assert.match(formatResultsSummary({ wpm: 10, accuracy: 90, elapsedMs: 60_000, errors: 1 }), /y 1 error\.$/);
+  });
+
+  it('indica cero errores en plural', () => {
+    assert.match(formatResultsSummary({ wpm: 10, accuracy: 100, elapsedMs: 60_000, errors: 0 }), /y 0 errores\.$/);
   });
 });

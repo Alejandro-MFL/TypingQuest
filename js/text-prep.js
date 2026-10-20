@@ -22,10 +22,11 @@ const REPLACEMENTS = [
   [/\s+/g, ' '],
 ];
 
-// Combinaciones base + marca que NFC no compone, y caracteres fuera del plano
-// básico (emojis). El motor compara unidades UTF-16 y rechaza inserciones de más
-// de una unidad, así que estos caracteres no se pueden escribir.
-const UNSUPPORTED_PATTERN = /\P{M}\p{M}+|[\u{10000}-\u{10FFFF}]/gu;
+// Combinaciones base + marca que NFC no compone, marcas aisladas sin base (p. ej.
+// al inicio del texto) y caracteres fuera del plano básico (emojis). El motor
+// compara unidades UTF-16 y rechaza inserciones de más de una unidad, así que
+// estos caracteres no se pueden escribir.
+const UNSUPPORTED_PATTERN = /\P{M}\p{M}+|\p{M}+|[\u{10000}-\u{10FFFF}]/gu;
 
 /**
  * Deja el texto listo para jugar. No valida: ver validateText.

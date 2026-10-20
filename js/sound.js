@@ -64,7 +64,8 @@ export function createSoundPlayer({
       return isOn;
     },
     unlock() {
-      ensureContext();
+      // Silenciado: no se crea ni reanuda el audio hasta que se reactive.
+      if (isOn) ensureContext();
     },
     playChunkComplete() {
       if (!isOn) return;

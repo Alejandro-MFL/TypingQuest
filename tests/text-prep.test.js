@@ -271,3 +271,33 @@ describe('prepareText', () => {
     });
   });
 });
+
+describe('marcas combinantes aisladas (M2)', () => {
+  it('rechaza una tilde combinante al inicio del texto', () => {
+    assert.deepEqual(prepareText('\u0301abc', 100), {
+      ok: false,
+      error: 'unsupported-chars',
+      length: 4,
+      chars: ['\u0301'],
+      text: '\u0301abc',
+    });
+  });
+
+  it('rechaza una marca aislada que quedaba tras un invisible eliminado', () => {
+    const result = prepareText('\u200B\u0301abc', 100);
+    assert.equal(result.error, 'unsupported-chars');
+    assert.deepEqual(result.chars, ['\u0301']);
+  });
+
+  it('rechaza una marca aislada que queda al inicio tras recortar espacios', () => {
+    const result = prepareText('  \u0301 abc', 100);
+    assert.equal(result.error, 'unsupported-chars');
+    assert.deepEqual(result.chars, ['\u0301']);
+  });
+
+  it('sigue aceptando tildes válidas, compuestas o descompuestas', () => {
+    for (const raw of ['canción', 'cancio\u0301n', 'pingüino', 'Tie\u0302\u0301ng Vie\u0323\u0302t']) {
+      assert.equal(prepareText(raw, 100).ok, true, raw);
+    }
+  });
+});
