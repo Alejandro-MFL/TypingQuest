@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
   <title>TypingQuest</title>
   <link rel="stylesheet" href="css/styles.css">
   <script type="module" src="js/main.js"></script>
@@ -14,38 +15,83 @@
   </header>
 
   <main class="game">
-    <section class="stats" aria-label="Estadísticas en vivo">
-      <div class="stat">
-        <span class="stat-value" id="wpm">0</span>
-        <span class="stat-label">WPM</span>
+    <!-- Pantalla 1: preparación del texto -->
+    <section class="screen" id="setup-screen" aria-labelledby="setup-title">
+      <h2 class="screen-title" id="setup-title">Elige tu texto</h2>
+      <form class="setup-form" id="setup-form" novalidate>
+        <label class="field-label" for="source-text">Escribe o pega el texto que quieres practicar</label>
+        <textarea
+          class="source-text"
+          id="source-text"
+          rows="8"
+          aria-describedby="source-count setup-error"></textarea>
+        <p class="source-count" id="source-count">0 / 5000 caracteres</p>
+        <p class="setup-error" id="setup-error" role="alert" hidden></p>
+        <button class="button" id="start-button" type="submit">Empezar</button>
+      </form>
+    </section>
+
+    <!-- Pantalla 2: escritura -->
+    <section class="screen" id="play-screen" aria-label="Partida" hidden>
+      <div class="stats" aria-label="Estadísticas en vivo">
+        <div class="stat">
+          <span class="stat-value" id="wpm">0</span>
+          <span class="stat-label">WPM</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="accuracy">0</span>
+          <span class="stat-label">% precisión</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="timer">0:00</span>
+          <span class="stat-label">tiempo</span>
+        </div>
       </div>
-      <div class="stat">
-        <span class="stat-value" id="accuracy">100</span>
-        <span class="stat-label">% precisión</span>
+
+      <div class="progress">
+        <div
+          class="progress-track"
+          id="progress-bar"
+          role="progressbar"
+          aria-label="Progreso del texto"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="progress-label" id="progress-label" aria-live="polite">Fragmento 1 de 1</p>
+      </div>
+
+      <!-- Carril: vista previa arriba, fragmento activo en la posición de escritura -->
+      <div class="lane" id="lane">
+        <p class="chunk chunk-next" id="chunk-next" aria-label="Siguiente fragmento"></p>
+        <p class="chunk chunk-active" id="chunk-active" aria-label="Fragmento activo"></p>
+        <p class="focus-hint" id="focus-hint" hidden>Haz clic aquí para seguir escribiendo</p>
+        <textarea
+          class="hidden-input"
+          id="typing-input"
+          aria-label="Escribe aquí el fragmento activo"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"></textarea>
       </div>
     </section>
 
-    <!-- Al hacer clic en el texto se enfoca el textarea oculto -->
-    <section class="text-display" id="text-display" aria-live="polite"></section>
-
-    <textarea
-      class="hidden-input"
-      id="typing-input"
-      aria-label="Escribe aquí el texto"
-      autocomplete="off"
-      autocorrect="off"
-      autocapitalize="off"
-      spellcheck="false"></textarea>
-
-    <section class="results" id="results" hidden>
-      <h2>Resultados</h2>
+    <!-- Pantalla 3: resultados -->
+    <section class="screen results" id="results-screen" aria-labelledby="results-title" hidden>
+      <h2 class="screen-title" id="results-title" tabindex="-1">Resultados</h2>
       <dl class="results-list">
         <dt>WPM</dt><dd id="result-wpm">0</dd>
         <dt>Precisión</dt><dd id="result-accuracy">0 %</dd>
-        <dt>Tiempo</dt><dd id="result-time">0 s</dd>
+        <dt>Tiempo</dt><dd id="result-time">0:00</dd>
         <dt>Errores</dt><dd id="result-errors">0</dd>
+        <dt>Correcciones</dt><dd id="result-corrections">0</dd>
       </dl>
-      <button class="button" id="restart-button" type="button">Reintentar</button>
+      <div class="actions">
+        <button class="button" id="retry-button" type="button">Reintentar</button>
+        <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>
+      </div>
     </section>
   </main>
 </body>
