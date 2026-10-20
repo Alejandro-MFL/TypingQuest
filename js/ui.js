@@ -62,6 +62,21 @@ export function charStates(state, chunk) {
   return result;
 }
 
+/**
+ * Posición del espacio final del fragmento activo si el jugador está justo en él
+ * (y por tanto debe pulsar la barra espaciadora para avanzar), o null.
+ * Nunca en el último fragmento ni con la partida terminada.
+ */
+export function spaceHintPosition(state, chunks) {
+  if (state.status === 'finished') return null;
+  const isLast = state.segmentIndex >= chunks.length - 1;
+  const chunk = chunks[state.segmentIndex];
+  if (isLast || !chunk) return null;
+  const position = chunk.end - 1;
+  if (state.text[position] !== ' ' || state.typed.length !== position) return null;
+  return position;
+}
+
 // --- DOM ---------------------------------------------------------------------
 
 export function getElements(doc = document) {
@@ -76,6 +91,7 @@ export function getElements(doc = document) {
     sourceText: byId('source-text'),
     sourceCount: byId('source-count'),
     setupError: byId('setup-error'),
+    startButton: byId('start-button'),
     wpm: byId('wpm'),
     accuracy: byId('accuracy'),
     timer: byId('timer'),
@@ -86,16 +102,57 @@ export function getElements(doc = document) {
     chunkNext: byId('chunk-next'),
     chunkActive: byId('chunk-active'),
     focusHint: byId('focus-hint'),
+    spaceHint: byId('space-hint'),
     input: byId('typing-input'),
+    soundToggle: byId('sound-toggle'),
     resultsTitle: byId('results-title'),
     resultWpm: byId('result-wpm'),
     resultAccuracy: byId('result-accuracy'),
     resultTime: byId('result-time'),
     resultErrors: byId('result-errors'),
-    resultCorrections: byId('result-corrections'),
     retryButton: byId('retry-button'),
     newTextButton: byId('new-text-button'),
   };
+}
+
+/** Duración de la animación de fragmento, como variable CSS del carril. */
+export function setChunkAnimationMs(els, ms) {
+  els.lane.style.setProperty('--chunk-animation-ms', `${ms}ms`);
+}
+
+/** Muestra u oculta el indicador de barra espaciadora (solo presentación). */
+export function setSpaceHint(els, visible) {
+  els.lane.classList.toggle('lane-space-hint', visible);
+  els.spaceHint.hidden = !visible;
+}
+
+/**
+ * Anima el fragmento recién completado: una copia decorativa dorada se superpone
+ * en la posición activa y baja una posición del carril mientras se desvanece.
+ * El fragmento nuevo ya está renderizado debajo y se puede escribir sin esperar.
+ */
+export function playChunkComplete(els, completedText, durationMs) {
+  const active = els.chunkActive;
+  // Distancia real entre la posición de vista previa y la activa del carril.
+  const laneStep = active.offsetTop - els.chunkNext.offsetTop;
+  const ghost = document.createElement('p');
+  ghost.className = 'chunk chunk-active chunk-leaving';
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.textContent = completedText;
+  ghost.style.top = `${active.offsetTop}px`;
+  ghost.style.left = `${active.offsetLeft}px`;
+  ghost.style.width = `${active.offsetWidth}px`;
+  ghost.style.setProperty('--chunk-travel', `${laneStep}px`);
+  const remove = () => ghost.remove();
+  ghost.addEventListener('animationend', remove, { once: true });
+  // Respaldo por si animationend no llega (pestaña oculta, animaciones desactivadas).
+  setTimeout(remove, durationMs + 100);
+  els.lane.append(ghost);
+}
+
+export function renderSoundToggle(els, enabled) {
+  els.soundToggle.setAttribute('aria-pressed', String(enabled));
+  els.soundToggle.title = enabled ? 'Silenciar sonido' : 'Activar sonido';
 }
 
 export function showScreen(els, name) {
@@ -149,7 +206,6 @@ export function renderResults(els, stats) {
   els.resultAccuracy.textContent = `${Math.round(stats.accuracy)} %`;
   els.resultTime.textContent = formatTime(stats.elapsedMs);
   els.resultErrors.textContent = String(stats.errors);
-  els.resultCorrections.textContent = String(stats.corrections);
 }
 
 export function setFocusHint(els, visible) {

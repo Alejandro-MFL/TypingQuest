@@ -12,6 +12,25 @@
   <header class="header">
     <h1 class="title">TypingQuest</h1>
     <p class="subtitle">Entrena tu velocidad y precisión al teclado</p>
+    <button
+      class="sound-toggle"
+      id="sound-toggle"
+      type="button"
+      aria-label="Sonido"
+      aria-pressed="true"
+      title="Silenciar sonido">
+      <svg class="sound-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+        <path class="sound-speaker" d="M4 9h4l5-4v14l-5-4H4z" />
+        <g class="sound-waves">
+          <path d="M16 9.5a3.5 3.5 0 0 1 0 5" />
+          <path d="M18.5 7a7 7 0 0 1 0 10" />
+        </g>
+        <g class="sound-muted">
+          <path d="M16.5 9.5l5 5" />
+          <path d="M21.5 9.5l-5 5" />
+        </g>
+      </svg>
+    </button>
   </header>
 
   <main class="game">
@@ -67,6 +86,8 @@
         <p class="chunk chunk-next" id="chunk-next" aria-label="Siguiente fragmento"></p>
         <p class="chunk chunk-active" id="chunk-active" aria-label="Fragmento activo"></p>
         <p class="focus-hint" id="focus-hint" hidden>Haz clic aquí para seguir escribiendo</p>
+        <!-- La tecla visual se dibuja con CSS sobre el espacio pendiente; este texto es para lectores de pantalla. -->
+        <p class="visually-hidden" id="space-hint" role="status" hidden>Pulsa la barra espaciadora para continuar</p>
         <textarea
           class="hidden-input"
           id="typing-input"
@@ -81,13 +102,22 @@
     <!-- Pantalla 3: resultados -->
     <section class="screen results" id="results-screen" aria-labelledby="results-title" hidden>
       <h2 class="screen-title" id="results-title" tabindex="-1">Resultados</h2>
-      <dl class="results-list">
-        <dt>WPM</dt><dd id="result-wpm">0</dd>
-        <dt>Precisión</dt><dd id="result-accuracy">0 %</dd>
-        <dt>Tiempo</dt><dd id="result-time">0:00</dd>
-        <dt>Errores</dt><dd id="result-errors">0</dd>
-        <dt>Correcciones</dt><dd id="result-corrections">0</dd>
+      <dl class="results-secondary">
+        <div class="result-item">
+          <dt>Precisión</dt><dd id="result-accuracy">0 %</dd>
+        </div>
+        <div class="result-item">
+          <dt>Tiempo</dt><dd id="result-time">0:00</dd>
+        </div>
+        <div class="result-item">
+          <dt>Errores</dt><dd id="result-errors">0</dd>
+        </div>
       </dl>
+      <div class="result-main">
+        <p class="result-main-value" id="result-wpm">0</p>
+        <p class="result-main-label"><abbr title="Palabras por minuto">WPM</abbr></p>
+        <p class="result-main-description">Palabras por minuto</p>
+      </div>
       <div class="actions">
         <button class="button" id="retry-button" type="button">Reintentar</button>
         <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>

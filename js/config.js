@@ -2,9 +2,12 @@
 export const CONFIG = Object.freeze({
   wordsPerChunk: 7,
   maxTextLength: 5000,
-  // Reservados para T5d (animación) y T5e (sonido); aún no se usan.
+  // Duración de la animación al completar un fragmento.
   chunkAnimationMs: 350,
+  // Estado inicial del sonido (aún no se guarda la preferencia).
   soundEnabled: true,
+  // Espera en el espacio final antes de mostrar la tecla de espacio.
+  spaceHintDelayMs: 1500,
   // Frecuencia de refresco del cronómetro y las estadísticas en vivo.
   statsRefreshMs: 250,
   // Tiempo mínimo antes de mostrar el WPM en vivo (evita picos al empezar).

@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTime, formatValidationError, charStates, formatLiveWpm } from '../js/ui.js';
+import {
+  formatTime,
+  formatValidationError,
+  charStates,
+  formatLiveWpm,
+  spaceHintPosition,
+} from '../js/ui.js';
+import { splitIntoChunks } from '../js/chunks.js';
 import { createGame, applyInput } from '../js/game.js';
 import { prepareText } from '../js/text-prep.js';
 
@@ -85,5 +92,51 @@ describe('charStates', () => {
     let state = createGame('ab');
     for (const value of ['a', 'ab']) state = applyInput(state, value, 0);
     assert.ok(charStates(state, { start: 0, end: 2 }).every((c) => c.status === 'correct'));
+  });
+});
+
+describe('spaceHintPosition', () => {
+  // "ab cd ef" en fragmentos de 1 palabra: "ab " · "cd " · "ef"
+  const TEXT = 'ab cd ef';
+  const CHUNKS = splitIntoChunks(TEXT, 1);
+
+  function play(values) {
+    let state = createGame(TEXT, { segmentEnds: CHUNKS.map((c) => c.end) });
+    for (const value of values) state = applyInput(state, value, 0);
+    return state;
+  }
+
+  it('devuelve null durante la escritura normal', () => {
+    assert.equal(spaceHintPosition(play([]), CHUNKS), null);
+    assert.equal(spaceHintPosition(play(['a']), CHUNKS), null);
+  });
+
+  it('devuelve la posición del espacio final cuando el jugador llega a él', () => {
+    assert.equal(spaceHintPosition(play(['a', 'ab']), CHUNKS), 2);
+  });
+
+  it('también en fragmentos intermedios posteriores', () => {
+    assert.equal(spaceHintPosition(play(['a', 'ab', 'ab ', 'ab c', 'ab cd']), CHUNKS), 5);
+  });
+
+  it('vuelve a null al escribir el espacio y avanzar', () => {
+    assert.equal(spaceHintPosition(play(['a', 'ab', 'ab ']), CHUNKS), null);
+  });
+
+  it('vuelve a null al abandonar la posición con retroceso', () => {
+    assert.equal(spaceHintPosition(play(['a', 'ab', 'a']), CHUNKS), null);
+  });
+
+  it('no se muestra en el último fragmento, que no tiene espacio final', () => {
+    assert.equal(spaceHintPosition(play(['a', 'ab', 'ab ', 'ab c', 'ab cd', 'ab cd ', 'ab cd e']), CHUNKS), null);
+  });
+
+  it('no se muestra con un único fragmento ni al terminar', () => {
+    const single = splitIntoChunks('ab', 7);
+    let state = createGame('ab');
+    state = applyInput(state, 'a', 0);
+    assert.equal(spaceHintPosition(state, single), null);
+    state = applyInput(state, 'ab', 0);
+    assert.equal(spaceHintPosition(state, single), null);
   });
 });

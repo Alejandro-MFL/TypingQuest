@@ -4,6 +4,7 @@ import { CONFIG } from './config.js';
 import { prepareText } from './text-prep.js';
 import { splitIntoChunks } from './chunks.js';
 import { createGame, applyInput, restartGame, getStats, getProgress } from './game.js';
+import { createSoundPlayer } from './sound.js';
 import * as ui from './ui.js';
 
 // Escritura secuencial: solo se admite insertar al final y borrar hacia atrás.
@@ -23,9 +24,13 @@ const NAVIGATION_KEYS = new Set([
 const BLOCKED_SHORTCUTS = new Set(['a', 'z', 'y']);
 
 const els = ui.getElements();
+const sound = createSoundPlayer({ enabled: CONFIG.soundEnabled });
 let session = null; // { state, chunks }
 let composing = false;
 let statsTimer = null;
+// Indicador de barra espaciadora: temporizador de interfaz, ajeno al motor.
+let spaceHintTimer = null;
+let spaceHintAt = null;
 
 // --- Preparación ---------------------------------------------------------------
 
@@ -53,6 +58,7 @@ function handleSetupSubmit(event) {
 
 function enterPlay() {
   stopStatsTimer();
+  clearSpaceHint();
   composing = false;
   ui.showScreen(els, 'play');
   ui.syncInput(els.input, session.state.typed);
@@ -82,11 +88,43 @@ function processInput() {
   // Rechazada: restaura el textarea. Aceptada: lo alinea con el texto normalizado.
   ui.syncInput(els.input, session.state.typed);
   render();
-  if (session.state.status === 'finished') finishGame();
+  if (session.state.segmentIndex > previous.segmentIndex) celebrateChunk(previous.segmentIndex);
+  if (session.state.status === 'finished') {
+    sound.playChunkComplete();
+    finishGame();
+    return;
+  }
+  updateSpaceHint();
+}
+
+// Efectos al completar un fragmento intermedio. Solo presentación: el nuevo
+// fragmento ya está activo y el cronómetro sigue corriendo.
+function celebrateChunk(completedIndex) {
+  const { start, end } = session.chunks[completedIndex];
+  ui.playChunkComplete(els, session.state.text.slice(start, end), CONFIG.chunkAnimationMs);
+  sound.playChunkComplete();
+}
+
+function updateSpaceHint() {
+  const position = isPlaying() ? ui.spaceHintPosition(session.state, session.chunks) : null;
+  if (position === spaceHintAt) return;
+  clearSpaceHint();
+  spaceHintAt = position;
+  if (position !== null) {
+    spaceHintTimer = setTimeout(() => ui.setSpaceHint(els, true), CONFIG.spaceHintDelayMs);
+  }
+}
+
+function clearSpaceHint() {
+  clearTimeout(spaceHintTimer);
+  spaceHintTimer = null;
+  spaceHintAt = null;
+  ui.setSpaceHint(els, false);
 }
 
 function finishGame() {
   stopStatsTimer();
+  clearSpaceHint();
   const stats = getStats(session.state, performance.now());
   ui.renderResults(els, stats);
   ui.setFocusHint(els, false);
@@ -132,6 +170,8 @@ function handleInput(event) {
 }
 
 function handleKeyDown(event) {
+  // Una pulsación es una interacción válida para crear o reanudar el audio.
+  sound.unlock();
   const shortcut = (event.ctrlKey || event.metaKey) && BLOCKED_SHORTCUTS.has(event.key.toLowerCase());
   if (NAVIGATION_KEYS.has(event.key) || shortcut) event.preventDefault();
 }
@@ -170,10 +210,21 @@ function handleRetry() {
 
 function handleNewText() {
   stopStatsTimer();
+  clearSpaceHint();
   session = null;
   ui.showScreen(els, 'setup');
   els.sourceText.focus();
   els.sourceText.select();
+}
+
+// --- Sonido --------------------------------------------------------------------
+
+function handleSoundToggle() {
+  const enabled = sound.toggle();
+  if (enabled) sound.unlock();
+  ui.renderSoundToggle(els, enabled);
+  // Pulsar el botón no debe sacar al jugador de la partida.
+  if (isPlaying()) els.input.focus();
 }
 
 // --- Inicio --------------------------------------------------------------------
@@ -183,7 +234,11 @@ function init() {
   els.sourceText.addEventListener('input', updateSourceCount);
   els.retryButton.addEventListener('click', handleRetry);
   els.newTextButton.addEventListener('click', handleNewText);
+  els.soundToggle.addEventListener('click', handleSoundToggle);
+  els.startButton.addEventListener('click', () => sound.unlock());
   bindTypingInput();
+  ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
+  ui.renderSoundToggle(els, sound.isEnabled());
   updateSourceCount();
   ui.showScreen(els, 'setup');
   els.sourceText.focus();
