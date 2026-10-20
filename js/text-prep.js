@@ -37,6 +37,8 @@ export function sanitizeText(raw) {
   const normalized = raw.normalize('NFC');
   return REPLACEMENTS
     .reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), normalized)
+    // Eliminar invisibles puede juntar caracteres componibles: se recompone al final.
+    .normalize('NFC')
     .trim();
 }
 

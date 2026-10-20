@@ -84,6 +84,14 @@ describe('sanitizeText: caracteres invisibles y de control', () => {
     assert.equal(sanitizeText('pa­la​bra⁠s'), 'palabras');
   });
 
+  it('devuelve NFC aunque eliminar un invisible junte caracteres componibles', () => {
+    // Regresión (code-reviewer H1): jamo hangul separadas por un espacio de ancho
+    // cero; al eliminarlo quedan contiguas y NFC las compone en "가" (U+AC00).
+    const result = sanitizeText('ᄀ​ᅡ b');
+    assert.equal(result, '가 b');
+    assert.equal(result, result.normalize('NFC'));
+  });
+
   it('elimina la marca BOM inicial', () => {
     assert.equal(sanitizeText('﻿Hola'), 'Hola');
   });
@@ -252,5 +260,14 @@ describe('prepareText', () => {
 
   it('lanza TypeError si el límite no es un entero positivo', () => {
     assert.throws(() => prepareText('hola', 0), TypeError);
+  });
+
+  it('mide la longitud sobre el texto ya compuesto en NFC (regresión H1)', () => {
+    assert.deepEqual(prepareText('ᄀ​ᅡ', 1), {
+      ok: true,
+      error: null,
+      length: 1,
+      text: '가',
+    });
   });
 });

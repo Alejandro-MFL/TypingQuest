@@ -6,7 +6,10 @@ import {
   restartGame,
   getElapsedMs,
   getStats,
+  getProgress,
 } from '../js/game.js';
+import { splitIntoChunks } from '../js/chunks.js';
+import { prepareText } from '../js/text-prep.js';
 
 // Congela el estado en profundidad: cualquier mutación lanzará TypeError (modo estricto).
 function deepFreeze(obj) {
@@ -41,6 +44,9 @@ describe('createGame', () => {
       finishedAt: null,
       keystrokes: { total: 0, correct: 0, incorrect: 0 },
       corrections: 0,
+      // Contrato T4c: sin configuración, un único segmento que cubre todo el texto.
+      segmentEnds: [4],
+      segmentIndex: 0,
     });
   });
 
@@ -291,5 +297,271 @@ describe('getStats', () => {
   it('las estadísticas finales no cambian con el paso del tiempo', () => {
     const game = typeChars(createGame('abcde'), 'abcde', 0, 1000);
     assert.deepEqual(getStats(game, 4000), getStats(game, 1_000_000));
+  });
+});
+
+// --- T4c: segmentos ---------------------------------------------------------
+
+// "ab cd ef" en tres segmentos: "ab " [0,3) · "cd " [3,6) · "ef" [6,8)
+const SEG_TEXT = 'ab cd ef';
+const SEG_ENDS = [3, 6, 8];
+
+function segGame() {
+  return createGame(SEG_TEXT, { segmentEnds: SEG_ENDS });
+}
+
+describe('createGame: segmentos', () => {
+  it('acepta límites de segmento y empieza en el segmento 0', () => {
+    const game = segGame();
+    assert.deepEqual(game.segmentEnds, [3, 6, 8]);
+    assert.equal(game.segmentIndex, 0);
+  });
+
+  it('acepta los límites generados por splitIntoChunks', () => {
+    const text = 'uno dos tres cuatro cinco';
+    const ends = splitIntoChunks(text, 2).map((c) => c.end);
+    assert.deepEqual(createGame(text, { segmentEnds: ends }).segmentEnds, [8, 20, 25]);
+  });
+
+  it('valida los límites contra el texto normalizado (NFC)', () => {
+    assert.equal(createGame('canción', { segmentEnds: [7] }).text, 'canción');
+    assert.throws(() => createGame('canción', { segmentEnds: [8] }), TypeError);
+  });
+
+  it('lanza TypeError con límites inválidos', () => {
+    const bad = [
+      'x', null, [], [8.5], [NaN], ['8'],
+      [3, 3, 8], [6, 3, 8], [0, 8], [-1, 8],
+      [3, 6], [3, 6, 9],
+    ];
+    for (const segmentEnds of bad) {
+      assert.throws(
+        () => createGame(SEG_TEXT, { segmentEnds }),
+        TypeError,
+        `segmentEnds: ${JSON.stringify(segmentEnds)}`
+      );
+    }
+  });
+
+  it('guarda una copia: mutar el array original no altera el estado', () => {
+    const ends = [3, 6, 8];
+    const game = createGame(SEG_TEXT, { segmentEnds: ends });
+    ends[0] = 99;
+    assert.deepEqual(game.segmentEnds, [3, 6, 8]);
+  });
+});
+
+describe('applyInput: segmentos', () => {
+  it('permite escribir y corregir dentro del segmento activo', () => {
+    let game = typeChars(segGame(), 'ax');
+    game = backspace(game, 5000);
+    game = applyInput(game, 'ab', 5100);
+    assert.equal(game.typed, 'ab');
+    assert.equal(game.corrections, 1);
+    assert.equal(game.segmentIndex, 0);
+  });
+
+  it('el espacio final completa el segmento y activa el siguiente de inmediato', () => {
+    const game = typeChars(segGame(), 'ab ');
+    assert.equal(game.typed, 'ab ');
+    assert.equal(game.segmentIndex, 1);
+  });
+
+  it('la frontera no bloquea la primera letra del siguiente segmento', () => {
+    const atBoundary = typeChars(segGame(), 'ab ');
+    const next = applyInput(atBoundary, 'ab c', 9000);
+    assert.notEqual(next, atBoundary);
+    assert.equal(next.typed, 'ab c');
+    assert.deepEqual(next.keystrokes, { total: 4, correct: 4, incorrect: 0 });
+  });
+
+  it('la primera letra incorrecta del siguiente segmento se acepta como error', () => {
+    const next = applyInput(typeChars(segGame(), 'ab '), 'ab x', 9000);
+    assert.equal(next.typed, 'ab x');
+    assert.equal(next.keystrokes.incorrect, 1);
+  });
+
+  it('no avanza si el segmento llega a su final con errores', () => {
+    const game = typeChars(segGame(), 'ax ');
+    assert.equal(game.typed, 'ax ');
+    assert.equal(game.segmentIndex, 0);
+  });
+
+  it('impide escribir más allá del final del segmento activo con errores', () => {
+    const game = typeChars(segGame(), 'ax ');
+    const next = applyInput(game, 'ax c', 9000);
+    assert.equal(next, game);
+    assert.equal(next.keystrokes.total, 3);
+  });
+
+  it('un espacio incorrecto al final impide avanzar hasta corregirlo', () => {
+    let game = typeChars(segGame(), 'abx');
+    assert.equal(game.segmentIndex, 0);
+    assert.equal(applyInput(game, 'abxc', 9000), game);
+    game = backspace(game, 9100);
+    game = applyInput(game, 'ab ', 9200);
+    assert.equal(game.segmentIndex, 1);
+  });
+
+  it('avanza al corregir el último error del segmento', () => {
+    let game = typeChars(segGame(), 'ax ');
+    game = applyInput(game, 'ax', 9000);
+    game = applyInput(game, 'a', 9100);
+    game = typeChars(game, 'b ', 9200);
+    assert.equal(game.segmentIndex, 1);
+  });
+
+  it('impide borrar dentro de un segmento cerrado', () => {
+    const game = typeChars(segGame(), 'ab ');
+    assert.equal(backspace(game, 9000), game);
+    assert.equal(applyInput(game, '', 9000), game);
+  });
+
+  it('impide sustituir texto que cruza la frontera de un segmento cerrado', () => {
+    const game = typeChars(segGame(), 'ab c');
+    assert.equal(applyInput(game, 'aXc', 9000), game);
+    assert.equal(applyInput(game, 'ab', 9000), game);
+  });
+
+  it('permite borrar hasta el inicio del segmento activo, pero no más', () => {
+    let game = typeChars(segGame(), 'ab cx');
+    game = applyInput(game, 'ab ', 9000);
+    assert.equal(game.typed, 'ab ');
+    assert.equal(game.segmentIndex, 1);
+    assert.equal(backspace(game, 9100), game);
+  });
+
+  it('el avance no detiene ni reinicia el cronómetro', () => {
+    const game = typeChars(segGame(), 'ab cd', 1000, 100);
+    assert.equal(game.status, 'running');
+    assert.equal(game.startedAt, 1000);
+    assert.equal(game.finishedAt, null);
+    assert.equal(getElapsedMs(game, 3000), 2000);
+  });
+
+  it('mantiene los contadores globales entre segmentos', () => {
+    let game = typeChars(segGame(), 'ax', 0, 100);
+    game = backspace(game, 200);
+    game = typeChars(game, 'b cy', 300, 100);
+    game = backspace(game, 700);
+    game = typeChars(game, 'd ef', 800, 100);
+    assert.equal(game.status, 'finished');
+    assert.deepEqual(game.keystrokes, { total: 10, correct: 8, incorrect: 2 });
+    assert.equal(game.corrections, 2);
+  });
+
+  it('el último segmento termina la partida sin avanzar más allá', () => {
+    const game = typeChars(segGame(), SEG_TEXT, 1000, 100);
+    assert.equal(game.status, 'finished');
+    assert.equal(game.finishedAt, 1700);
+    assert.equal(game.segmentIndex, 2);
+  });
+
+  it('el último segmento no termina con errores', () => {
+    const game = typeChars(segGame(), 'ab cd ex');
+    assert.equal(game.status, 'running');
+    assert.equal(game.segmentIndex, 2);
+  });
+
+  it('un segmento de una palabra corta avanza con su espacio final', () => {
+    let game = createGame('a b', { segmentEnds: [2, 3] });
+    game = applyInput(game, 'a', 0);
+    assert.equal(game.segmentIndex, 0);
+    game = applyInput(game, 'a ', 100);
+    assert.equal(game.segmentIndex, 1);
+    game = applyInput(game, 'a b', 200);
+    assert.equal(game.status, 'finished');
+  });
+
+  it('sigue rechazando el pegado dentro del segmento activo', () => {
+    const game = typeChars(segGame(), 'ab ');
+    assert.equal(applyInput(game, 'ab cd', 9000), game);
+  });
+
+  it('juega una partida completa con prepareText y splitIntoChunks', () => {
+    const { text } = prepareText('  ¿Qué tal?\n«Muy» bien…  ', 100);
+    const ends = splitIntoChunks(text, 2).map((c) => c.end);
+    let game = createGame(text, { segmentEnds: ends });
+    const seen = [];
+    for (const char of text) {
+      game = applyInput(game, game.typed + char, 0);
+      seen.push(game.segmentIndex);
+    }
+    assert.equal(game.status, 'finished');
+    assert.equal(game.segmentIndex, ends.length - 1);
+    assert.deepEqual([...new Set(seen)], [0, 1]);
+  });
+
+  it('no muta el estado ni los límites al avanzar', () => {
+    const before = deepFreeze(typeChars(segGame(), 'ab'));
+    const snapshot = structuredClone(before);
+    const after = applyInput(before, 'ab ', 9000);
+    assert.equal(after.segmentIndex, 1);
+    assert.deepEqual(before, snapshot);
+  });
+});
+
+describe('applyInput: escritura no secuencial (pendiente)', () => {
+  // Defecto conocido (code-reviewer H2): el motor asume escritura secuencial y
+  // compara solo el prefijo común. Un borrado con el cursor en mitad del texto se
+  // interpreta como "borrar el resto e insertar 1 carácter" y suma una pulsación.
+  // En T5b la UI fijará el cursor al final y anulará selecciones; este test
+  // describe el comportamiento CORRECTO y queda pendiente como prueba de integración.
+  it(
+    'borrar en mitad del segmento no cuenta como pulsación',
+    { todo: 'T5b: controlar cursor y selecciones desde la UI; revisar diffInput' },
+    () => {
+      let game = createGame('abc d', { segmentEnds: [4, 5] });
+      game = typeChars(game, 'axc');
+      const before = game.keystrokes;
+      game = applyInput(game, 'ac', 9000); // retroceso con el cursor tras la "x"
+      assert.deepEqual(game.keystrokes, before);
+    }
+  );
+});
+
+describe('restartGame: segmentos', () => {
+  it('conserva los límites y vuelve al segmento 0', () => {
+    const played = deepFreeze(typeChars(segGame(), 'ab cd'));
+    const restarted = restartGame(played);
+    assert.deepEqual(restarted, segGame());
+    assert.equal(restarted.segmentIndex, 0);
+  });
+});
+
+describe('getProgress', () => {
+  it('devuelve el progreso inicial', () => {
+    assert.deepEqual(getProgress(segGame()), {
+      segmentIndex: 0,
+      segmentCount: 3,
+      correctChars: 0,
+      ratio: 0,
+    });
+  });
+
+  it('cuenta solo los caracteres correctos actuales', () => {
+    const game = typeChars(segGame(), 'ab cx');
+    assert.deepEqual(getProgress(game), {
+      segmentIndex: 1,
+      segmentCount: 3,
+      correctChars: 4,
+      ratio: 0.5,
+    });
+  });
+
+  it('llega a ratio 1 al terminar', () => {
+    const progress = getProgress(typeChars(segGame(), SEG_TEXT));
+    assert.equal(progress.ratio, 1);
+    assert.equal(progress.correctChars, 8);
+    assert.equal(progress.segmentIndex, 2);
+  });
+
+  it('funciona sin segmentos configurados', () => {
+    assert.deepEqual(getProgress(typeChars(createGame('hola'), 'ho')), {
+      segmentIndex: 0,
+      segmentCount: 1,
+      correctChars: 2,
+      ratio: 0.5,
+    });
   });
 });
