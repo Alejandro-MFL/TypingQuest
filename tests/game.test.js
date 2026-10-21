@@ -47,6 +47,8 @@ describe('createGame', () => {
       // Contrato T4c: sin configuración, un único segmento que cubre todo el texto.
       segmentEnds: [4],
       segmentIndex: 0,
+      // Contrato T7: sin configuración, modo estricto (comportamiento anterior).
+      mode: 'strict',
     });
   });
 
@@ -534,18 +536,21 @@ describe('getProgress', () => {
     assert.deepEqual(getProgress(segGame()), {
       segmentIndex: 0,
       segmentCount: 3,
+      typedChars: 0,
       correctChars: 0,
       ratio: 0,
     });
   });
 
-  it('cuenta solo los caracteres correctos actuales', () => {
+  // T7: el progreso mide el texto recorrido; la corrección se informa aparte.
+  it('el ratio depende del texto recorrido, no de su corrección', () => {
     const game = typeChars(segGame(), 'ab cx');
     assert.deepEqual(getProgress(game), {
       segmentIndex: 1,
       segmentCount: 3,
+      typedChars: 5,
       correctChars: 4,
-      ratio: 0.5,
+      ratio: 5 / 8,
     });
   });
 
@@ -560,8 +565,178 @@ describe('getProgress', () => {
     assert.deepEqual(getProgress(typeChars(createGame('hola'), 'ho')), {
       segmentIndex: 0,
       segmentCount: 1,
+      typedChars: 2,
       correctChars: 2,
       ratio: 0.5,
     });
+  });
+
+  it('retrocede al borrar', () => {
+    const game = backspace(typeChars(segGame(), 'ax'), 9000);
+    assert.equal(getProgress(game).typedChars, 1);
+  });
+});
+
+// --- T7: modos de entrenamiento ----------------------------------------------
+
+function freeGame() {
+  return createGame(SEG_TEXT, { segmentEnds: SEG_ENDS, mode: 'free' });
+}
+
+describe('createGame: modo', () => {
+  it('acepta los modos libre y estricto', () => {
+    assert.equal(freeGame().mode, 'free');
+    assert.equal(createGame('hola', { mode: 'strict' }).mode, 'strict');
+  });
+
+  it('lanza TypeError con un modo desconocido', () => {
+    for (const mode of ['libre', '', null, 1, 'FREE']) {
+      assert.throws(() => createGame('hola', { mode }), TypeError, `mode: ${mode}`);
+    }
+  });
+
+  it('restartGame conserva el modo', () => {
+    const restarted = restartGame(deepFreeze(typeChars(freeGame(), 'ax ')));
+    assert.deepEqual(restarted, freeGame());
+  });
+
+  it('restartGame puede empezar con otro modo (opción cambiada entre partidas)', () => {
+    const restarted = restartGame(deepFreeze(typeChars(freeGame(), 'ax ')), { mode: 'strict' });
+    assert.deepEqual(restarted, createGame(SEG_TEXT, { segmentEnds: SEG_ENDS, mode: 'strict' }));
+  });
+
+  it('restartGame valida el modo nuevo', () => {
+    assert.throws(() => restartGame(freeGame(), { mode: 'otro' }), TypeError);
+  });
+});
+
+describe('applyInput: modo estricto explícito', () => {
+  it('conserva el bloqueo con errores al final del fragmento', () => {
+    const game = typeChars(createGame(SEG_TEXT, { segmentEnds: SEG_ENDS, mode: 'strict' }), 'ax ');
+    assert.equal(game.segmentIndex, 0);
+    assert.equal(applyInput(game, 'ax c', 9000), game);
+  });
+});
+
+describe('applyInput: modo libre', () => {
+  it('completa un fragmento con errores y activa el siguiente', () => {
+    const game = typeChars(freeGame(), 'ax ');
+    assert.equal(game.typed, 'ax ');
+    assert.equal(game.segmentIndex, 1);
+    assert.deepEqual(game.keystrokes, { total: 3, correct: 2, incorrect: 1 });
+  });
+
+  it('un error en el espacio final no bloquea el avance', () => {
+    const game = typeChars(freeGame(), 'abx');
+    assert.equal(game.segmentIndex, 1);
+    const next = applyInput(game, 'abxc', 9000);
+    assert.equal(next.typed, 'abxc');
+    assert.equal(next.keystrokes.correct, 3);
+  });
+
+  it('la primera letra del siguiente fragmento nunca queda bloqueada', () => {
+    const atBoundary = typeChars(freeGame(), 'ax ');
+    const next = applyInput(atBoundary, 'ax c', 9000);
+    assert.notEqual(next, atBoundary);
+    assert.equal(next.typed, 'ax c');
+  });
+
+  it('permite corregir con retroceso dentro del fragmento activo', () => {
+    let game = typeChars(freeGame(), 'ax');
+    game = backspace(game, 5000);
+    game = applyInput(game, 'ab', 5100);
+    assert.equal(game.typed, 'ab');
+    assert.equal(game.segmentIndex, 0);
+    assert.equal(game.corrections, 1);
+  });
+
+  it('no permite modificar un fragmento completado con errores', () => {
+    const game = typeChars(freeGame(), 'ax ');
+    assert.equal(backspace(game, 9000), game);
+    assert.equal(applyInput(game, '', 9000), game);
+    assert.equal(applyInput(game, 'ab ', 9000), game);
+  });
+
+  it('permite borrar hasta el inicio del fragmento activo, pero no más', () => {
+    let game = typeChars(freeGame(), 'ax cy');
+    game = backspace(game, 9000);
+    assert.equal(game.typed, 'ax c');
+    game = backspace(game, 9100);
+    assert.equal(game.typed, 'ax ');
+    assert.equal(backspace(game, 9200), game);
+  });
+
+  it('termina la partida con errores al recorrer todo el texto', () => {
+    const game = typeChars(freeGame(), 'ax cd eZ', 1000, 100);
+    assert.equal(game.status, 'finished');
+    assert.equal(game.finishedAt, 1700);
+    assert.equal(game.segmentIndex, 2);
+    assert.deepEqual(game.keystrokes, { total: 8, correct: 6, incorrect: 2 });
+  });
+
+  it('no termina antes de recorrer el último carácter', () => {
+    const game = typeChars(freeGame(), 'ax cd e');
+    assert.equal(game.status, 'running');
+  });
+
+  it('rechaza cualquier entrada tras terminar', () => {
+    const game = typeChars(freeGame(), 'ax cd eZ');
+    assert.equal(backspace(game, 9000), game);
+    assert.equal(applyInput(game, 'ax cd eZz', 9000), game);
+  });
+
+  it('los errores corregidos siguen contando en las estadísticas', () => {
+    let game = typeChars(freeGame(), 'ax', 0, 100);
+    game = backspace(game, 200);
+    game = typeChars(game, 'b cd ef', 300, 100);
+    assert.equal(game.status, 'finished');
+    assert.deepEqual(game.keystrokes, { total: 9, correct: 8, incorrect: 1 });
+    assert.equal(getStats(game, 0).errors, 1);
+  });
+
+  it('las entradas rechazadas no cuentan como pulsaciones', () => {
+    const game = typeChars(freeGame(), 'ax ');
+    const pasted = applyInput(game, 'ax cd', 9000);
+    const intoClosed = applyInput(game, 'ab ', 9000);
+    assert.equal(pasted, game);
+    assert.equal(intoClosed, game);
+    assert.equal(game.keystrokes.total, 3);
+  });
+
+  it('el WPM usa solo los caracteres correctos y la precisión todas las pulsaciones', () => {
+    // 6 de 8 caracteres correctos en 60 s → (6 / 5) WPM; 6 de 8 pulsaciones correctas.
+    const game = typeChars(freeGame(), 'ax cd eZ', 0, 60_000 / 7);
+    const stats = getStats(game, 0);
+    assert.ok(Math.abs(stats.wpm - 6 / 5) < 1e-9);
+    assert.equal(stats.accuracy, 75);
+    assert.equal(stats.errors, 2);
+  });
+
+  it('el progreso avanza con el texto recorrido aunque tenga errores', () => {
+    const progress = getProgress(typeChars(freeGame(), 'ax c'));
+    assert.equal(progress.typedChars, 4);
+    assert.equal(progress.correctChars, 3);
+    assert.equal(progress.ratio, 0.5);
+    assert.equal(progress.segmentIndex, 1);
+  });
+
+  it('el cronómetro y los contadores son globales entre fragmentos', () => {
+    const game = typeChars(freeGame(), 'ax cy', 1000, 100);
+    assert.equal(game.startedAt, 1000);
+    assert.equal(game.status, 'running');
+    assert.deepEqual(game.keystrokes, { total: 5, correct: 3, incorrect: 2 });
+  });
+
+  it('un texto de un solo fragmento termina con errores', () => {
+    const game = typeChars(createGame('hola', { mode: 'free' }), 'hoxa');
+    assert.equal(game.status, 'finished');
+  });
+
+  it('no muta el estado al avanzar con errores', () => {
+    const before = deepFreeze(typeChars(freeGame(), 'ax'));
+    const snapshot = structuredClone(before);
+    const after = applyInput(before, 'ax ', 9000);
+    assert.equal(after.segmentIndex, 1);
+    assert.deepEqual(before, snapshot);
   });
 });

@@ -17,10 +17,17 @@
 // texto normalizado (p. ej. splitIntoChunks(text).map(c => c.end)). Solo se puede
 // editar dentro del segmento activo; al completarlo correctamente se activa el
 // siguiente en la misma entrada. Las estadísticas y el cronómetro son globales.
+//
+// Modos (T7): en 'strict' un segmento solo se completa, y la partida solo
+// termina, cuando lo escrito coincide con el objetivo. En 'free' basta con
+// recorrerlo: se avanza y se termina aunque haya errores. En ambos, los
+// segmentos cerrados no se pueden modificar y los errores siguen contando.
 // Precondición: los límites deben caer en fronteras de carácter. Con texto de
 // prepareText + splitIntoChunks se cumple; createGame no lo comprueba para
 // límites arbitrarios (p. ej. en mitad de un par sustituto UTF-16).
 import { calcWpm, calcAccuracy } from './metrics.js';
+
+export const MODES = Object.freeze(['free', 'strict']);
 
 function assertValidSegmentEnds(ends, textLength) {
   const valid =
@@ -35,13 +42,20 @@ function assertValidSegmentEnds(ends, textLength) {
   }
 }
 
-export function createGame(text, { segmentEnds } = {}) {
+function assertValidMode(mode) {
+  if (!MODES.includes(mode)) {
+    throw new TypeError(`mode debe ser uno de: ${MODES.join(', ')}`);
+  }
+}
+
+export function createGame(text, { segmentEnds, mode = 'strict' } = {}) {
   if (typeof text !== 'string' || text.length === 0) {
     throw new TypeError('El texto objetivo debe ser un string no vacío');
   }
   const normalized = text.normalize('NFC');
   const ends = segmentEnds === undefined ? [normalized.length] : segmentEnds;
   assertValidSegmentEnds(ends, normalized.length);
+  assertValidMode(mode);
   return {
     status: 'idle',
     text: normalized,
@@ -52,6 +66,7 @@ export function createGame(text, { segmentEnds } = {}) {
     corrections: 0,
     segmentEnds: Object.freeze([...ends]),
     segmentIndex: 0,
+    mode,
   };
 }
 
@@ -100,13 +115,21 @@ function isRejected(state, next, position, inserted) {
   );
 }
 
+// true si `next` completa el rango [start, end): en modo libre basta con
+// recorrerlo; en estricto, además, debe coincidir con el objetivo.
+function completesRange(state, next, start, end) {
+  if (next.length !== end) return false;
+  return state.mode === 'free' || next.slice(start) === state.text.slice(start, end);
+}
+
 // Índice del segmento activo tras aplicar `next`: avanza en cuanto el
-// segmento actual queda completo y correcto, salvo en el último.
+// segmento actual queda completo, salvo en el último.
 function nextSegmentIndex(state, next) {
   const { start, end } = activeSegment(state);
   const isLast = state.segmentIndex === state.segmentEnds.length - 1;
-  const isComplete = next.length === end && next.slice(start) === state.text.slice(start, end);
-  return isComplete && !isLast ? state.segmentIndex + 1 : state.segmentIndex;
+  return completesRange(state, next, start, end) && !isLast
+    ? state.segmentIndex + 1
+    : state.segmentIndex;
 }
 
 function countKeystroke(keystrokes, isCorrect) {
@@ -127,7 +150,7 @@ export function applyInput(state, value, now) {
 
   const removedErrors = removed.length - countMatches(removed, state.text, position);
   const hasInsertion = inserted.length === 1;
-  const isFinished = next === state.text;
+  const isFinished = completesRange(state, next, 0, state.text.length);
   const startedAt = state.startedAt ?? (hasInsertion ? now : null);
 
   return {
@@ -144,8 +167,10 @@ export function applyInput(state, value, now) {
   };
 }
 
-export function restartGame(state) {
-  return createGame(state.text, { segmentEnds: state.segmentEnds });
+// Misma partida desde cero. Por defecto conserva el modo; `mode` permite empezar
+// con el elegido en Opciones si ha cambiado desde la partida anterior.
+export function restartGame(state, { mode = state.mode } = {}) {
+  return createGame(state.text, { segmentEnds: state.segmentEnds, mode });
 }
 
 export function getElapsedMs(state, now) {
@@ -155,13 +180,14 @@ export function getElapsedMs(state, now) {
   return end - state.startedAt;
 }
 
+// El ratio mide el texto recorrido (también con errores); correctChars, su corrección.
 export function getProgress(state) {
-  const correctChars = countMatches(state.typed, state.text);
   return {
     segmentIndex: state.segmentIndex,
     segmentCount: state.segmentEnds.length,
-    correctChars,
-    ratio: correctChars / state.text.length,
+    typedChars: state.typed.length,
+    correctChars: countMatches(state.typed, state.text),
+    ratio: state.typed.length / state.text.length,
   };
 }
 

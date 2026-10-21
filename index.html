@@ -12,8 +12,46 @@
   <header class="header">
     <h1 class="title">TypingQuest</h1>
     <p class="subtitle">Entrena tu velocidad y precisión al teclado</p>
+    <div class="header-tools">
+    <div class="options">
+      <button
+        class="tool-button options-toggle"
+        id="options-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="options-panel"
+        title="Opciones">
+        <svg class="tool-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+          <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+          <circle cx="16" cy="7" r="2" />
+          <circle cx="10" cy="17" r="2" />
+        </svg>
+        <span class="visually-hidden">Opciones</span>
+      </button>
+      <div class="options-panel" id="options-panel" role="group" aria-labelledby="options-title" hidden>
+        <p class="options-title" id="options-title">Opciones</p>
+        <div class="mode-option">
+          <input class="mode-checkbox" id="block-on-errors" type="checkbox"
+            aria-describedby="block-on-errors-hint options-locked">
+          <label class="mode-label" for="block-on-errors">Bloquear avance con errores</label>
+          <p class="mode-hint" id="block-on-errors-hint">
+            Desactivado (modo libre): avanzas y terminas aunque haya errores, que siguen contando
+            en las estadísticas. Activado (modo estricto): debes corregirlos antes de avanzar.
+          </p>
+        </div>
+        <p class="options-locked" id="options-locked" hidden>
+          No se puede cambiar durante una partida empezada. Sal de la partida para cambiarlo.
+        </p>
+        <!-- Acceso PROVISIONAL al historial hasta la página Inicio de T8. -->
+        <div class="options-provisional" id="options-history">
+          <button class="button button-secondary button-small" id="options-history-button" type="button">
+            Historial (provisional)
+          </button>
+        </div>
+      </div>
+    </div>
     <button
-      class="sound-toggle"
+      class="tool-button sound-toggle"
       id="sound-toggle"
       type="button"
       aria-label="Sonido"
@@ -31,6 +69,7 @@
         </g>
       </svg>
     </button>
+    </div>
   </header>
 
   <main class="game">
@@ -46,12 +85,17 @@
           aria-describedby="source-count setup-error"></textarea>
         <p class="source-count" id="source-count">0 / 5000 caracteres</p>
         <p class="setup-error" id="setup-error" role="alert" hidden></p>
+        <p class="setup-mode">
+          <span class="mode-badge" id="setup-mode">Modo libre</span>
+          <span class="setup-mode-hint">Puedes cambiarlo en Opciones antes de empezar a escribir.</span>
+        </p>
         <button class="button" id="start-button" type="submit">Empezar</button>
       </form>
     </section>
 
     <!-- Pantalla 2: escritura -->
     <section class="screen" id="play-screen" aria-label="Partida" hidden>
+      <p class="play-mode"><span class="mode-badge" id="play-mode">Modo libre</span></p>
       <div class="stats" role="group" aria-label="Estadísticas en vivo">
         <div class="stat">
           <span class="stat-value" id="wpm">0</span>
@@ -123,9 +167,118 @@
         <p class="result-main-label"><abbr title="Palabras por minuto">WPM</abbr></p>
         <p class="result-main-description">Palabras por minuto</p>
       </div>
+      <p class="result-mode" id="result-mode">Modo libre</p>
+      <!-- Aviso de fallo al guardar: región de estado siempre presente (vacía si no hay error). -->
+      <p class="result-save-error" id="result-save-error" role="status" aria-live="polite"></p>
       <div class="actions">
         <button class="button" id="retry-button" type="button">Reintentar</button>
         <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>
+      </div>
+
+      <section class="trends" id="results-trends" aria-labelledby="results-trends-title">
+        <h3 class="trends-title" id="results-trends-title">Tu evolución</h3>
+        <p class="trends-empty" id="results-trends-empty" hidden>
+          Todavía no hay sesiones guardadas. La evolución aparecerá cuando se guarden tus prácticas.
+        </p>
+        <div class="trends-body" id="results-trends-body">
+          <div class="history-charts">
+            <figure class="chart">
+              <figcaption class="chart-title">Evolución de WPM</figcaption>
+              <svg class="chart-svg chart-wpm" id="results-chart-wpm" role="img"
+                aria-labelledby="results-chart-wpm-description" viewBox="0 0 320 140"></svg>
+              <p class="chart-description" id="results-chart-wpm-description"></p>
+            </figure>
+            <figure class="chart">
+              <figcaption class="chart-title">Evolución de la precisión</figcaption>
+              <svg class="chart-svg chart-accuracy" id="results-chart-accuracy" role="img"
+                aria-labelledby="results-chart-accuracy-description" viewBox="0 0 320 140"></svg>
+              <p class="chart-description" id="results-chart-accuracy-description"></p>
+            </figure>
+          </div>
+          <details class="trends-data">
+            <summary>Ver los datos de las gráficas</summary>
+            <div class="history-table-wrapper">
+              <table class="history-table">
+                <caption>Sesiones de las gráficas, de la más antigua a la más reciente</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Fecha</th>
+                    <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
+                    <th scope="col">Precisión</th>
+                    <th scope="col">Modo</th>
+                  </tr>
+                </thead>
+                <tbody id="results-trends-rows"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </section>
+    </section>
+
+    <!-- Pantalla 4: historial de sesiones completadas -->
+    <section class="screen history" id="history-screen" aria-labelledby="history-title" hidden>
+      <h2 class="screen-title" id="history-title" tabindex="-1">Historial</h2>
+      <!-- Estado del historial (vacío, no disponible, borrado…). Siempre en el DOM. -->
+      <p class="history-status" id="history-status" role="status" aria-live="polite"></p>
+
+      <div class="history-content" id="history-content" hidden>
+        <dl class="history-summary">
+          <div class="result-item">
+            <dt>Sesiones</dt><dd id="history-count">0</dd>
+          </div>
+          <div class="result-item">
+            <dt>Mejor WPM</dt><dd id="history-best-wpm">—</dd>
+          </div>
+          <div class="result-item">
+            <dt>Precisión media</dt><dd id="history-average-accuracy">—</dd>
+          </div>
+        </dl>
+
+        <div class="history-charts">
+          <figure class="chart">
+            <figcaption class="chart-title">Evolución de WPM</figcaption>
+            <svg class="chart-svg chart-wpm" id="history-chart-wpm" role="img" aria-labelledby="history-chart-wpm-description"
+              viewBox="0 0 320 140"></svg>
+            <p class="chart-description" id="history-chart-wpm-description"></p>
+          </figure>
+          <figure class="chart">
+            <figcaption class="chart-title">Evolución de la precisión</figcaption>
+            <svg class="chart-svg chart-accuracy" id="history-chart-accuracy" role="img"
+              aria-labelledby="history-chart-accuracy-description" viewBox="0 0 320 140"></svg>
+            <p class="chart-description" id="history-chart-accuracy-description"></p>
+          </figure>
+        </div>
+
+        <div class="history-table-wrapper">
+          <table class="history-table">
+            <caption>Sesiones anteriores, de la más reciente a la más antigua</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
+                <th scope="col">Precisión</th>
+                <th scope="col">Modo</th>
+              </tr>
+            </thead>
+            <tbody id="history-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="history-confirm" id="history-confirm" role="group" aria-labelledby="history-confirm-text" hidden>
+        <p class="history-confirm-text" id="history-confirm-text">
+          ¿Borrar todas las sesiones del historial? Esta acción no se puede deshacer.
+        </p>
+        <div class="actions">
+          <button class="button button-danger" id="history-confirm-button" type="button">Sí, borrar</button>
+          <button class="button button-secondary" id="history-cancel-button" type="button">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="actions" id="history-actions">
+        <button class="button" id="history-back-button" type="button">Volver</button>
+        <button class="button button-danger" id="history-clear-button" type="button">Borrar historial</button>
       </div>
     </section>
 

@@ -9,6 +9,12 @@ import {
   isFragmentBlocked,
   resolveNotice,
   formatResultsSummary,
+  formatMode,
+  historyStatusMessage,
+  saveErrorMessage,
+  isModeLocked,
+  formatSelectedMode,
+  renderSaveError,
 } from '../js/ui.js';
 import { splitIntoChunks } from '../js/chunks.js';
 import { createGame, applyInput } from '../js/game.js';
@@ -238,5 +244,158 @@ describe('formatResultsSummary (B2)', () => {
 
   it('indica cero errores en plural', () => {
     assert.match(formatResultsSummary({ wpm: 10, accuracy: 100, elapsedMs: 60_000, errors: 0 }), /y 0 errores\.$/);
+  });
+});
+
+// --- T7: modos de entrenamiento ----------------------------------------------
+
+describe('formatMode', () => {
+  it('nombra cada modo en español', () => {
+    assert.equal(formatMode('free'), 'Libre');
+    assert.equal(formatMode('strict'), 'Estricto');
+  });
+
+  it('devuelve un texto neutro con un modo desconocido', () => {
+    assert.equal(formatMode('otro'), 'Desconocido');
+  });
+});
+
+describe('formatResultsSummary: modo', () => {
+  it('añade el modo cuando se indica', () => {
+    assert.match(
+      formatResultsSummary({ wpm: 10, accuracy: 90, elapsedMs: 60_000, errors: 1 }, 'free'),
+      /y 1 error. Modo libre.$/
+    );
+  });
+});
+
+describe('avisos en modo libre', () => {
+  const TEXT = 'ab cd';
+  const CHUNKS = splitIntoChunks(TEXT, 1); // "ab " · "cd"
+
+  function playFree(values) {
+    let state = createGame(TEXT, { segmentEnds: CHUNKS.map((c) => c.end), mode: 'free' });
+    for (const value of values) state = applyInput(state, value, 0);
+    return state;
+  }
+
+  it('el fragmento nunca queda bloqueado: los errores no impiden avanzar', () => {
+    assert.equal(isFragmentBlocked(playFree(['a', 'ax']), CHUNKS), false);
+    assert.equal(isFragmentBlocked(playFree(['a', 'ax', 'ax ']), CHUNKS), false);
+  });
+
+  it('«Pulsa espacio» aparece en el espacio final aunque haya errores', () => {
+    assert.equal(spaceHintPosition(playFree(['a', 'ax']), CHUNKS), 2);
+  });
+
+  it('«Pulsa espacio» sigue apareciendo con el fragmento correcto', () => {
+    assert.equal(spaceHintPosition(playFree(['a', 'ab']), CHUNKS), 2);
+  });
+
+  it('no aparece fuera del espacio final', () => {
+    assert.equal(spaceHintPosition(playFree(['a']), CHUNKS), null);
+  });
+});
+
+// --- T7: historial -------------------------------------------------------------
+
+describe('historyStatusMessage', () => {
+  it('estado vacío', () => {
+    assert.equal(
+      historyStatusMessage({ status: 'empty', count: 0, discarded: 0 }),
+      'Todavía no hay sesiones completadas. Termina una partida para verla aquí.'
+    );
+  });
+
+  it('confirma el borrado', () => {
+    assert.match(historyStatusMessage({ status: 'empty', count: 0, discarded: 0, cleared: true }), /^Historial borrado./);
+  });
+
+  it('almacenamiento no disponible: el juego sigue funcionando', () => {
+    assert.match(historyStatusMessage({ status: 'unavailable', count: 0, discarded: 0 }), /no está disponible.*seguir jugando/);
+  });
+
+  it('historial dañado', () => {
+    assert.match(historyStatusMessage({ status: 'corrupt', count: 0, discarded: 0 }), /dañado/);
+  });
+
+  it('informa de los registros omitidos, en singular y plural', () => {
+    assert.equal(historyStatusMessage({ status: 'ok', count: 2, discarded: 1 }), 'Se ha omitido 1 registro dañado.');
+    assert.equal(historyStatusMessage({ status: 'ok', count: 2, discarded: 3 }), 'Se han omitido 3 registros dañados.');
+  });
+
+  it('sin mensaje cuando hay sesiones y todo es correcto', () => {
+    assert.equal(historyStatusMessage({ status: 'ok', count: 2, discarded: 0 }), '');
+  });
+});
+
+describe('saveErrorMessage', () => {
+  it('explica cada fallo al guardar', () => {
+    assert.match(saveErrorMessage('quota'), /lleno/);
+    assert.match(saveErrorMessage('unavailable'), /no está disponible/);
+    assert.match(saveErrorMessage('write-failed'), /No se pudo guardar/);
+  });
+});
+
+// --- T7: menú Opciones ---------------------------------------------------------
+
+describe('isModeLocked', () => {
+  const idle = createGame('ab', { mode: 'free' });
+  const running = applyInput(idle, 'a', 0);
+  const finished = applyInput(running, 'ab', 100);
+
+  it('permite cambiar el modo fuera de la partida', () => {
+    for (const screen of ['setup', 'results', 'history']) {
+      assert.equal(isModeLocked(screen, running), false, screen);
+    }
+    assert.equal(isModeLocked('setup', null), false);
+  });
+
+  it('permite cambiarlo en la partida antes de la primera pulsación', () => {
+    assert.equal(isModeLocked('play', idle), false);
+  });
+
+  it('lo bloquea en cuanto la partida ha empezado', () => {
+    assert.equal(isModeLocked('play', running), true);
+  });
+
+  it('una partida terminada ya no bloquea', () => {
+    assert.equal(isModeLocked('play', finished), false);
+  });
+});
+
+describe('formatSelectedMode', () => {
+  it('describe el modo elegido', () => {
+    assert.equal(formatSelectedMode('free'), 'Modo libre');
+    assert.equal(formatSelectedMode('strict'), 'Modo estricto');
+  });
+});
+
+describe('renderSaveError: región de estado sin anuncios repetidos', () => {
+  // Elemento falso que cuenta las escrituras de textContent.
+  function fakeEls() {
+    const element = {
+      writes: 0,
+      value: '',
+      get textContent() { return this.value; },
+      set textContent(text) { this.writes++; this.value = text; },
+    };
+    return { resultSaveError: element };
+  }
+
+  it('escribe el mensaje una sola vez aunque se repita', () => {
+    const els = fakeEls();
+    renderSaveError(els, 'No se pudo guardar.');
+    renderSaveError(els, 'No se pudo guardar.');
+    assert.equal(els.resultSaveError.textContent, 'No se pudo guardar.');
+    assert.equal(els.resultSaveError.writes, 1);
+  });
+
+  it('sin mensaje deja la región vacía, pero presente', () => {
+    const els = fakeEls();
+    renderSaveError(els, 'Error');
+    renderSaveError(els, null);
+    assert.equal(els.resultSaveError.textContent, '');
+    assert.equal('hidden' in els.resultSaveError, false);
   });
 });

@@ -5,6 +5,7 @@ import { prepareText } from './text-prep.js';
 import { splitIntoChunks } from './chunks.js';
 import { createGame, applyInput, restartGame, getStats, getProgress } from './game.js';
 import { createSoundPlayer } from './sound.js';
+import { createHistoryStore, createSessionRecord } from './storage.js';
 import * as ui from './ui.js';
 
 // Escritura secuencial: solo se admite insertar al final y borrar hacia atrás.
@@ -25,7 +26,14 @@ const BLOCKED_SHORTCUTS = new Set(['a', 'z', 'y']);
 
 const els = ui.getElements();
 const sound = createSoundPlayer({ enabled: CONFIG.soundEnabled });
-let session = null; // { state, chunks }
+const historyStore = createHistoryStore(getLocalStorage(), { maxSessions: CONFIG.maxHistorySessions });
+// { state, chunks, savedRecordId }: savedRecordId evita guardar dos veces la misma finalización.
+let session = null;
+// Pantalla visible y pantalla a la que vuelve «Volver» desde el historial.
+let currentScreen = 'setup';
+let historyReturnScreen = 'setup';
+// Modo elegido en Opciones para las partidas nuevas y los reintentos.
+let selectedMode = CONFIG.blockOnErrorsDefault ? 'strict' : 'free';
 let composing = false;
 let statsTimer = null;
 // Avisos contextuales: estado de interfaz, ajeno al motor y a las métricas.
@@ -50,18 +58,20 @@ function handleSetupSubmit(event) {
     return;
   }
   const chunks = splitIntoChunks(result.text, CONFIG.wordsPerChunk);
-  const state = createGame(result.text, { segmentEnds: chunks.map((c) => c.end) });
-  session = { state, chunks };
+  const state = createGame(result.text, { segmentEnds: chunks.map((c) => c.end), mode: selectedMode });
+  session = { state, chunks, savedRecordId: null };
   enterPlay();
 }
 
 // --- Partida -------------------------------------------------------------------
 
 function enterPlay() {
+  ui.renderOptionsOpen(els, false);
   stopStatsTimer();
   resetNotices();
   composing = false;
-  ui.showScreen(els, 'play');
+  showScreen('play');
+  ui.renderPlayMode(els, session.state.mode);
   ui.syncInput(els.input, session.state.typed);
   render();
   els.input.focus();
@@ -85,7 +95,11 @@ function processInput() {
   const next = applyInput(previous, attempted, performance.now());
   if (next !== previous) {
     session.state = next;
-    if (previous.status === 'idle') startStatsTimer();
+    if (previous.status === 'idle') {
+      startStatsTimer();
+      // Primera pulsación: a partir de aquí el modo queda bloqueado.
+      refreshOptionsState();
+    }
     notices.errorsBlocking = false;
   } else if (attempted.length > previous.typed.length && ui.isFragmentBlocked(previous, session.chunks)) {
     // Intento de avanzar con el fragmento lleno de errores: el motor lo rechazó.
@@ -149,9 +163,82 @@ function finishGame() {
   stopStatsTimer();
   resetNotices();
   const stats = getStats(session.state, performance.now());
-  ui.renderResults(els, stats);
-  ui.showScreen(els, 'results');
+  ui.renderResults(els, stats, session.state.mode);
+  // La pantalla se muestra antes de guardar: así el aviso de fallo se escribe en
+  // una región visible y el lector de pantalla lo anuncia.
+  showScreen('results');
+  saveFinishedSession(stats);
+  ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
   els.retryButton.focus();
+}
+
+// --- Historial -----------------------------------------------------------------
+
+// Acceder a window.localStorage puede lanzar (almacenamiento bloqueado): sin él,
+// el juego sigue funcionando y el historial informa de que no está disponible.
+function getLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function createRecordId() {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Solo se guardan partidas terminadas, una vez por finalización. El registro
+// contiene métricas y modo, nunca el texto practicado. Los datos no válidos
+// llegan como error controlado de storage.js ('invalid'), sin try/catch aquí:
+// cualquier otro fallo de programación no se oculta.
+function saveFinishedSession(stats) {
+  if (session.savedRecordId !== null) return;
+  session.savedRecordId = createRecordId();
+  const record = createSessionRecord({
+    id: session.savedRecordId,
+    finishedAt: Date.now(),
+    stats,
+    mode: session.state.mode,
+  });
+  const result = historyStore.add(record);
+  ui.renderSaveError(els, result.ok ? null : ui.saveErrorMessage(result.error));
+}
+
+// Acceso PROVISIONAL desde Opciones hasta la página Inicio de T8. No se ofrece
+// durante una partida, así que siempre se vuelve a preparación o resultados.
+function showHistory({ cleared = false } = {}) {
+  if (currentScreen !== 'history') historyReturnScreen = currentScreen;
+  ui.renderHistory(els, historyStore.load(), { chartSessions: CONFIG.historyChartSessions, cleared });
+  showScreen('history');
+  els.history.title.focus();
+}
+
+function handleHistoryBack() {
+  showScreen(historyReturnScreen);
+  if (historyReturnScreen === 'results') {
+    // El historial puede haberse borrado: la evolución se vuelve a pintar.
+    ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
+    els.retryButton.focus();
+  } else {
+    els.sourceText.focus();
+  }
+}
+
+function handleClearRequest() {
+  ui.renderHistoryConfirm(els, true);
+  els.history.cancelButton.focus();
+}
+
+function handleClearCancel() {
+  ui.renderHistoryConfirm(els, false);
+  els.history.clearButton.focus();
+}
+
+function handleClearConfirm() {
+  const result = historyStore.clear();
+  showHistory({ cleared: result.ok });
 }
 
 function startStatsTimer() {
@@ -233,7 +320,9 @@ function bindTypingInput() {
 
 function handleRetry() {
   ui.clearResultsAnnouncement(els);
-  session.state = restartGame(session.state);
+  ui.renderSaveError(els, null);
+  session.state = restartGame(session.state, { mode: selectedMode });
+  session.savedRecordId = null;
   enterPlay();
 }
 
@@ -254,10 +343,72 @@ function returnToSetup() {
   resetNotices();
   ui.clearChunkEffects(els);
   ui.clearResultsAnnouncement(els);
+  ui.renderSaveError(els, null);
   composing = false;
   session = null;
-  ui.showScreen(els, 'setup');
+  showScreen('setup');
   els.sourceText.focus();
+}
+
+// --- Pantallas y menú Opciones -------------------------------------------------
+
+function showScreen(name) {
+  currentScreen = name;
+  ui.showScreen(els, name);
+  refreshOptionsState();
+}
+
+function refreshOptionsState() {
+  const state = session?.state ?? null;
+  ui.renderOptionsState(els, {
+    locked: ui.isModeLocked(currentScreen, state),
+    playing: currentScreen === 'play',
+  });
+}
+
+// Antes de la primera pulsación también se puede cambiar el modo de la partida
+// en pantalla: se vuelve a crear con el modo nuevo (aún no hay nada escrito).
+function handleModeChange() {
+  selectedMode = els.blockOnErrors.checked ? 'strict' : 'free';
+  ui.renderSelectedMode(els, selectedMode);
+  if (currentScreen === 'play' && session.state.status === 'idle') {
+    session.state = restartGame(session.state, { mode: selectedMode });
+    ui.renderPlayMode(els, selectedMode);
+    render();
+  }
+}
+
+function isOptionsOpen() {
+  return !els.options.panel.hidden;
+}
+
+function closeOptions({ restoreFocus = false } = {}) {
+  if (!isOptionsOpen()) return;
+  ui.renderOptionsOpen(els, false);
+  if (isPlaying()) els.input.focus();
+  else if (restoreFocus) els.options.toggle.focus();
+}
+
+function handleOptionsToggle() {
+  if (isOptionsOpen()) {
+    closeOptions();
+    return;
+  }
+  ui.renderOptionsOpen(els, true);
+  els.blockOnErrors.focus();
+}
+
+function handleDocumentKeyDown(event) {
+  if (event.key === 'Escape' && isOptionsOpen()) closeOptions({ restoreFocus: true });
+}
+
+function handleDocumentClick(event) {
+  if (isOptionsOpen() && !event.target.closest('.options')) closeOptions();
+}
+
+function handleOptionsHistory() {
+  closeOptions();
+  showHistory();
 }
 
 // --- Sonido --------------------------------------------------------------------
@@ -279,12 +430,22 @@ function init() {
   els.newTextButton.addEventListener('click', handleNewText);
   els.exitButton.addEventListener('click', handleExit);
   els.soundToggle.addEventListener('click', handleSoundToggle);
+  els.options.toggle.addEventListener('click', handleOptionsToggle);
+  els.options.historyButton.addEventListener('click', handleOptionsHistory);
+  els.blockOnErrors.addEventListener('change', handleModeChange);
+  document.addEventListener('keydown', handleDocumentKeyDown);
+  document.addEventListener('click', handleDocumentClick);
+  els.history.backButton.addEventListener('click', handleHistoryBack);
+  els.history.clearButton.addEventListener('click', handleClearRequest);
+  els.history.cancelButton.addEventListener('click', handleClearCancel);
+  els.history.confirmButton.addEventListener('click', handleClearConfirm);
   els.startButton.addEventListener('click', () => sound.unlock());
   bindTypingInput();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderSoundToggle(els, sound.isEnabled());
+  ui.renderSelectedMode(els, selectedMode);
   updateSourceCount();
-  ui.showScreen(els, 'setup');
+  showScreen('setup');
   els.sourceText.focus();
 }
 

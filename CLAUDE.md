@@ -5,8 +5,9 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ## Stack
 
 - HTML, CSS y JavaScript vanilla con módulos ES. SIN frameworks ni dependencias npm.
-- Persistencia futura: localStorage, accedido solo a través de `js/storage.js`.
+- Persistencia: localStorage, accedido solo a través de `js/storage.js`.
 - Tests de lógica: `node --test "tests/*.test.js"` (runner nativo de Node 22, sin instalar nada).
+- Tests del Hook de sintaxis: `node --test ".claude/hooks/*.test.cjs"` (no entran en la suite anterior).
 - No instalar dependencias, incorporar frameworks ni añadir `package.json` sin aprobación explícita.
 - Priorizar soluciones sencillas, mantenibles y adecuadas a la escala del proyecto.
 
@@ -18,30 +19,36 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ## Estructura
 
 ```
-index.html            # Tres pantallas: preparación, partida y resultados.
-css/styles.css        # Tema oscuro, carril de fragmentos, avisos, animaciones, responsive.
+index.html            # Cuatro pantallas: preparación, partida, resultados e historial.
+css/styles.css        # Tema oscuro, carril, avisos, animaciones, historial, responsive.
 js/config.js          # Parámetros configurables (CONFIG congelado).
 js/text-prep.js       # PURO: sanitizeText, validateText, prepareText, findUnsupportedChars.
 js/chunks.js          # PURO: splitIntoChunks (fragmentos de N palabras).
-js/game.js            # Motor PURO: estados, segmentos y procesamiento de la entrada.
+js/game.js            # Motor PURO: estados, modos, segmentos y procesamiento de la entrada.
 js/metrics.js         # PURO: calcWpm, calcAccuracy.
+js/history.js         # PURO: resumen del historial, escala y puntos de las gráficas, fechas.
+js/storage.js         # Persistencia del historial (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM; incluye helpers puros testeables.
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
 js/main.js            # Coordinación: eventos, temporizadores y flujo entre pantallas.
-tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers puros) y sound.
+tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage e history.
 .claude/launch.json   # Servidor de vista previa para Claude Code.
+.claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
+.claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
 ```
 
 ## Arquitectura
 
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
-  `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`. El instante actual se inyecta
-  como parámetro (`now`) para poder testear.
+  `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`. El instante actual
+  se inyecta como parámetro (`now`) para poder testear.
+- `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
+  tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
 - Módulos de interfaz: `ui.js` (pinta y manipula el DOM), `main.js` (escucha eventos,
   gestiona foco, temporizadores y pantallas) y `sound.js` (audio).
 - `ui.js` exporta además helpers PUROS (`charStates`, `spaceHintPosition`,
   `isFragmentBlocked`, `resolveNotice`, formatos) que se testean con Node.
-- Flujo: fuente de texto → `prepareText` → `splitIntoChunks` → `createGame(text, { segmentEnds })`
+- Flujo: fuente de texto → `prepareText` → `splitIntoChunks` → `createGame(text, { segmentEnds, mode })`
   → `applyInput` en cada evento `input`. Cualquier fuente futura solo entrega un string.
 - Las funciones del motor no mutan el estado recibido: devuelven un estado nuevo.
   Una entrada RECHAZADA devuelve el MISMO objeto (`resultado === state`).
@@ -55,6 +62,8 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers p
 - `wordsPerChunk: 7` — palabras por fragmento.
 - `maxTextLength: 5000` — límite de caracteres (puntos de código) tras sanear.
 - `chunkAnimationMs: 350` — duración de la animación al completar un fragmento.
+- `blockOnErrorsDefault: false` — estado inicial de «Bloquear avance con errores» (modo libre).
+- `maxHistorySessions: 500` y `historyChartSessions: 20` — sesiones guardadas y graficadas.
 - `soundEnabled: true` — estado inicial del sonido (aún sin persistencia).
 - `spaceHintDelayMs: 1500` — espera antes de mostrar «Pulsa espacio».
 - `statsRefreshMs: 250` y `minWpmElapsedMs: 1000` — refresco y umbral del WPM en vivo.
@@ -75,17 +84,37 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers p
   reconstruyen el texto. El espacio final pertenece al fragmento que se completa; el
   último fragmento no tiene espacio final.
 - El motor recibe `segmentEnds = chunks.map(c => c.end)`. Solo se edita dentro del
-  segmento activo; los fragmentos cerrados no se pueden modificar y no se puede
-  escribir más allá del final del activo mientras tenga errores.
-- Al escribir correctamente el espacio final, el siguiente segmento se activa en la
-  MISMA entrada: la primera letra del siguiente nunca queda bloqueada.
+  segmento activo y los fragmentos cerrados no se pueden modificar. En modo estricto
+  no se puede escribir más allá del final del activo mientras tenga errores.
+- Al completar el espacio final (en estricto, correctamente), el siguiente segmento se
+  activa en la MISMA entrada: la primera letra del siguiente nunca queda bloqueada.
+
+## Modos de entrenamiento
+
+- Casilla «Bloquear avance con errores» en el menú desplegable «Opciones» de la cabecera
+  (junto al sonido). La preparación y la partida muestran el modo elegido.
+  `createGame(text, { mode })` con `mode: 'free' | 'strict'` (`MODES` en `game.js`).
+  Por defecto del motor: `'strict'`; la interfaz arranca en libre
+  (`blockOnErrorsDefault: false`; la elección no se guarda entre recargas).
+- Se puede cambiar fuera de la partida y en ella antes de la primera pulsación (la
+  partida se recrea con `restartGame(state, { mode })`). Desde la primera pulsación
+  hasta terminar, la casilla está deshabilitada (`isModeLocked`). Las partidas nuevas y
+  «Reintentar» usan el modo elegido en ese momento.
+- Completar un ejercicio (llegar al final) no equivale a superar un objetivo: todavía
+  no hay umbrales por porcentaje de errores; los criterios pedagógicos llegan en T8.
+- Estricto (casilla marcada): comportamiento anterior; un fragmento solo se completa, y
+  la partida solo termina, cuando lo escrito coincide con el objetivo.
+- Libre: un fragmento se completa al recorrerlo, aunque tenga errores (también en el
+  espacio final), y la partida termina al recorrer todo el texto. Se mantiene el
+  retroceso dentro del fragmento activo, los cerrados siguen sin poder modificarse y los
+  errores y pulsaciones cuentan igual.
 - Fragmentos = divisiones visuales de UNA partida: cronómetro y métricas globales.
 
 ## Reglas de juego (decisiones aprobadas)
 
 **Retroceso permitido:** el jugador puede borrar caracteres y corregir errores.
 **Errores persistentes en las estadísticas:** una entrada incorrecta sigue contabilizando como error aunque se corrija posteriormente.
-**Finalización:** la partida termina únicamente cuando el texto introducido coincide exactamente con el objetivo.
+**Finalización:** en modo estricto, la partida termina únicamente cuando el texto introducido coincide exactamente con el objetivo; en modo libre, al recorrer todo el texto.
 **Cronómetro:** comienza con la primera entrada efectiva del jugador y se detiene al finalizar.
 **Reinicio:** comenzar una nueva partida restablece el estado, el cronómetro y los contadores de la sesión.
 **Validación:** el sistema debe gestionar correctamente entradas vacías, caracteres especiales y correcciones.
@@ -98,6 +127,8 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers p
 - Con 0 ms o 0 pulsaciones las funciones devuelven 0, nunca `NaN` ni `Infinity`.
 - WPM usa los caracteres correctos ACTUALES (neto); la precisión, todas las pulsaciones.
 - Las entradas rechazadas (pegado, exceso, fragmento cerrado) no cuentan como pulsaciones.
+- Progreso (`getProgress`): `ratio = typedChars / longitud`, es decir, texto recorrido y
+  no su corrección; `correctChars` se informa aparte.
 - En el navegador el tiempo se mide con `performance.now()`. El WPM en vivo muestra «—»
   hasta `minWpmElapsedMs` para evitar picos al empezar (solo presentación).
 
@@ -127,9 +158,15 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers p
   cursor en el siguiente carácter, pendientes y vista previa con contraste ≥ 4,5:1.
 - Zona única de avisos (`#lane-notice`, `role="status"`, alto fijo), por prioridad:
   1. «Haz clic aquí para seguir escribiendo» si el campo pierde el foco.
-  2. «Corrige los errores en rojo» al intentar avanzar con el fragmento lleno de errores.
-  3. «Pulsa espacio» tras `spaceHintDelayMs` en el espacio final de un fragmento correcto.
+  2. «Corrige los errores en rojo» al intentar avanzar con el fragmento lleno de errores
+     (solo en estricto: en libre nunca se bloquea).
+  3. «Pulsa espacio» tras `spaceHintDelayMs` en el espacio final de un fragmento correcto
+     (en libre, aunque tenga errores, porque el espacio también avanza).
   Se actualiza solo al cambiar el aviso, para no anunciarlo en cada tecla.
+- El modo de la partida se muestra sobre las estadísticas y en los resultados.
+- Resultados: bajo el resumen y las acciones, «Tu evolución» permanente con las gráficas
+  de WPM y precisión de las últimas `historyChartSessions` sesiones guardadas (incluida
+  la recién terminada) y sus datos en una tabla desplegable; sin sesiones, un mensaje.
 - Animación al completar un fragmento: copia decorativa dorada (`aria-hidden`) que baja
   la distancia real entre posiciones del carril y se desvanece en `chunkAnimationMs`.
   El siguiente fragmento es escribible al instante. `prefers-reduced-motion`: solo fundido.
@@ -142,6 +179,30 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui (helpers p
 - Navegación: «Salir de la partida» (durante la partida) y «Nuevo texto» vuelven a la
   preparación conservando el texto; «Reintentar» repite el mismo texto. Todas detienen
   cronómetro, avisos y efectos y descartan el progreso.
+
+## Historial
+
+- Clave versionada `typingquest:history:v1` con `{ version: 1, sessions: [...] }` en orden
+  de finalización (máximo `maxHistorySessions`, se descartan las más antiguas).
+- Registro: `id`, `finishedAt` (ISO), `wpm`, `accuracy` (2 decimales), `elapsedMs`,
+  `errors`, `mode` y `exercise` (`'custom-text'` = «Texto personalizado»). NUNCA el texto.
+  Lista explícita `RECORD_FIELDS`: al guardar y al recuperar se descarta cualquier otra
+  propiedad. Añadir un campo (p. ej. análisis de teclas) exige ampliar la lista, la
+  validación y los tests.
+- Solo se guardan partidas terminadas (en `finishGame`), una vez por finalización:
+  `session.savedRecordId` en `main.js` y rechazo de `id` duplicados en `storage.js`.
+  Abandonar no guarda nada.
+- `createHistoryStore(storage)` nunca lanza: `load()` devuelve `status`
+  (`ok`/`empty`/`corrupt`/`unavailable`) y descarta registros no válidos; `add()` y
+  `clear()` devuelven `{ ok, error }` (`quota`, `unavailable`, `write-failed`, `invalid`).
+  Sin `localStorage` el juego funciona y el historial informa de ello.
+- Pantalla de historial: sesiones, mejor WPM, precisión media, gráficas SVG sin
+  librerías (con descripción textual) y el listado completo de sesiones. El borrado pide
+  confirmación en la propia pantalla (sin `confirm()`). Acceso PROVISIONAL desde
+  Opciones → «Historial (provisional)», oculto durante la partida, hasta la página
+  Inicio de T8; «Volver» regresa a preparación o resultados.
+- Gráficas compartidas por resultados e historial (`renderTrendCharts` en `ui.js`,
+  geometría en `history.js`).
 
 ## Convenciones
 
