@@ -19,19 +19,28 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ## Estructura
 
 ```
-index.html            # Cuatro pantallas: preparación, partida, resultados e historial.
-css/styles.css        # Tema oscuro, carril, avisos, animaciones, historial, responsive.
+index.html            # Navegación principal y pantallas: Inicio, Academia, Biblioteca,
+                      # Práctica libre (preparación), partida, resultados e Historial.
+css/styles.css        # Tema oscuro, carril, avisos, animaciones, catálogo, historial, responsive.
+data/exercises.json   # Catálogo de ejercicios (contenido; sin código).
+data/course.json      # Organización del curso: niveles y orden de los ejercicios.
 js/config.js          # Parámetros configurables (CONFIG congelado).
 js/text-prep.js       # PURO: sanitizeText, validateText, prepareText, findUnsupportedChars.
 js/chunks.js          # PURO: splitIntoChunks (fragmentos de N palabras).
 js/game.js            # Motor PURO: estados, modos, segmentos y procesamiento de la entrada.
 js/metrics.js         # PURO: calcWpm, calcAccuracy.
 js/history.js         # PURO: resumen del historial, escala y puntos de las gráficas, fechas.
-js/storage.js         # Persistencia del historial (almacenamiento inyectado; nunca lanza).
-js/ui.js              # Renderizado y DOM; incluye helpers puros testeables.
+js/catalog.js         # PURO: validación del catálogo y del curso; lecciones y filtros de la Biblioteca.
+js/progress.js        # PURO: estados de los ejercicios, posición del recorrido y vista de la Academia.
+js/objectives.js      # PURO: objetivos de precisión y WPM (aplicabilidad y fiabilidad).
+js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre).
+js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
+js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
+js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
-js/main.js            # Coordinación: eventos, temporizadores y flujo entre pantallas.
-tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage e history.
+js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo, progreso y pantallas.
+tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
+                      # catalog (incluye los JSON reales), progress, objectives, router y course-ui.
 .claude/launch.json   # Servidor de vista previa para Claude Code.
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
@@ -40,14 +49,20 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 ## Arquitectura
 
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
-  `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`. El instante actual
-  se inyecta como parámetro (`now`) para poder testear.
+  `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
+  `progress.js`, `objectives.js`, `router.js`. El instante actual se inyecta como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
-- Módulos de interfaz: `ui.js` (pinta y manipula el DOM), `main.js` (escucha eventos,
-  gestiona foco, temporizadores y pantallas) y `sound.js` (audio).
-- `ui.js` exporta además helpers PUROS (`charStates`, `spaceHintPosition`,
-  `isFragmentBlocked`, `resolveNotice`, formatos) que se testean con Node.
+- Módulos de interfaz: `ui.js` y `course-ui.js` (pintan y manipulan el DOM), `main.js`
+  (escucha eventos, gestiona rutas, foco, temporizadores y pantallas) y `sound.js` (audio).
+- `ui.js` y `course-ui.js` exportan además helpers PUROS (`charStates`, `spaceHintPosition`,
+  `isFragmentBlocked`, `resolveNotice`, `statusInfo`, `formatTargetResult`, formatos)
+  que se testean con Node.
+- Navegación por rutas hash (`router.js`): Inicio, Academia, Biblioteca, Historial y
+  Práctica libre. La partida y los resultados NO son rutas: cambiar de ruta (navegación,
+  botón Atrás) descarta la partida en pantalla (`leaveGame`) sin guardar nada.
+- `main.js` descarga `data/*.json` con `fetch` y los valida con `createCatalog`; si
+  fallan, Academia y Biblioteca muestran un error y el resto sigue funcionando.
 - Flujo: fuente de texto → `prepareText` → `splitIntoChunks` → `createGame(text, { segmentEnds, mode })`
   → `applyInput` en cada evento `input`. Cualquier fuente futura solo entrega un string.
 - Las funciones del motor no mutan el estado recibido: devuelven un estado nuevo.
@@ -100,8 +115,8 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   partida se recrea con `restartGame(state, { mode })`). Desde la primera pulsación
   hasta terminar, la casilla está deshabilitada (`isModeLocked`). Las partidas nuevas y
   «Reintentar» usan el modo elegido en ese momento.
-- Completar un ejercicio (llegar al final) no equivale a superar un objetivo: todavía
-  no hay umbrales por porcentaje de errores; los criterios pedagógicos llegan en T8.
+- Terminar un ejercicio (llegar al final) no equivale a superar sus objetivos de
+  precisión y WPM (ver «Objetivos»).
 - Estricto (casilla marcada): comportamiento anterior; un fragmento solo se completa, y
   la partida solo termina, cuando lo escrito coincide con el objetivo.
 - Libre: un fragmento se completa al recorrerlo, aunque tenga errores (también en el
@@ -166,7 +181,13 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 - El modo de la partida se muestra sobre las estadísticas y en los resultados.
 - Resultados: bajo el resumen y las acciones, «Tu evolución» permanente con las gráficas
   de WPM y precisión de las últimas `historyChartSessions` sesiones guardadas (incluida
-  la recién terminada) y sus datos en una tabla desplegable; sin sesiones, un mensaje.
+  la recién terminada). El SVG es decorativo (`aria-hidden`); su descripción textual
+  visible (`describeSeries`: tendencia, mínimo y máximo) da los datos. El listado de
+  sesiones solo está en Historial. Sin sesiones, un mensaje.
+- En ejercicios del catálogo, Resultados muestra el tipo de práctica, el ejercicio y
+  cada objetivo con icono y texto (cumplido, pendiente, no aplicable o no fiable), y
+  el título «Objetivo superado» o «Ejercicio terminado, objetivo pendiente». Precisión
+  truncada a un decimal y WPM truncadas a entero para no redondear hacia el objetivo.
 - Animación al completar un fragmento: copia decorativa dorada (`aria-hidden`) que baja
   la distancia real entre posiciones del carril y se desvanece en `chunkAnimationMs`.
   El siguiente fragmento es escribible al instante. `prefers-reduced-motion`: solo fundido.
@@ -176,16 +197,22 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 - Resultados: precisión, tiempo y errores; debajo, el WPM destacado (300 %) en dorado.
   `corrections` se mantiene en el motor pero no se muestra. Un anunciador `role="status"`
   lee el resumen a lectores de pantalla.
-- Navegación: «Salir de la partida» (durante la partida) y «Nuevo texto» vuelven a la
-  preparación conservando el texto; «Reintentar» repite el mismo texto. Todas detienen
-  cronómetro, avisos y efectos y descartan el progreso.
+- Acciones por origen (`session.origin`):
+  - Práctica libre: «Reintentar» y «Nuevo texto» (vuelve a la preparación con el texto).
+  - Biblioteca: «Repetir» y «Volver a la Biblioteca».
+  - Academia: «Repetir» y «Volver a la Academia». Solo en la lección actual
+    (`session.courseStep`), además «Siguiente ejercicio» (oculto en el último) y, en la
+    partida, «Saltar ejercicio». La práctica ampliada nunca los ofrece.
+  «Salir de la partida» vuelve al origen. Todas detienen cronómetro, avisos y efectos y
+  descartan la partida.
 
 ## Historial
 
 - Clave versionada `typingquest:history:v1` con `{ version: 1, sessions: [...] }` en orden
   de finalización (máximo `maxHistorySessions`, se descartan las más antiguas).
 - Registro: `id`, `finishedAt` (ISO), `wpm`, `accuracy` (2 decimales), `elapsedMs`,
-  `errors`, `mode` y `exercise` (`'custom-text'` = «Texto personalizado»). NUNCA el texto.
+  `errors`, `mode` y `exercise`: ID estable del catálogo o `'custom-text'` (práctica
+  libre y registros de T7, «Texto personalizado»). NUNCA el texto.
   Lista explícita `RECORD_FIELDS`: al guardar y al recuperar se descarta cualquier otra
   propiedad. Añadir un campo (p. ej. análisis de teclas) exige ampliar la lista, la
   validación y los tests.
@@ -196,13 +223,92 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   (`ok`/`empty`/`corrupt`/`unavailable`) y descarta registros no válidos; `add()` y
   `clear()` devuelven `{ ok, error }` (`quota`, `unavailable`, `write-failed`, `invalid`).
   Sin `localStorage` el juego funciona y el historial informa de ello.
-- Pantalla de historial: sesiones, mejor WPM, precisión media, gráficas SVG sin
-  librerías (con descripción textual) y el listado completo de sesiones. El borrado pide
-  confirmación en la propia pantalla (sin `confirm()`). Acceso PROVISIONAL desde
-  Opciones → «Historial (provisional)», oculto durante la partida, hasta la página
-  Inicio de T8; «Volver» regresa a preparación o resultados.
+- Pantalla Historial (ruta `#/historial`): sesiones, mejor WPM, precisión media,
+  gráficas SVG sin librerías (con descripción textual) y el listado completo de sesiones
+  con el nombre del ejercicio. El borrado pide confirmación en la propia pantalla (sin
+  `confirm()`) y no borra el progreso de la Academia.
 - Gráficas compartidas por resultados e historial (`renderTrendCharts` en `ui.js`,
   geometría en `history.js`).
+
+## Catálogo y curso (`data/*.json`, `js/catalog.js`)
+
+- `exercises.json` (`schemaVersion: 2`): `contentVersion` y `exercises`, cada uno con
+  `id` estable (minúsculas, dígitos y guiones), `version`, `kind` (`base` o `extended`),
+  `title`, `description`, `level` (1-5), `difficulty` (`basic`/`intermediate`/`advanced`),
+  `category` (lista en `CATEGORIES`), `targetAccuracy` (entero 50-100), `targetWpm`
+  (entero o `null`) y `text`. Campos desconocidos = error. Una sola definición por
+  ejercicio, compartida por Academia y Biblioteca.
+- `course.json` (`schemaVersion: 3`): niveles en orden con `title`, `summary` y
+  `lessons: [{ exercise, extended }]`. `exercise` es la práctica base (breve, forma el
+  recorrido); `extended`, la práctica ampliada opcional (más larga; no forma parte del
+  recorrido ni lo hace avanzar). Hoy hay 13 lecciones, TODAS con las dos (13 + 13 = 26
+  ejercicios); el esquema admite una lección sin ampliada. No hay tercer tipo de práctica.
+- `course.json` → `retired: [{ exercise, title, continueAt? }]`: ejercicios eliminados
+  (hoy «Alternar F y J» base y ampliada, integrada en «Postura y teclas guía»). Ya no
+  están en el catálogo ni en el recorrido, pero sus registros de historial y de progreso
+  se conservan; el Historial los muestra como «<título> · ejercicio retirado»
+  (`exerciseTitle`). `continueAt` (práctica base del curso) es adonde se traslada una
+  posición guardada en ellos: `resolveRetiredPosition` al cargar el catálogo, determinista.
+  La validación exige que la ampliada sea más larga que su base y de la misma
+  categoría y nivel. ID de la ampliada: `<id de la base>-ampliada`.
+  La organización está separada del catálogo.
+- Versionado: `schemaVersion` cambia con la forma de los datos; `contentVersion` con
+  cualquier cambio de contenido; la `version` de un ejercicio sube cuando cambian su
+  texto o sus condiciones de superación. Los logros ya guardados se conservan (no se
+  reevalúan con las condiciones nuevas).
+- `validateCatalog` comprueba IDs (formato y duplicados), referencias del curso, tipos
+  (base/ampliada), repetidos, que cada ejercicio esté en su nivel, campos y objetivos
+  (sin `targetWpm` en textos de menos de `MIN_WPM_TEXT_LENGTH` = 40 caracteres), y que
+  el texto sea válido Y ya esté en la forma de `prepareText`. `tests/catalog.test.js`
+  valida los JSON reales, que los objetivos sigan `LEVEL_GOALS`, que cada lección tenga
+  base y ampliada, que la ampliada sea al menos 1,5 veces más larga, que tenga la
+  longitud de su nivel (N1 100-140, N2 120-180, N3 160-240, N4 220-320, N5 300-450
+  caracteres) y que no repita mecánicamente un mismo bloque. Las bases mantienen su
+  longitud breve.
+- Las ampliadas usan solo las teclas aprendidas hasta su lección (N1 solo F/J, N2 fila
+  central con Ñ, N3 sin tildes ni signos…): secuencias en los niveles iniciales y
+  palabras o frases naturales después.
+- Contenido para teclado español: N1 postura y F/J; N2 fila central con Ñ; N3 filas
+  superior e inferior; N4 tildes, mayúsculas, puntuación, ¿ ¡ y números; N5 frases y
+  textos. Enseñanza visual de dedos: T9.
+
+## Objetivos (`js/objectives.js`)
+
+- `LEVEL_GOALS` (provisionales): N1 85 % / 8 WPM, N2 90 % / 12, N3 90 % / 18,
+  N4 92 % / 22, N5 95 % / 30. WPM siempre con caracteres correctos.
+- `evaluateObjectives(stats, exercise)`: superado = precisión ≥ `targetAccuracy` Y, si
+  `targetWpm` no es null, WPM ≥ `targetWpm` con una medición fiable (≥
+  `MIN_RELIABLE_WPM_MS` = 3000 ms; con menos tiempo las WPM no se dan por cumplidas).
+- Terminado ≠ superado ≠ saltado. No alcanzar el objetivo nunca bloquea el avance.
+
+## Academia y progreso (`js/progress.js`)
+
+- Separado del historial: clave `typingquest:progress:v1` con
+  `{ version: 1, currentExerciseId, exercises: [{ id, status, bestAccuracy, bestWpm }] }`.
+  Campos permitidos explícitos; entradas no válidas o repetidas se descartan.
+- Estado individual (solo mejora): `not-started` (gris, ○ «No realizado») < `skipped`
+  (blanco, ↷ «Saltado») < `completed` (naranja, ◐ «Terminado»: sin objetivo) < `passed`
+  (verde, ✓ «Objetivo superado»: `evaluateObjectives().passed`). Siempre con icono y
+  texto. Mejores marcas redondeadas a 2 decimales y conservadas. Biblioteca y Academia
+  (base y ampliada) actualizan el estado al terminar.
+- Posición del recorrido (`currentExerciseId`): SOLO cambia con `advanceCourse` y
+  `skipCurrent`, que avanzan EXACTAMENTE un elemento desde la posición actual (nunca
+  desde el ejercicio jugado: era la causa de los saltos de la primera versión de T8).
+  Terminar o salir no avanza; la Biblioteca y la práctica ampliada nunca la mueven.
+- La Academia muestra SOLO la lección actual (`academyView`) en UNA tarjeta: nivel,
+  posición «Ejercicio N de M», título y descripción, el estado y los objetivos de cada
+  práctica, y dos botones sin requisitos previos: «Práctica base» (también para
+  repetirla) y «Práctica ampliada» (opcional; nunca ofrece Siguiente ni Saltar). Si la
+  base ya está terminada aparece «Siguiente ejercicio»: avanza uno y abre la siguiente
+  base.
+- La Biblioteca muestra UNA tarjeta por lección (`libraryLessons`, 13): título,
+  descripción, nivel y categoría de la lección, y sus dos prácticas, cada una con su
+  propio estado, dificultad, objetivos y botón «Empezar» (abre esa práctica; nunca
+  mueve el recorrido ni ofrece Saltar/Siguiente). Búsqueda y filtros (`filterLessons`)
+  muestran la lección si CUALQUIERA de sus prácticas coincide. Los objetos son los del
+  catálogo: no se duplican ejercicios. Todo se hace sin bloqueos.
+- Saltar (solo dentro de la lección actual) registra `skipped` si no había un logro
+  superior, avanza uno y abre el nuevo actual (en el último, vuelve a la Academia).
 
 ## Convenciones
 

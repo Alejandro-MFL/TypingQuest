@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 3,
+  "id": "mecanografia-es",
+  "contentVersion": "2026-10-21.4",
+  "title": "Curso de mecanografía en español",
+  "levels": [
+    {
+      "level": 1,
+      "title": "Postura, manos y teclas guía",
+      "summary": "Cómo sentarte, dónde apoyar las manos y cómo encontrar F y J sin mirar.",
+      "lessons": [
+        {
+          "exercise": "l1-postura-fj",
+          "extended": "l1-postura-fj-ampliada"
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "title": "Fila central",
+      "summary": "Las ocho teclas de reposo y la Ñ desde el principio.",
+      "lessons": [
+        {
+          "exercise": "l2-asdf",
+          "extended": "l2-asdf-ampliada"
+        },
+        {
+          "exercise": "l2-jkl-enie",
+          "extended": "l2-jkl-enie-ampliada"
+        },
+        {
+          "exercise": "l2-palabras",
+          "extended": "l2-palabras-ampliada"
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "title": "Filas superior e inferior",
+      "summary": "Salir de la fila central y volver a ella con cada dedo.",
+      "lessons": [
+        {
+          "exercise": "l3-fila-superior",
+          "extended": "l3-fila-superior-ampliada"
+        },
+        {
+          "exercise": "l3-fila-inferior",
+          "extended": "l3-fila-inferior-ampliada"
+        },
+        {
+          "exercise": "l3-tres-filas",
+          "extended": "l3-tres-filas-ampliada"
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "title": "Español: tildes, mayúsculas, signos y números",
+      "summary": "Tildes, mayúsculas, puntuación, ¿ y ¡, y la fila de los números.",
+      "lessons": [
+        {
+          "exercise": "l4-tildes",
+          "extended": "l4-tildes-ampliada"
+        },
+        {
+          "exercise": "l4-mayusculas-puntuacion",
+          "extended": "l4-mayusculas-puntuacion-ampliada"
+        },
+        {
+          "exercise": "l4-interrogacion-exclamacion",
+          "extended": "l4-interrogacion-exclamacion-ampliada"
+        },
+        {
+          "exercise": "l4-numeros",
+          "extended": "l4-numeros-ampliada"
+        }
+      ]
+    },
+    {
+      "level": 5,
+      "title": "Fluidez",
+      "summary": "Frases y textos para escribir con ritmo y precisión.",
+      "lessons": [
+        {
+          "exercise": "l5-frases",
+          "extended": "l5-frases-ampliada"
+        },
+        {
+          "exercise": "l5-texto-breve",
+          "extended": "l5-texto-breve-ampliada"
+        }
+      ]
+    }
+  ],
+  "retired": [
+    {
+      "exercise": "l1-alternar-fj",
+      "title": "Alternar F y J",
+      "continueAt": "l2-asdf"
+    },
+    {
+      "exercise": "l1-alternar-fj-ampliada",
+      "title": "Alternar F y J (ampliada)"
+    }
+  ]
+}

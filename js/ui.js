@@ -177,6 +177,9 @@ export function getElements(doc = document) {
   const byId = (id) => doc.getElementById(id);
   return {
     screens: {
+      home: byId('home-screen'),
+      academy: byId('academy-screen'),
+      library: byId('library-screen'),
       setup: byId('setup-screen'),
       play: byId('play-screen'),
       results: byId('results-screen'),
@@ -217,14 +220,11 @@ export function getElements(doc = document) {
       toggle: byId('options-toggle'),
       panel: byId('options-panel'),
       locked: byId('options-locked'),
-      historyGroup: byId('options-history'),
-      historyButton: byId('options-history-button'),
     },
     resultsTrends: {
       empty: byId('results-trends-empty'),
       body: byId('results-trends-body'),
       ...chartElements(byId, 'results'),
-      rows: byId('results-trends-rows'),
     },
     history: {
       title: byId('history-title'),
@@ -239,7 +239,6 @@ export function getElements(doc = document) {
       confirmButton: byId('history-confirm-button'),
       cancelButton: byId('history-cancel-button'),
       actions: byId('history-actions'),
-      backButton: byId('history-back-button'),
       clearButton: byId('history-clear-button'),
     },
   };
@@ -375,14 +374,10 @@ export function renderOptionsOpen(els, open) {
   els.options.toggle.setAttribute('aria-expanded', String(open));
 }
 
-/**
- * Bloquea el cambio de modo durante una partida empezada y oculta el acceso
- * provisional al historial mientras se juega (abrirlo descartaría la partida).
- */
-export function renderOptionsState(els, { locked, playing }) {
+/** Bloquea el cambio de modo durante una partida empezada. */
+export function renderOptionsState(els, { locked }) {
   els.blockOnErrors.disabled = locked;
   els.options.locked.hidden = !locked;
-  els.options.historyGroup.hidden = playing;
 }
 
 export function renderResults(els, stats, mode) {
@@ -460,8 +455,8 @@ function chartDot({ x, y }, tooltip) {
 }
 
 /**
- * Gráfico de línea en SVG, sin librerías. El SVG se anuncia por su descripción
- * textual (aria-labelledby); la tabla de sesiones contiene todos los datos.
+ * Gráfico de línea en SVG, sin librerías. El SVG es decorativo (aria-hidden):
+ * la descripción textual visible (describeSeries) da los datos y la tendencia.
  * @param {{ value: number, date: string }[]} points en orden cronológico
  */
 function renderChart(svg, description, points, { label, maxValue, unit }) {
@@ -482,10 +477,12 @@ function renderChart(svg, description, points, { label, maxValue, unit }) {
   description.textContent = describeSeries(label, values);
 }
 
-function createHistoryRow(session) {
+// `exerciseName(id)` traduce el ID guardado al título del catálogo.
+function createHistoryRow(session, exerciseName) {
   const row = document.createElement('tr');
   const cells = [
     formatDateTime(session.finishedAt),
+    exerciseName(session.exercise),
     String(Math.round(session.wpm)),
     `${Math.round(session.accuracy)} %`,
     formatMode(session.mode),
@@ -521,8 +518,8 @@ function renderTrendCharts(target, recent) {
 
 /**
  * Evolución permanente en la pantalla de resultados: gráficas de las últimas
- * `chartSessions` sesiones guardadas y una tabla con sus datos. Sin sesiones,
- * solo un mensaje (p. ej. si el almacenamiento no está disponible).
+ * `chartSessions` sesiones guardadas con su descripción textual (el listado de
+ * sesiones está en Historial). Sin sesiones, solo un mensaje.
  */
 export function renderResultsTrends(els, sessions, chartSessions) {
   const t = els.resultsTrends;
@@ -531,14 +528,13 @@ export function renderResultsTrends(els, sessions, chartSessions) {
   t.body.hidden = recent.length === 0;
   if (recent.length === 0) return;
   renderTrendCharts(t, recent);
-  t.rows.replaceChildren(...recent.map(createHistoryRow));
 }
 
 /**
  * Pinta la pantalla de historial con el resultado de storage.load().
  * Con 0 sesiones solo se muestra el mensaje de estado.
  */
-export function renderHistory(els, { sessions, status, discarded }, { chartSessions, cleared = false }) {
+export function renderHistory(els, { sessions, status, discarded }, { chartSessions, exerciseName, cleared = false }) {
   const h = els.history;
   const message = historyStatusMessage({ status, count: sessions.length, discarded, cleared });
   // Solo se reescribe al cambiar, para que la región viva no lo repita.
@@ -549,7 +545,7 @@ export function renderHistory(els, { sessions, status, discarded }, { chartSessi
   if (sessions.length === 0) return;
   renderHistorySummary(h, sessions);
   renderTrendCharts(h, sessions.slice(-chartSessions));
-  h.rows.replaceChildren(...sessions.toReversed().map(createHistoryRow));
+  h.rows.replaceChildren(...sessions.toReversed().map((s) => createHistoryRow(s, exerciseName)));
 }
 
 /** Alterna entre las acciones normales y la confirmación de borrado. */

@@ -8,7 +8,11 @@ import {
   isValidRecord,
   parseHistory,
   createHistoryStore,
+  PROGRESS_KEY,
+  parseProgress,
+  createProgressStore,
 } from '../js/storage.js';
+import { createProgress, recordCompletion, recordSkip, advanceCourse } from '../js/progress.js';
 
 // Almacenamiento falso con la interfaz de localStorage. `fail` permite simular
 // fallos por operación: { getItem, setItem, removeItem } → error a lanzar.
@@ -374,5 +378,156 @@ describe('isValidRecord: fecha ISO real', () => {
     const result = parseHistory(raw);
     assert.deepEqual(result.sessions.map((s) => s.id), ['id-1']);
     assert.equal(result.discarded, 1);
+  });
+});
+
+// --- T8: ejercicio del catálogo en el historial ------------------------------------
+
+describe('historial: ejercicio realizado', () => {
+  it('guarda el ID estable del ejercicio del catálogo', () => {
+    const storage = new FakeStorage();
+    createHistoryStore(storage).add(record({ exercise: 'l2-asdf' }));
+    assert.equal(storedJson(storage).sessions[0].exercise, 'l2-asdf');
+  });
+
+  it('sigue aceptando custom-text (práctica libre e historial de T7)', () => {
+    assert.equal(isValidRecord(record({ exercise: EXERCISE_CUSTOM_TEXT })), true);
+  });
+
+  it('los registros de ejercicios retirados del catálogo siguen siendo válidos', () => {
+    const raw = JSON.stringify({ version: 1, sessions: [
+      record({ id: 'old-1', exercise: 'l1-alternar-fj' }),
+      record({ id: 'old-2', exercise: 'l1-alternar-fj-ampliada' }),
+    ] });
+    const result = parseHistory(raw);
+    assert.deepEqual(result.sessions.map((x) => x.exercise), ['l1-alternar-fj', 'l1-alternar-fj-ampliada']);
+    assert.equal(result.discarded, 0);
+  });
+
+  it('rechaza identificadores de ejercicio que no tienen formato de ID', () => {
+    for (const exercise of ['Texto personalizado', 'l2_asdf', '__proto__', ' l2-asdf']) {
+      assert.equal(isValidRecord(record({ exercise })), false, exercise);
+    }
+  });
+});
+
+// --- T8: progreso académico ---------------------------------------------------------
+
+function sampleProgress() {
+  let p = recordCompletion(createProgress(), 'l1-postura-fj', { accuracy: 96.5, wpm: 21.25, passed: true });
+  p = recordCompletion(p, 'l1-alternar-fj', { accuracy: 80, wpm: 18, passed: false });
+  p = recordSkip(p, 'l2-asdf');
+  return advanceCourse(p, ['l1-postura-fj', 'l1-alternar-fj', 'l2-asdf']);
+}
+
+describe('PROGRESS_KEY', () => {
+  it('es una clave versionada distinta de la del historial', () => {
+    assert.match(PROGRESS_KEY, /^typingquest:progress:v\d+$/);
+    assert.notEqual(PROGRESS_KEY, HISTORY_KEY);
+  });
+});
+
+describe('parseProgress', () => {
+  it('sin datos devuelve un progreso vacío', () => {
+    assert.deepEqual(parseProgress(null), { progress: createProgress(), status: 'empty', discarded: 0 });
+  });
+
+  it('JSON corrupto o estructura inesperada → progreso vacío y estado corrupt', () => {
+    for (const raw of ['{x', '[]', '{"version":2,"currentExerciseId":null,"exercises":[]}',
+      '{"version":1,"currentExerciseId":null}', '{"version":1,"currentExerciseId":"Mal ID","exercises":[]}']) {
+      const result = parseProgress(raw);
+      assert.equal(result.status, 'corrupt', raw);
+      assert.deepEqual(result.progress, createProgress());
+    }
+  });
+
+  it('descarta entradas no válidas y conserva las válidas', () => {
+    const valid = { id: 'a', status: 'passed', bestAccuracy: 95, bestWpm: 30 };
+    const raw = JSON.stringify({
+      version: 1,
+      currentExerciseId: 'b',
+      exercises: [
+        valid,
+        { id: 'b', status: 'done', bestAccuracy: 90, bestWpm: 30 },
+        { id: 'c', status: 'passed', bestAccuracy: 120, bestWpm: 30 },
+        { id: 'd', status: 'completed', bestAccuracy: null, bestWpm: null },
+        { id: 'e', status: 'skipped', bestAccuracy: 50, bestWpm: 10 },
+        { id: 'f', status: 'not-started', bestAccuracy: null, bestWpm: null },
+        { id: '__proto__', status: 'skipped', bestAccuracy: null, bestWpm: null },
+        { ...valid },
+        null,
+      ],
+    });
+    const result = parseProgress(raw);
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.progress, { currentExerciseId: 'b', exercises: [valid] });
+    assert.equal(result.discarded, 8);
+  });
+
+  it('solo conserva los campos permitidos', () => {
+    const raw = JSON.stringify({
+      version: 1, currentExerciseId: null, extra: 1,
+      exercises: [{ id: 'a', status: 'skipped', bestAccuracy: null, bestWpm: null, text: 'secreto' }],
+    });
+    const { progress } = parseProgress(raw);
+    assert.deepEqual(progress, { currentExerciseId: null, exercises: [
+      { id: 'a', status: 'skipped', bestAccuracy: null, bestWpm: null },
+    ] });
+  });
+});
+
+describe('progreso guardado con ejercicios retirados', () => {
+  it('conserva sus entradas y su posición tal cual (la migración la decide progress.js)', () => {
+    const raw = JSON.stringify({ version: 1, currentExerciseId: 'l1-alternar-fj', exercises: [
+      { id: 'l1-alternar-fj', status: 'skipped', bestAccuracy: null, bestWpm: null },
+    ] });
+    const { progress, status } = parseProgress(raw);
+    assert.equal(status, 'ok');
+    assert.equal(progress.currentExerciseId, 'l1-alternar-fj');
+    assert.equal(progress.exercises[0].status, 'skipped');
+  });
+});
+
+describe('createProgressStore', () => {
+  it('guarda y recupera el progreso (estados, mejores marcas y posición)', () => {
+    const storage = new FakeStorage();
+    const progress = sampleProgress();
+    assert.deepEqual(createProgressStore(storage).save(progress), { ok: true });
+    const loaded = createProgressStore(storage).load();
+    assert.equal(loaded.status, 'ok');
+    assert.deepEqual(loaded.progress, progress);
+    assert.equal(JSON.parse(storage.data.get(PROGRESS_KEY)).version, 1);
+  });
+
+  it('es independiente del historial', () => {
+    const storage = new FakeStorage();
+    createHistoryStore(storage).add(record());
+    createProgressStore(storage).save(sampleProgress());
+    createHistoryStore(storage).clear();
+    assert.equal(createProgressStore(storage).load().status, 'ok');
+  });
+
+  it('no guarda progreso no válido', () => {
+    const storage = new FakeStorage();
+    const bad = { currentExerciseId: null, exercises: [{ id: 'a', status: 'done' }] };
+    assert.deepEqual(createProgressStore(storage).save(bad), { ok: false, error: 'invalid' });
+    assert.equal(storage.writes, 0);
+  });
+
+  it('no guarda propiedades no autorizadas', () => {
+    const storage = new FakeStorage();
+    const progress = { ...sampleProgress(), text: 'secreto' };
+    progress.exercises = progress.exercises.map((e) => ({ ...e, text: 'secreto' }));
+    createProgressStore(storage).save(progress);
+    assert.equal(storage.data.get(PROGRESS_KEY).includes('secreto'), false);
+  });
+
+  it('gestiona almacenamiento no disponible, cuota y fallos de lectura sin lanzar', () => {
+    assert.deepEqual(createProgressStore(null).load(), { progress: createProgress(), status: 'unavailable', discarded: 0 });
+    assert.deepEqual(createProgressStore(null).save(sampleProgress()), { ok: false, error: 'unavailable' });
+    const quota = createProgressStore(new FakeStorage({}, { setItem: domError('QuotaExceededError') }));
+    assert.deepEqual(quota.save(sampleProgress()), { ok: false, error: 'quota' });
+    const blocked = createProgressStore(new FakeStorage({}, { getItem: domError('SecurityError') }));
+    assert.equal(blocked.load().status, 'unavailable');
   });
 });

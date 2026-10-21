@@ -63,11 +63,17 @@ describe('chartPoints', () => {
 });
 
 describe('describeSeries', () => {
-  it('resume una serie para lectores de pantalla', () => {
+  // T8: la descripción sustituye al listado de Resultados, así que incluye la tendencia.
+  it('resume una serie con su tendencia para lectores de pantalla', () => {
     assert.equal(
       describeSeries('WPM', [30.4, 45.6, 41.2]),
-      'WPM en las últimas 3 sesiones: mínimo 30, máximo 46, última 41.'
+      'WPM en las últimas 3 sesiones: sube de 30 a 41 (mínimo 30, máximo 46).'
     );
+  });
+
+  it('indica si la serie baja o se mantiene', () => {
+    assert.match(describeSeries('WPM', [50, 40]), /: baja de 50 a 40 /);
+    assert.match(describeSeries('WPM', [40.2, 39.8]), /: se mantiene en 40 /);
   });
 
   it('usa el singular con una sesión', () => {

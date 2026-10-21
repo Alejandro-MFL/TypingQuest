@@ -42,12 +42,6 @@
         <p class="options-locked" id="options-locked" hidden>
           No se puede cambiar durante una partida empezada. Sal de la partida para cambiarlo.
         </p>
-        <!-- Acceso PROVISIONAL al historial hasta la página Inicio de T8. -->
-        <div class="options-provisional" id="options-history">
-          <button class="button button-secondary button-small" id="options-history-button" type="button">
-            Historial (provisional)
-          </button>
-        </div>
       </div>
     </div>
     <button
@@ -70,12 +64,131 @@
       </svg>
     </button>
     </div>
+
+    <!-- Navegación principal por rutas hash. Ir a otra sección descarta la partida en curso. -->
+    <nav class="main-nav" aria-label="Principal">
+      <ul class="main-nav-list" id="main-nav">
+        <li><a class="main-nav-link" href="#/inicio" data-route="home">Inicio</a></li>
+        <li><a class="main-nav-link" href="#/academia" data-route="academy">Academia</a></li>
+        <li><a class="main-nav-link" href="#/biblioteca" data-route="library">Biblioteca</a></li>
+        <li><a class="main-nav-link" href="#/historial" data-route="history">Historial</a></li>
+        <li><a class="main-nav-link" href="#/practica-libre" data-route="practice">Práctica libre</a></li>
+      </ul>
+    </nav>
   </header>
 
   <main class="game">
-    <!-- Pantalla 1: preparación del texto -->
-    <section class="screen" id="setup-screen" aria-labelledby="setup-title">
-      <h2 class="screen-title" id="setup-title">Elige tu texto</h2>
+    <!-- Inicio -->
+    <section class="screen" id="home-screen" aria-labelledby="home-title" hidden>
+      <h2 class="screen-title" id="home-title" tabindex="-1">Inicio</h2>
+      <p class="screen-intro">Aprende a escribir sin mirar el teclado o practica con tus propios textos.</p>
+      <ul class="home-cards">
+        <li class="home-card">
+          <a class="home-card-link" href="#/academia">
+            <span class="home-card-title">Academia</span>
+            <span class="home-card-text">El curso paso a paso, de las teclas guía a los textos completos.</span>
+            <span class="home-card-extra" id="home-continue"></span>
+          </a>
+        </li>
+        <li class="home-card">
+          <a class="home-card-link" href="#/biblioteca">
+            <span class="home-card-title">Biblioteca</span>
+            <span class="home-card-text">Todos los ejercicios, con búsqueda y filtros.</span>
+          </a>
+        </li>
+        <li class="home-card">
+          <a class="home-card-link" href="#/historial">
+            <span class="home-card-title">Historial</span>
+            <span class="home-card-text">Tus sesiones anteriores y tu evolución.</span>
+          </a>
+        </li>
+        <li class="home-card">
+          <a class="home-card-link" href="#/practica-libre">
+            <span class="home-card-title">Práctica libre</span>
+            <span class="home-card-text">Escribe o pega cualquier texto para practicar.</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Academia: el curso en orden pedagógico -->
+    <section class="screen" id="academy-screen" aria-labelledby="academy-title" hidden>
+      <h2 class="screen-title" id="academy-title" tabindex="-1">Academia</h2>
+      <p class="catalog-error" id="academy-error" role="alert" hidden></p>
+      <!-- Solo la lección actual del recorrido; el catálogo completo está en la Biblioteca. -->
+      <div id="academy-content">
+        <article class="lesson-card" aria-labelledby="lesson-title">
+          <p class="lesson-position" id="lesson-position"></p>
+          <p class="lesson-level-summary" id="lesson-level-summary"></p>
+          <h3 class="lesson-title" id="lesson-title"></h3>
+          <p class="lesson-description" id="lesson-description"></p>
+          <!-- Una sola tarjeta: estado y objetivos de cada práctica y dos botones. Solo la
+               base forma el recorrido; la ampliada es opcional y está disponible desde el principio. -->
+          <dl class="lesson-practices">
+            <div class="lesson-practice" id="lesson-base-info">
+              <dt>Práctica base</dt>
+              <dd><span id="lesson-status"></span> <span class="lesson-goals" id="lesson-goals"></span></dd>
+            </div>
+            <div class="lesson-practice" id="lesson-extended" hidden>
+              <dt>Práctica ampliada · Opcional</dt>
+              <dd>
+                <span id="lesson-extended-status"></span>
+                <span class="lesson-goals" id="lesson-extended-goals"></span>
+              </dd>
+            </div>
+          </dl>
+          <div class="lesson-actions">
+            <button class="button" id="lesson-start" type="button" aria-describedby="lesson-base-info">
+              Práctica base
+            </button>
+            <button class="button button-secondary" id="lesson-extended-start" type="button"
+              aria-describedby="lesson-extended" hidden>
+              Práctica ampliada
+            </button>
+            <button class="button" id="lesson-next" type="button" hidden>Siguiente ejercicio</button>
+          </div>
+          <p class="course-end" id="lesson-course-end" hidden>
+            Has terminado el recorrido de la Academia. Puedes repasar cualquier ejercicio en la Biblioteca.
+          </p>
+        </article>
+        <p class="academy-hint">
+          ¿Quieres repasar otro ejercicio? Todos están en la <a href="#/biblioteca">Biblioteca</a>
+          y practicarlos allí no cambia tu posición en el curso.
+        </p>
+      </div>
+    </section>
+
+    <!-- Biblioteca: todos los ejercicios -->
+    <section class="screen" id="library-screen" aria-labelledby="library-title" hidden>
+      <h2 class="screen-title" id="library-title" tabindex="-1">Biblioteca</h2>
+      <p class="catalog-error" id="library-error" role="alert" hidden></p>
+      <div id="library-content">
+        <form class="library-filters" id="library-filters" role="search" aria-label="Buscar ejercicios">
+          <div class="filter filter-search">
+            <label class="field-label" for="library-query">Buscar</label>
+            <input class="filter-input" id="library-query" type="search" autocomplete="off">
+          </div>
+          <div class="filter">
+            <label class="field-label" for="library-level">Nivel</label>
+            <select class="filter-input" id="library-level"></select>
+          </div>
+          <div class="filter">
+            <label class="field-label" for="library-difficulty">Dificultad</label>
+            <select class="filter-input" id="library-difficulty"></select>
+          </div>
+          <div class="filter">
+            <label class="field-label" for="library-category">Categoría</label>
+            <select class="filter-input" id="library-category"></select>
+          </div>
+        </form>
+        <p class="library-count" id="library-count" role="status" aria-live="polite"></p>
+        <ul class="exercise-list" id="library-list"></ul>
+      </div>
+    </section>
+
+    <!-- Práctica libre: preparación del texto -->
+    <section class="screen" id="setup-screen" aria-labelledby="setup-title" hidden>
+      <h2 class="screen-title" id="setup-title" tabindex="-1">Práctica libre</h2>
       <form class="setup-form" id="setup-form" novalidate>
         <label class="field-label" for="source-text">Escribe o pega el texto que quieres practicar</label>
         <textarea
@@ -93,8 +206,12 @@
       </form>
     </section>
 
-    <!-- Pantalla 2: escritura -->
+    <!-- Partida: escritura -->
     <section class="screen" id="play-screen" aria-label="Partida" hidden>
+      <div class="play-exercise" id="play-exercise" hidden>
+        <p class="play-exercise-title" id="play-exercise-title"></p>
+        <p class="play-exercise-target" id="play-exercise-target"></p>
+      </div>
       <p class="play-mode"><span class="mode-badge" id="play-mode">Modo libre</span></p>
       <div class="stats" role="group" aria-label="Estadísticas en vivo">
         <div class="stat">
@@ -145,12 +262,20 @@
 
       <div class="play-actions">
         <button class="button button-secondary" id="exit-button" type="button">Salir de la partida</button>
+        <!-- Solo en ejercicios abiertos desde la Academia. -->
+        <button class="button button-secondary" id="skip-button" type="button" hidden>Saltar ejercicio</button>
       </div>
     </section>
 
-    <!-- Pantalla 3: resultados -->
+    <!-- Resultados -->
     <section class="screen results" id="results-screen" aria-labelledby="results-title" hidden>
       <h2 class="screen-title" id="results-title" tabindex="-1">Resultados</h2>
+      <p class="result-exercise" id="result-exercise" hidden></p>
+      <!-- Objetivos del ejercicio: terminar no es lo mismo que superarlo. -->
+      <div class="target-result" id="target-result" hidden>
+        <p class="target-result-title" id="target-result-title"></p>
+        <ul class="objective-list" id="objective-list"></ul>
+      </div>
       <dl class="results-secondary">
         <div class="result-item">
           <dt>Precisión</dt><dd id="result-accuracy">0 %</dd>
@@ -170,53 +295,40 @@
       <p class="result-mode" id="result-mode">Modo libre</p>
       <!-- Aviso de fallo al guardar: región de estado siempre presente (vacía si no hay error). -->
       <p class="result-save-error" id="result-save-error" role="status" aria-live="polite"></p>
+      <p class="course-end" id="course-end" hidden>Has llegado al final del recorrido de la Academia.</p>
       <div class="actions">
         <button class="button" id="retry-button" type="button">Reintentar</button>
+        <button class="button" id="next-exercise-button" type="button" hidden>Siguiente ejercicio</button>
         <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>
+        <button class="button button-secondary" id="back-to-origin-button" type="button" hidden></button>
       </div>
 
       <section class="trends" id="results-trends" aria-labelledby="results-trends-title">
         <h3 class="trends-title" id="results-trends-title">Tu evolución</h3>
         <p class="trends-empty" id="results-trends-empty" hidden>
-          Todavía no hay sesiones guardadas. La evolución aparecerá cuando se guarden tus prácticas.
+          Todavía no hay sesiones guardadas para mostrar tu evolución.
         </p>
         <div class="trends-body" id="results-trends-body">
           <div class="history-charts">
+            <!-- La gráfica es decorativa; su descripción textual visible da los datos. -->
             <figure class="chart">
               <figcaption class="chart-title">Evolución de WPM</figcaption>
-              <svg class="chart-svg chart-wpm" id="results-chart-wpm" role="img"
-                aria-labelledby="results-chart-wpm-description" viewBox="0 0 320 140"></svg>
+              <svg class="chart-svg chart-wpm" id="results-chart-wpm" aria-hidden="true" focusable="false"
+                viewBox="0 0 320 140"></svg>
               <p class="chart-description" id="results-chart-wpm-description"></p>
             </figure>
             <figure class="chart">
               <figcaption class="chart-title">Evolución de la precisión</figcaption>
-              <svg class="chart-svg chart-accuracy" id="results-chart-accuracy" role="img"
-                aria-labelledby="results-chart-accuracy-description" viewBox="0 0 320 140"></svg>
+              <svg class="chart-svg chart-accuracy" id="results-chart-accuracy" aria-hidden="true" focusable="false"
+                viewBox="0 0 320 140"></svg>
               <p class="chart-description" id="results-chart-accuracy-description"></p>
             </figure>
           </div>
-          <details class="trends-data">
-            <summary>Ver los datos de las gráficas</summary>
-            <div class="history-table-wrapper">
-              <table class="history-table">
-                <caption>Sesiones de las gráficas, de la más antigua a la más reciente</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Fecha</th>
-                    <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
-                    <th scope="col">Precisión</th>
-                    <th scope="col">Modo</th>
-                  </tr>
-                </thead>
-                <tbody id="results-trends-rows"></tbody>
-              </table>
-            </div>
-          </details>
         </div>
       </section>
     </section>
 
-    <!-- Pantalla 4: historial de sesiones completadas -->
+    <!-- Historial de sesiones completadas -->
     <section class="screen history" id="history-screen" aria-labelledby="history-title" hidden>
       <h2 class="screen-title" id="history-title" tabindex="-1">Historial</h2>
       <!-- Estado del historial (vacío, no disponible, borrado…). Siempre en el DOM. -->
@@ -238,14 +350,14 @@
         <div class="history-charts">
           <figure class="chart">
             <figcaption class="chart-title">Evolución de WPM</figcaption>
-            <svg class="chart-svg chart-wpm" id="history-chart-wpm" role="img" aria-labelledby="history-chart-wpm-description"
+            <svg class="chart-svg chart-wpm" id="history-chart-wpm" aria-hidden="true" focusable="false"
               viewBox="0 0 320 140"></svg>
             <p class="chart-description" id="history-chart-wpm-description"></p>
           </figure>
           <figure class="chart">
             <figcaption class="chart-title">Evolución de la precisión</figcaption>
-            <svg class="chart-svg chart-accuracy" id="history-chart-accuracy" role="img"
-              aria-labelledby="history-chart-accuracy-description" viewBox="0 0 320 140"></svg>
+            <svg class="chart-svg chart-accuracy" id="history-chart-accuracy" aria-hidden="true" focusable="false"
+              viewBox="0 0 320 140"></svg>
             <p class="chart-description" id="history-chart-accuracy-description"></p>
           </figure>
         </div>
@@ -256,6 +368,7 @@
             <thead>
               <tr>
                 <th scope="col">Fecha</th>
+                <th scope="col">Ejercicio</th>
                 <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
                 <th scope="col">Precisión</th>
                 <th scope="col">Modo</th>
@@ -269,6 +382,7 @@
       <div class="history-confirm" id="history-confirm" role="group" aria-labelledby="history-confirm-text" hidden>
         <p class="history-confirm-text" id="history-confirm-text">
           ¿Borrar todas las sesiones del historial? Esta acción no se puede deshacer.
+          El progreso de la Academia no se borra.
         </p>
         <div class="actions">
           <button class="button button-danger" id="history-confirm-button" type="button">Sí, borrar</button>
@@ -277,7 +391,6 @@
       </div>
 
       <div class="actions" id="history-actions">
-        <button class="button" id="history-back-button" type="button">Volver</button>
         <button class="button button-danger" id="history-clear-button" type="button">Borrar historial</button>
       </div>
     </section>

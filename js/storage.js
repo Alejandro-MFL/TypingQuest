@@ -1,15 +1,20 @@
-// Persistencia del historial de partidas. Único módulo que accede al
-// almacenamiento; lo recibe inyectado (localStorage o un doble en los tests),
-// así que no toca el DOM ni lee el reloj.
+// Persistencia del historial de partidas y del progreso académico. Único módulo
+// que accede al almacenamiento; lo recibe inyectado (localStorage o un doble en
+// los tests), así que no toca el DOM ni lee el reloj.
 //
-// Formato (clave versionada): { version: 1, sessions: [registro, …] } en orden
+// Historial (clave versionada): { version: 1, sessions: [registro, …] } en orden
 // de finalización. Un registro solo contiene los campos de RECORD_FIELDS (métricas,
 // modo y ejercicio), nunca el texto practicado: cualquier otra propiedad se
 // descarta al guardar y al recuperar. Añadir un campo (p. ej. el análisis de
 // teclas) exige ampliar RECORD_FIELDS y su validación, con sus tests.
+// `exercise` es el ID estable del catálogo, o 'custom-text' en la práctica libre.
+//
+// Progreso (otra clave versionada): ver la sección final y js/progress.js.
 //
 // Ninguna función lanza por fallos del almacenamiento: devuelven un estado.
 import { MODES } from './game.js';
+import { isValidExerciseId } from './catalog.js';
+import { EXERCISE_STATUS, createProgress } from './progress.js';
 
 export const HISTORY_KEY = 'typingquest:history:v1';
 // Campos permitidos de una sesión guardada, en el orden en que se escriben.
@@ -88,7 +93,7 @@ export function isValidRecord(record) {
     Number.isInteger(record.errors) &&
     record.errors >= 0 &&
     MODES.includes(record.mode) &&
-    isNonEmptyString(record.exercise)
+    isValidExerciseId(record.exercise)
   );
 }
 
@@ -117,15 +122,15 @@ function classifyWriteError(error) {
   return 'write-failed';
 }
 
-/**
- * Historial sobre un almacenamiento con la interfaz de localStorage, o null si
- * no está disponible (la aplicación sigue funcionando sin historial).
- */
 // Límite efectivo: un entero ≥ 1 (con 0, slice(-0) conservaría todo el historial).
 function normalizeMaxSessions(value) {
   return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : DEFAULT_MAX_SESSIONS;
 }
 
+/**
+ * Historial sobre un almacenamiento con la interfaz de localStorage, o null si
+ * no está disponible (la aplicación sigue funcionando sin historial).
+ */
 export function createHistoryStore(storage, { maxSessions = DEFAULT_MAX_SESSIONS } = {}) {
   const limit = normalizeMaxSessions(maxSessions);
   function load() {
@@ -168,4 +173,105 @@ export function createHistoryStore(storage, { maxSessions = DEFAULT_MAX_SESSIONS
   }
 
   return { load, add, clear };
+}
+
+// --- Progreso académico -----------------------------------------------------------
+//
+// Formato: { version: 1, currentExerciseId: id | null, exercises: [entrada, …] }.
+// Cada entrada solo tiene los campos de PROGRESS_ENTRY_FIELDS. Los ejercicios sin
+// entrada están «no realizados»; un saltado no tiene marcas, uno completado o
+// superado tiene ambas. Las entradas no válidas o repetidas se descartan.
+
+export const PROGRESS_KEY = 'typingquest:progress:v1';
+const PROGRESS_VERSION = 1;
+const PROGRESS_ENTRY_FIELDS = Object.freeze(['id', 'status', 'bestAccuracy', 'bestWpm']);
+const STORED_STATUSES = new Set([EXERCISE_STATUS.SKIPPED, EXERCISE_STATUS.COMPLETED, EXERCISE_STATUS.PASSED]);
+
+function isAccuracy(value) {
+  return isNonNegativeNumber(value) && value <= 100;
+}
+
+function isValidProgressEntry(entry) {
+  if (entry === null || typeof entry !== 'object' || !isValidExerciseId(entry.id)) return false;
+  if (!STORED_STATUSES.has(entry.status)) return false;
+  if (entry.status === EXERCISE_STATUS.SKIPPED) return entry.bestAccuracy === null && entry.bestWpm === null;
+  return isAccuracy(entry.bestAccuracy) && isNonNegativeNumber(entry.bestWpm);
+}
+
+function pickProgressEntry(entry) {
+  return Object.fromEntries(PROGRESS_ENTRY_FIELDS.map((field) => [field, entry[field]]));
+}
+
+function isValidPosition(value) {
+  return value === null || isValidExerciseId(value);
+}
+
+// Entradas válidas sin repetir ID (se conserva la primera).
+function validProgressEntries(entries) {
+  const seen = new Set();
+  return entries.filter((entry) => {
+    if (!isValidProgressEntry(entry) || seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  }).map(pickProgressEntry);
+}
+
+/**
+ * Interpreta el progreso guardado. Nunca lanza.
+ * @returns {{ progress: object, status: 'ok'|'empty'|'corrupt', discarded: number }}
+ */
+export function parseProgress(raw) {
+  const empty = (status) => ({ progress: createProgress(), status, discarded: 0 });
+  if (raw === null || raw === undefined) return empty('empty');
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return empty('corrupt');
+  }
+  if (!data || data.version !== PROGRESS_VERSION || !Array.isArray(data.exercises) ||
+      !isValidPosition(data.currentExerciseId)) {
+    return empty('corrupt');
+  }
+  const exercises = validProgressEntries(data.exercises);
+  return {
+    progress: { currentExerciseId: data.currentExerciseId, exercises },
+    status: 'ok',
+    discarded: data.exercises.length - exercises.length,
+  };
+}
+
+/** Progreso sobre un almacenamiento con la interfaz de localStorage, o null. */
+export function createProgressStore(storage) {
+  function load() {
+    if (!storage) return { progress: createProgress(), status: 'unavailable', discarded: 0 };
+    try {
+      return parseProgress(storage.getItem(PROGRESS_KEY));
+    } catch {
+      return { progress: createProgress(), status: 'unavailable', discarded: 0 };
+    }
+  }
+
+  // Se guarda el progreso completo; solo los campos permitidos y si es válido.
+  function save(progress) {
+    const entries = Array.isArray(progress?.exercises) ? progress.exercises : null;
+    if (!entries || !isValidPosition(progress.currentExerciseId) ||
+        !entries.every(isValidProgressEntry)) {
+      return { ok: false, error: 'invalid' };
+    }
+    if (!storage) return { ok: false, error: 'unavailable' };
+    const data = {
+      version: PROGRESS_VERSION,
+      currentExerciseId: progress.currentExerciseId,
+      exercises: entries.map(pickProgressEntry),
+    };
+    try {
+      storage.setItem(PROGRESS_KEY, JSON.stringify(data));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: classifyWriteError(error) };
+    }
+  }
+
+  return { load, save };
 }

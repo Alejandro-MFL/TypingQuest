@@ -38,9 +38,12 @@ export function describeSeries(label, values) {
   if (values.length === 0) return `${label}: sin sesiones.`;
   const last = Math.round(values.at(-1));
   if (values.length === 1) return `${label} en la última sesión: ${last}.`;
+  const first = Math.round(values[0]);
   const min = Math.round(Math.min(...values));
   const max = Math.round(Math.max(...values));
-  return `${label} en las últimas ${values.length} sesiones: mínimo ${min}, máximo ${max}, última ${last}.`;
+  const trend = last > first ? `sube de ${first} a ${last}` : last < first
+    ? `baja de ${first} a ${last}` : `se mantiene en ${last}`;
+  return `${label} en las últimas ${values.length} sesiones: ${trend} (mínimo ${min}, máximo ${max}).`;
 }
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('es-ES', {
