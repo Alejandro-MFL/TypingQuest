@@ -15,6 +15,10 @@
   --color-status-skipped: #f4f4f6;
   --color-status-completed: #f2994a;
   --color-status-passed: #6fcf97;
+  /* Guía de teclado: modificadores (Mayús, AltGr) en azul; error en el rojo del juego. */
+  --color-guide-modifier: #56ccf2;
+  --color-hand: #3d404e;
+  --color-hand-line: #8a8ea0;
   --font-mono: "Consolas", "Courier New", monospace;
   --chunk-line-height: 1.6;
   --chunk-lines: 3;
@@ -1235,4 +1239,213 @@ body {
 
 .library-lesson .lesson-practice .button {
   margin-left: auto;
+}
+
+/* --- Guía de teclado y manos (T9) --- */
+
+.guide {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+}
+
+/* Alto reservado: el texto cambia con cada tecla sin mover el teclado. */
+.guide-hint {
+  min-height: 3em;
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.guide-rest {
+  margin: 0 0 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: clamp(0.5625rem, 2.2vw, 0.8125rem);
+}
+
+.kb-row {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.kb-key {
+  position: relative;
+  display: flex;
+  flex: var(--w) 1 0;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  height: 2.6em;
+  padding: 0.15em 0.3em;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 3px;
+  border-radius: 0.3em;
+  background: var(--color-bg);
+  color: var(--color-pending);
+  line-height: 1.1;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.kb-top {
+  min-height: 1.1em;
+  color: var(--color-muted);
+}
+
+.kb-bottom {
+  font-weight: bold;
+}
+
+/* Zona de cada dedo: color sutil en el borde inferior de la tecla. */
+.kb-key[data-finger="left-pinky"], .kb-key[data-finger="right-pinky"] { border-bottom-color: #a78bfa; }
+.kb-key[data-finger="left-ring"], .kb-key[data-finger="right-ring"] { border-bottom-color: #60a5fa; }
+.kb-key[data-finger="left-middle"], .kb-key[data-finger="right-middle"] { border-bottom-color: #34d399; }
+.kb-key[data-finger="left-index"], .kb-key[data-finger="right-index"] { border-bottom-color: #fbbf24; }
+
+/* Teclas de reposo F y J (y el resto de la fila guía): marca en relieve. */
+.kb-home::after {
+  content: "";
+  position: absolute;
+  top: 0.4em;
+  right: 0.4em;
+  width: 0.7em;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-muted);
+}
+
+.kb-key[data-code="KeyF"]::after,
+.kb-key[data-code="KeyJ"]::after {
+  width: 1em;
+  background: var(--color-text);
+}
+
+.kb-key.is-target {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.kb-key.is-target .kb-top {
+  color: var(--color-bg);
+}
+
+/* Primer paso de un acento: tecla muerta, marcada con borde discontinuo. */
+.kb-key.is-dead {
+  border-style: dashed;
+}
+
+.kb-key.is-modifier {
+  border: 2px dashed var(--color-guide-modifier);
+  background: rgba(86, 204, 242, 0.18);
+  color: var(--color-text);
+}
+
+/* Error: rojo, distinto del objetivo dorado (y con borde, no solo color). */
+.kb-key.is-error {
+  border: 2px solid var(--color-incorrect);
+  background: var(--color-incorrect-bg);
+  color: var(--color-text);
+}
+
+.hands {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.hands-svg {
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+}
+
+.hands-svg .palm,
+.hands-svg .finger rect {
+  fill: var(--color-hand);
+  stroke: var(--color-hand-line);
+  stroke-width: 2;
+  transition: fill 120ms ease;
+}
+
+.hands-svg .finger.is-modifier rect {
+  fill: var(--color-guide-modifier);
+  stroke: var(--color-text);
+}
+
+.hands-svg .finger.is-primary rect {
+  fill: var(--color-accent);
+  stroke: var(--color-text);
+}
+
+.help-option {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.help-legend {
+  padding: 0;
+  font-weight: bold;
+}
+
+#help-context {
+  color: var(--color-muted);
+  font-weight: normal;
+}
+
+.help-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+}
+
+.help-choice input {
+  accent-color: var(--color-accent);
+}
+
+@media (max-width: 30rem) {
+  .guide {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .kb-row,
+  .keyboard {
+    gap: 0.15rem;
+  }
+
+  .kb-key {
+    padding: 0.1em 0.15em;
+  }
+
+  /* En pantallas muy estrechas se simplifica: solo el carácter principal. */
+  .kb-top {
+    display: none;
+  }
+
+  .hands-svg {
+    max-width: 18rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kb-key,
+  .hands-svg .palm,
+  .hands-svg .finger rect {
+    transition: none;
+  }
 }

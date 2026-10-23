@@ -34,13 +34,16 @@ js/catalog.js         # PURO: validación del catálogo y del curso; lecciones y
 js/progress.js        # PURO: estados de los ejercicios, posición del recorrido y vista de la Academia.
 js/objectives.js      # PURO: objetivos de precisión y WPM (aplicabilidad y fiabilidad).
 js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre).
+js/keyboard.js        # PURO: teclado español ISO, dedos, resolución carácter → teclas y ayudas.
+js/keyboard-ui.js     # Guía visual: teclado (HTML/CSS) y manos (SVG propio), solo presentación.
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
 js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo, progreso y pantallas.
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
-                      # catalog (incluye los JSON reales), progress, objectives, router y course-ui.
+                      # catalog (incluye los JSON reales), progress, objectives, router, course-ui
+                      # y keyboard.
 .claude/launch.json   # Servidor de vista previa para Claude Code.
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
@@ -50,10 +53,11 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
-  `progress.js`, `objectives.js`, `router.js`. El instante actual se inyecta como parámetro (`now`).
+  `progress.js`, `objectives.js`, `router.js`, `keyboard.js`. El instante actual se inyecta
+  como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
-- Módulos de interfaz: `ui.js` y `course-ui.js` (pintan y manipulan el DOM), `main.js`
+- Módulos de interfaz: `ui.js`, `course-ui.js` y `keyboard-ui.js` (pintan el DOM), `main.js`
   (escucha eventos, gestiona rutas, foco, temporizadores y pantallas) y `sound.js` (audio).
 - `ui.js` y `course-ui.js` exportan además helpers PUROS (`charStates`, `spaceHintPosition`,
   `isFragmentBlocked`, `resolveNotice`, `statusInfo`, `formatTargetResult`, formatos)
@@ -309,6 +313,44 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   catálogo: no se duplican ejercicios. Todo se hace sin bloqueos.
 - Saltar (solo dentro de la lección actual) registra `skipped` si no había un logro
   superior, avanza uno y abre el nuevo actual (en el último, vuelve a la Academia).
+
+## Guía de teclado y dedos (`js/keyboard.js`, `js/keyboard-ui.js`)
+
+- Modelo PURO del teclado español de España (QWERTY ISO) por `KeyboardEvent.code`:
+  `KEYBOARD_ROWS` (5 filas de 15 unidades: numérica con º y ¡, superior con ` ^ y +,
+  central con Ñ, ´ ¨ y Ç, inferior con < > y - _, y la de control con espacio y AltGr).
+  Cada tecla: `base`, `shift`, `altGr`, `dead` (marca combinante) y dedos.
+- Dedos (`FINGERS`): reposo A S D F (meñique a índice izquierdos) y J K L Ñ (índice a
+  meñique derechos), índices sobre F y J (también G/H y sus columnas); 6 y 7 con el
+  índice derecho; números, símbolos y teclas de la derecha de la Ñ con el meñique
+  derecho; espacio con los pulgares; AltGr con el pulgar derecho.
+- `resolveCharacter(char)` distingue carácter, tecla física, modificadores, dedo y mano:
+  - Mayús siempre de la mano CONTRARIA a la tecla (A → Mayús derecha; Ñ → izquierda).
+  - Vocales con tilde, diéresis, grave o circunflejo: DOS pasos (tecla muerta y vocal).
+    `code` identifica la posición física, pero no basta para acentos ni modificadores.
+  - Lo que no se puede resolver con fiabilidad devuelve `known: false` y una indicación
+    genérica («Busca «x» en tu teclado»), nunca una posición inventada. Todos los
+    caracteres del catálogo actual se resuelven (lo comprueba un test).
+- `guideTarget(state, { blocked })` lee el estado del motor sin mutarlo: el siguiente
+  carácter esperado, Retroceso si el fragmento está bloqueado (estricto) o null al
+  terminar. `describeResolution` da el texto («Pulsa Ñ con el meñique derecho.»).
+- `keyboard-ui.js`: teclado HTML/CSS y manos SVG ORIGINALES (palma y cinco dedos por
+  mano; la derecha es el reflejo de la izquierda), sin imágenes ni `innerHTML`. Objetivo
+  en dorado; tecla muerta con borde discontinuo; modificadores en azul discontinuo;
+  error (última tecla física errónea, `KeyboardEvent.code`) en rojo con borde. Zonas de
+  dedo con un borde inferior de color sutil y marca de reposo en la fila central.
+- Integración (`main.js`): la guía se pinta en cada `render()`; es SOLO presentación:
+  no cambia el texto, no pulsa nada, no toca métricas ni cronómetro, y se limpia al
+  terminar, salir o reiniciar. Va debajo del carril (no lo desplaza) y su texto tiene
+  alto reservado. El texto NO es región viva: el campo de escritura lo usa como
+  `aria-describedby`; teclado y manos son `aria-hidden`.
+- Ayudas (`HELP_MODES`: `full`, `keyboard`, `none`) en Opciones, cambiables durante la
+  partida sin reiniciarla. Preferencia por contexto (`helpContext`): ejercicios
+  (Academia y Biblioteca) por defecto `full`; práctica libre por defecto `none`. No se
+  guarda entre recargas. Recordatorio de reposo solo en niveles 1-2 (`showsRestReminder`).
+- Móvil: el teclado se ajusta al ancho (sin scroll horizontal) y oculta los rótulos
+  secundarios; las manos se reducen. `prefers-reduced-motion`: sin transiciones.
+- Pendiente (no T9): estadísticas por dedo.
 
 ## Convenciones
 

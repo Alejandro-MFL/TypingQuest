@@ -1,5 +1,5 @@
 // Punto de entrada: coordina eventos, rutas, motor (game.js) e interfaz (ui.js,
-// course-ui.js). No contiene reglas de juego ni de progreso: las deciden
+// course-ui.js, keyboard-ui.js). No contiene reglas de juego ni de progreso: las deciden
 // applyInput (game.js) y las funciones puras de progress.js.
 import { CONFIG } from './config.js';
 import { prepareText } from './text-prep.js';
@@ -18,6 +18,11 @@ import { evaluateObjectives } from './objectives.js';
 import { parseRoute, routeHash } from './router.js';
 import * as ui from './ui.js';
 import * as courseUi from './course-ui.js';
+import {
+  getKey, resolveCharacter, resolveBackspace, describeResolution, guideTarget, isWrongInsertion,
+  DEFAULT_HELP_MODES, helpContext, showsRestReminder,
+} from './keyboard.js';
+import { createKeyboard, createHands, renderGuide } from './keyboard-ui.js';
 
 // Escritura secuencial: solo se admite insertar al final y borrar hacia atrás.
 const ALLOWED_INPUT_TYPES = new Set([
@@ -60,6 +65,14 @@ let statsTimer = null;
 const notices = { focusLost: false, errorsBlocking: false, spaceReady: false };
 let spaceHintTimer = null;
 let spaceHintAt = null;
+// Guía de teclado (solo presentación). Ayudas por contexto ('exercise' | 'free'),
+// tecla física de la última pulsación y tecla del último error para marcarla.
+const guide = createGuide();
+const helpModes = { ...DEFAULT_HELP_MODES };
+// Teclas que nunca cuentan como «la tecla pulsada» de un carácter.
+const MODIFIER_CODES = new Set(['ShiftLeft', 'ShiftRight', 'AltRight', 'AltLeft', 'ControlLeft', 'ControlRight', 'CapsLock']);
+let lastKeyCode = null;
+let guideErrorCode = null;
 
 // --- Navegación ------------------------------------------------------------------
 
@@ -237,6 +250,7 @@ function enterPlay() {
   ui.renderPlayMode(els, session.state.mode);
   courseUi.renderPlayExercise(ce, session.exercise, { canSkip: session.courseStep });
   ui.syncInput(els.input, session.state.typed);
+  guideErrorCode = null;
   render();
   els.input.focus();
 }
@@ -250,6 +264,52 @@ function render() {
   ui.renderChunks(els, state, chunks);
   ui.renderProgress(els, getProgress(state));
   ui.renderStats(els, getStats(state, performance.now()), CONFIG.minWpmElapsedMs);
+  renderKeyboardGuide();
+}
+
+// --- Guía de teclado ---------------------------------------------------------------
+
+function createGuide() {
+  const byId = (id) => document.getElementById(id);
+  return {
+    section: byId('guide'),
+    hint: byId('guide-hint'),
+    rest: byId('guide-rest'),
+    keyboard: byId('keyboard'),
+    hands: byId('hands'),
+    keys: createKeyboard(byId('keyboard')),
+    fingers: createHands(byId('hands')),
+  };
+}
+
+function currentHelpContext() {
+  return helpContext({ origin: session?.origin ?? null, screen: currentScreen });
+}
+
+// Siguiente carácter esperado según el estado del motor (o Retroceso si el
+// fragmento está bloqueado). Solo lee el estado: no lo modifica.
+function currentResolution() {
+  const target = guideTarget(session.state, { blocked: ui.isFragmentBlocked(session.state, session.chunks) });
+  if (target === null) return null;
+  return target.kind === 'backspace' ? resolveBackspace() : resolveCharacter(target.char);
+}
+
+function renderKeyboardGuide() {
+  const resolution = session ? currentResolution() : null;
+  renderGuide(guide, {
+    mode: session ? helpModes[currentHelpContext()] : 'none',
+    resolution,
+    text: resolution ? describeResolution(resolution) : '',
+    errorCode: guideErrorCode,
+    showRest: showsRestReminder(session?.exercise ?? null),
+  });
+}
+
+// Tecla que se marca como error: la física pulsada (KeyboardEvent.code) o, si no se
+// conoce, la que escribiría el carácter erróneo en el teclado español.
+function errorKeyFor(wrongChar) {
+  if (lastKeyCode && getKey(lastKeyCode) && !MODIFIER_CODES.has(lastKeyCode)) return lastKeyCode;
+  return resolveCharacter(wrongChar).steps.at(-1)?.code ?? null;
 }
 
 function processInput() {
@@ -259,6 +319,7 @@ function processInput() {
   const next = applyInput(previous, attempted, performance.now());
   if (next !== previous) {
     session.state = next;
+    guideErrorCode = isWrongInsertion(previous, next) ? errorKeyFor(next.typed.at(-1)) : null;
     if (previous.status === 'idle') {
       startStatsTimer();
       // Primera pulsación: a partir de aquí el modo queda bloqueado.
@@ -268,6 +329,7 @@ function processInput() {
   } else if (attempted.length > previous.typed.length && ui.isFragmentBlocked(previous, session.chunks)) {
     // Intento de avanzar con el fragmento lleno de errores: el motor lo rechazó.
     notices.errorsBlocking = true;
+    guideErrorCode = errorKeyFor(attempted.at(-1));
   }
   // Rechazada: restaura el textarea. Aceptada: lo alinea con el texto normalizado.
   ui.syncInput(els.input, session.state.typed);
@@ -326,6 +388,7 @@ function resetNotices() {
 function finishGame() {
   stopStatsTimer();
   resetNotices();
+  guideErrorCode = null;
   const stats = getStats(session.state, performance.now());
   const evaluation = session.exercise ? evaluateObjectives(stats, session.exercise) : null;
   ui.renderResults(els, stats, session.state.mode);
@@ -357,6 +420,8 @@ function leaveGame() {
   ui.renderSaveError(els, null);
   composing = false;
   session = null;
+  guideErrorCode = null;
+  renderKeyboardGuide();
 }
 
 // --- Historial y progreso al terminar ------------------------------------------------
@@ -465,6 +530,8 @@ function handleInput(event) {
 function handleKeyDown(event) {
   // Una pulsación es una interacción válida para crear o reanudar el audio.
   sound.unlock();
+  // Posición física de la última tecla (para marcar un error en el teclado visual).
+  if (!MODIFIER_CODES.has(event.code)) lastKeyCode = event.code;
   const shortcut = (event.ctrlKey || event.metaKey) && BLOCKED_SHORTCUTS.has(event.key?.toLowerCase());
   if (NAVIGATION_KEYS.has(event.key) || shortcut) event.preventDefault();
 }
@@ -569,6 +636,19 @@ function handleModeChange() {
   }
 }
 
+// Ayudas visuales: cambian solo la presentación, también en mitad de una partida.
+function renderHelpOption() {
+  const context = currentHelpContext();
+  els.helpContext.textContent = context === 'free' ? 'en práctica libre' : 'en ejercicios';
+  for (const radio of els.helpRadios) radio.checked = radio.value === helpModes[context];
+}
+
+function handleHelpChange(event) {
+  if (event.target.name !== 'help-mode') return;
+  helpModes[currentHelpContext()] = event.target.value;
+  renderKeyboardGuide();
+}
+
 function isOptionsOpen() {
   return !els.options.panel.hidden;
 }
@@ -585,6 +665,7 @@ function handleOptionsToggle() {
     closeOptions();
     return;
   }
+  renderHelpOption();
   ui.renderOptionsOpen(els, true);
   els.blockOnErrors.focus();
 }
@@ -629,6 +710,7 @@ function bindEvents() {
   els.soundToggle.addEventListener('click', handleSoundToggle);
   els.options.toggle.addEventListener('click', handleOptionsToggle);
   els.blockOnErrors.addEventListener('change', handleModeChange);
+  els.helpOption.addEventListener('change', handleHelpChange);
   document.addEventListener('keydown', handleDocumentKeyDown);
   document.addEventListener('click', handleDocumentClick);
   els.history.clearButton.addEventListener('click', handleClearRequest);

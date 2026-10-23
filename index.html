@@ -42,6 +42,13 @@
         <p class="options-locked" id="options-locked" hidden>
           No se puede cambiar durante una partida empezada. Sal de la partida para cambiarlo.
         </p>
+        <!-- Ayudas visuales: se pueden cambiar en cualquier momento, también durante la partida. -->
+        <fieldset class="help-option" id="help-option">
+          <legend class="help-legend">Ayudas visuales <span id="help-context">en ejercicios</span></legend>
+          <label class="help-choice"><input type="radio" name="help-mode" value="full"> Teclado y manos</label>
+          <label class="help-choice"><input type="radio" name="help-mode" value="keyboard"> Solo teclado</label>
+          <label class="help-choice"><input type="radio" name="help-mode" value="none"> Sin ayudas</label>
+        </fieldset>
       </div>
     </div>
     <button
@@ -254,11 +261,25 @@
           class="hidden-input"
           id="typing-input"
           aria-label="Escribe aquí el fragmento activo"
+          aria-describedby="guide-hint"
           autocomplete="off"
           autocorrect="off"
           autocapitalize="off"
           spellcheck="false"></textarea>
       </div>
+
+      <!-- Guía de teclado y manos: debajo del carril, para no desplazarlo. Solo presentación.
+           La indicación textual NO es una región viva (no se anuncia en cada pulsación);
+           el campo de escritura la usa como descripción. -->
+      <section class="guide" id="guide" aria-labelledby="guide-title" hidden>
+        <h3 class="visually-hidden" id="guide-title">Guía de teclado</h3>
+        <p class="guide-hint" id="guide-hint"></p>
+        <p class="guide-rest" id="guide-rest" hidden>
+          Posición de reposo: A S D F con la mano izquierda y J K L Ñ con la derecha, índices en F y J.
+        </p>
+        <div class="keyboard" id="keyboard" aria-hidden="true"></div>
+        <div class="hands" id="hands" aria-hidden="true"></div>
+      </section>
 
       <div class="play-actions">
         <button class="button button-secondary" id="exit-button" type="button">Salir de la partida</button>
