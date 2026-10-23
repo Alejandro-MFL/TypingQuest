@@ -12,6 +12,7 @@ import {
   skipCurrent,
   academyView,
   resolveRetiredPosition,
+  restartCourse,
 } from '../js/progress.js';
 
 const { NOT_STARTED, SKIPPED, COMPLETED, PASSED } = EXERCISE_STATUS;
@@ -260,5 +261,52 @@ describe('resolveRetiredPosition (lecciones retiradas del curso)', () => {
     const broken = new Map([['x', { continueAt: 'no-esta' }]]);
     const progress = saved('x');
     assert.equal(resolveRetiredPosition(progress, ORDER, broken), progress);
+  });
+});
+
+describe('restartCourse («Reiniciar Academia»)', () => {
+  // Posición avanzada con logros de todo tipo: superado, terminado y saltado.
+  const advanced = () => {
+    let p = complete(createProgress(), 'a', true, { accuracy: 97.5, wpm: 41 });
+    p = advanceCourse(p, ORDER);
+    p = complete(p, 'b', false, { accuracy: 70, wpm: 12 });
+    p = skipCurrent(advanceCourse(p, ORDER), ORDER);
+    return complete(p, 'z-ampliada', true);
+  };
+
+  it('devuelve la posición a la primera lección del curso', () => {
+    const p = restartCourse(advanced(), ORDER);
+    assert.equal(p.currentExerciseId, 'a');
+    assert.equal(current(p), 'a');
+  });
+
+  it('conserva estados y mejores marcas (superado, terminado, saltado y ampliadas)', () => {
+    const before = advanced();
+    const after = restartCourse(before, ORDER);
+    assert.deepEqual(after.exercises, before.exercises);
+    assert.equal(status(after, 'a'), PASSED);
+    assert.equal(status(after, 'b'), COMPLETED);
+    assert.equal(status(after, 'c'), SKIPPED);
+    assert.equal(getExerciseProgress(after, 'a').bestAccuracy, 97.5);
+    assert.equal(getExerciseProgress(after, 'a').bestWpm, 41);
+  });
+
+  it('no muta el progreso recibido', () => {
+    const before = deepFreeze(advanced());
+    const snapshot = structuredClone(before);
+    restartCourse(before, ORDER);
+    assert.deepEqual(before, snapshot);
+  });
+
+  it('desde el inicio y con un curso vacío no cambia nada', () => {
+    const fresh = createProgress();
+    assert.equal(current(restartCourse(fresh, ORDER)), 'a');
+    const empty = restartCourse(at('c'), []);
+    assert.equal(empty.currentExerciseId, null);
+  });
+
+  it('después se avanza de nuevo de uno en uno desde la primera', () => {
+    const p = advanceCourse(restartCourse(at('e'), ORDER), ORDER);
+    assert.equal(current(p), 'b');
   });
 });

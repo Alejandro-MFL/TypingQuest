@@ -216,6 +216,7 @@ export function getElements(doc = document) {
     resultErrors: byId('result-errors'),
     retryButton: byId('retry-button'),
     newTextButton: byId('new-text-button'),
+    restartButton: byId('restart-button'),
     exitButton: byId('exit-button'),
     resultsAnnouncer: byId('results-announcer'),
     resultSaveError: byId('result-save-error'),

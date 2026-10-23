@@ -6,6 +6,9 @@ import {
   formatGoals,
   formatObjectiveResults,
   formatLessonCount,
+  blockLabel,
+  groupLessonsByLevel,
+  retryLabel,
 } from '../js/course-ui.js';
 import { EXERCISE_STATUS } from '../js/progress.js';
 import { evaluateObjectives } from '../js/objectives.js';
@@ -49,7 +52,7 @@ describe('formatGoals', () => {
 
   it('indica cuándo la velocidad no se evalúa', () => {
     assert.equal(formatGoals({ targetAccuracy: 85, targetWpm: null }),
-      'Objetivo: 85 % de precisión (la velocidad no se evalúa en textos breves)');
+      'Objetivo: 85 % de precisión (la velocidad no se evalúa en esta práctica)');
   });
 });
 
@@ -89,11 +92,11 @@ describe('formatObjectiveResults', () => {
     assert.match(results(95, 19.99).items[1].text, /^Velocidad 19 WPM/);
   });
 
-  it('velocidad no aplicable en ejercicios breves', () => {
+  it('velocidad no aplicable (sin objetivo de WPM)', () => {
     const r = results(95, 0, 500, { targetAccuracy: 85, targetWpm: null });
     assert.equal(r.passed, true);
     assert.deepEqual(states(r), ['met', 'not-applicable']);
-    assert.equal(r.items[1].text, 'Velocidad: no se evalúa en este ejercicio breve');
+    assert.equal(r.items[1].text, 'Velocidad: no se evalúa en esta práctica');
   });
 
   it('velocidad no fiable por un tiempo demasiado corto', () => {
@@ -113,5 +116,39 @@ describe('formatLessonCount', () => {
     assert.equal(formatLessonCount(13), '13 lecciones');
     assert.equal(formatLessonCount(1), '1 lección');
     assert.equal(formatLessonCount(0), 'Ninguna lección coincide con la búsqueda');
+  });
+});
+
+describe('blockLabel', () => {
+  it('cada nivel es un bloque del temario (A-E)', () => {
+    assert.deepEqual([1, 2, 3, 4, 5].map(blockLabel), ['Bloque A', 'Bloque B', 'Bloque C', 'Bloque D', 'Bloque E']);
+  });
+
+  it('un nivel fuera de rango se muestra como nivel', () => {
+    assert.equal(blockLabel(9), 'Nivel 9');
+  });
+});
+
+describe('groupLessonsByLevel', () => {
+  it('agrupa las lecciones por nivel conservando el orden', () => {
+    const lessons = [{ id: 'a', level: 1 }, { id: 'b', level: 1 }, { id: 'c', level: 3 }];
+    assert.deepEqual(groupLessonsByLevel(lessons).map((g) => [g.level, g.lessons.map((l) => l.id)]), [
+      [1, ['a', 'b']], [3, ['c']],
+    ]);
+  });
+
+  it('sin lecciones, sin grupos', () => {
+    assert.deepEqual(groupLessonsByLevel([]), []);
+  });
+});
+
+describe('retryLabel (Resultados)', () => {
+  it('en ejercicios de la Academia y la Biblioteca: «Repetir ejercicio»', () => {
+    assert.equal(retryLabel('academy'), 'Repetir ejercicio');
+    assert.equal(retryLabel('library'), 'Repetir ejercicio');
+  });
+
+  it('en práctica libre: «Repetir texto» (el mismo texto personalizado)', () => {
+    assert.equal(retryLabel('free'), 'Repetir texto');
   });
 });

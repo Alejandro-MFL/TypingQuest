@@ -523,6 +523,22 @@ body {
   margin-top: 1rem;
 }
 
+/* Botón con icono decorativo (aria-hidden) delante del texto. */
+.button-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.button-icon {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* --- Modo de entrenamiento --- */
 
 .mode-option {
@@ -804,6 +820,46 @@ body {
 
 .history-confirm-text {
   margin: 0 0 0.75rem;
+}
+
+/* Gestión del recorrido: discreta, al final del Historial. */
+.course-reset {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.course-reset-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.course-reset-note {
+  margin: 0 0 0.75rem;
+  color: var(--color-muted);
+}
+
+.course-reset .actions {
+  justify-content: flex-start;
+}
+
+.course-reset-confirm {
+  padding: 1rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+}
+
+.course-reset-confirm-text {
+  margin: 0 0 0.75rem;
+}
+
+.course-reset-status {
+  margin: 0.5rem 0 0;
+}
+
+.course-reset-status:empty {
+  margin: 0;
 }
 
 @media (max-width: 40rem) {
@@ -1219,8 +1275,21 @@ body {
 
 /* --- Biblioteca: una tarjeta por lección con sus dos prácticas --- */
 
-#library-list {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+#library-list .exercise-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+}
+
+/* Lecciones agrupadas por bloque del temario: un encabezado por bloque. */
+.library-groups {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.library-group-title {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 1.1rem;
 }
 
 .library-lesson .exercise-card-meta {

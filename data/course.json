@@ -1,93 +1,462 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "mecanografia-es",
-  "contentVersion": "2026-10-21.4",
+  "contentVersion": "2026-10-23.1",
   "title": "Curso de mecanografía en español",
   "levels": [
     {
       "level": 1,
-      "title": "Postura, manos y teclas guía",
-      "summary": "Cómo sentarte, dónde apoyar las manos y cómo encontrar F y J sin mirar.",
+      "title": "Bloque A · Posición de reposo y fila central",
+      "summary": "Postura y teclas guía F y J; después la fila central tecla a tecla, primero con cada mano y luego con las dos.",
       "lessons": [
         {
           "exercise": "l1-postura-fj",
-          "extended": "l1-postura-fj-ampliada"
+          "extended": "l1-postura-fj-ampliada",
+          "introduces": [
+            "KeyF",
+            "KeyJ",
+            "Space"
+          ]
+        },
+        {
+          "exercise": "a-der-j",
+          "extended": "a-der-j-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-der-jk",
+          "extended": "a-der-jk-ampliada",
+          "introduces": [
+            "KeyK"
+          ]
+        },
+        {
+          "exercise": "a-der-jkl",
+          "extended": "a-der-jkl-ampliada",
+          "introduces": [
+            "KeyL"
+          ]
+        },
+        {
+          "exercise": "l2-jkl-enie",
+          "extended": "l2-jkl-enie-ampliada",
+          "introduces": [
+            "Semicolon"
+          ]
+        },
+        {
+          "exercise": "a-der-consolidacion",
+          "extended": "a-der-consolidacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-izq-f",
+          "extended": "a-izq-f-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-izq-fd",
+          "extended": "a-izq-fd-ampliada",
+          "introduces": [
+            "KeyD"
+          ]
+        },
+        {
+          "exercise": "a-izq-fds",
+          "extended": "a-izq-fds-ampliada",
+          "introduces": [
+            "KeyS"
+          ]
+        },
+        {
+          "exercise": "l2-asdf",
+          "extended": "l2-asdf-ampliada",
+          "introduces": [
+            "KeyA"
+          ]
+        },
+        {
+          "exercise": "a-izq-consolidacion",
+          "extended": "a-izq-consolidacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-ambas-combinaciones",
+          "extended": "a-ambas-combinaciones-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-ambas-alternancia",
+          "extended": "a-ambas-alternancia-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "a-g",
+          "extended": "a-g-ampliada",
+          "introduces": [
+            "KeyG"
+          ]
+        },
+        {
+          "exercise": "a-h",
+          "extended": "a-h-ampliada",
+          "introduces": [
+            "KeyH"
+          ]
+        },
+        {
+          "exercise": "a-patrones",
+          "extended": "a-patrones-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "l2-palabras",
+          "extended": "l2-palabras-ampliada",
+          "introduces": []
         }
       ]
     },
     {
       "level": 2,
-      "title": "Fila central",
-      "summary": "Las ocho teclas de reposo y la Ñ desde el principio.",
+      "title": "Bloque B · Fila superior",
+      "summary": "Cada letra de la fila superior desde su tecla de reposo: primero la mano derecha, después la izquierda y al final las dos.",
       "lessons": [
         {
-          "exercise": "l2-asdf",
-          "extended": "l2-asdf-ampliada"
+          "exercise": "b-u",
+          "extended": "b-u-ampliada",
+          "introduces": [
+            "KeyU"
+          ]
         },
         {
-          "exercise": "l2-jkl-enie",
-          "extended": "l2-jkl-enie-ampliada"
+          "exercise": "b-i",
+          "extended": "b-i-ampliada",
+          "introduces": [
+            "KeyI"
+          ]
         },
         {
-          "exercise": "l2-palabras",
-          "extended": "l2-palabras-ampliada"
+          "exercise": "b-o",
+          "extended": "b-o-ampliada",
+          "introduces": [
+            "KeyO"
+          ]
+        },
+        {
+          "exercise": "b-p",
+          "extended": "b-p-ampliada",
+          "introduces": [
+            "KeyP"
+          ]
+        },
+        {
+          "exercise": "b-y",
+          "extended": "b-y-ampliada",
+          "introduces": [
+            "KeyY"
+          ]
+        },
+        {
+          "exercise": "b-der-consolidacion",
+          "extended": "b-der-consolidacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "b-r",
+          "extended": "b-r-ampliada",
+          "introduces": [
+            "KeyR"
+          ]
+        },
+        {
+          "exercise": "b-e",
+          "extended": "b-e-ampliada",
+          "introduces": [
+            "KeyE"
+          ]
+        },
+        {
+          "exercise": "b-w",
+          "extended": "b-w-ampliada",
+          "introduces": [
+            "KeyW"
+          ]
+        },
+        {
+          "exercise": "b-q",
+          "extended": "b-q-ampliada",
+          "introduces": [
+            "KeyQ"
+          ]
+        },
+        {
+          "exercise": "b-t",
+          "extended": "b-t-ampliada",
+          "introduces": [
+            "KeyT"
+          ]
+        },
+        {
+          "exercise": "b-izq-consolidacion",
+          "extended": "b-izq-consolidacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "b-ambas-palabras",
+          "extended": "b-ambas-palabras-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "l3-fila-superior",
+          "extended": "l3-fila-superior-ampliada",
+          "introduces": []
         }
       ]
     },
     {
       "level": 3,
-      "title": "Filas superior e inferior",
-      "summary": "Salir de la fila central y volver a ella con cada dedo.",
+      "title": "Bloque C · Fila inferior",
+      "summary": "Movimientos desde la fila central hacia la inferior, los signos coma, punto y guion, y las tres filas juntas.",
       "lessons": [
         {
-          "exercise": "l3-fila-superior",
-          "extended": "l3-fila-superior-ampliada"
+          "exercise": "c-n",
+          "extended": "c-n-ampliada",
+          "introduces": [
+            "KeyN"
+          ]
+        },
+        {
+          "exercise": "c-m",
+          "extended": "c-m-ampliada",
+          "introduces": [
+            "KeyM"
+          ]
+        },
+        {
+          "exercise": "c-coma",
+          "extended": "c-coma-ampliada",
+          "introduces": [
+            "Comma"
+          ]
+        },
+        {
+          "exercise": "c-punto",
+          "extended": "c-punto-ampliada",
+          "introduces": [
+            "Period"
+          ]
+        },
+        {
+          "exercise": "c-guion",
+          "extended": "c-guion-ampliada",
+          "introduces": [
+            "Slash"
+          ]
+        },
+        {
+          "exercise": "c-der-consolidacion",
+          "extended": "c-der-consolidacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "c-v",
+          "extended": "c-v-ampliada",
+          "introduces": [
+            "KeyV"
+          ]
+        },
+        {
+          "exercise": "c-b",
+          "extended": "c-b-ampliada",
+          "introduces": [
+            "KeyB"
+          ]
+        },
+        {
+          "exercise": "c-c",
+          "extended": "c-c-ampliada",
+          "introduces": [
+            "KeyC"
+          ]
+        },
+        {
+          "exercise": "c-x",
+          "extended": "c-x-ampliada",
+          "introduces": [
+            "KeyX"
+          ]
+        },
+        {
+          "exercise": "c-z",
+          "extended": "c-z-ampliada",
+          "introduces": [
+            "KeyZ"
+          ]
+        },
+        {
+          "exercise": "c-izq-consolidacion",
+          "extended": "c-izq-consolidacion-ampliada",
+          "introduces": []
         },
         {
           "exercise": "l3-fila-inferior",
-          "extended": "l3-fila-inferior-ampliada"
+          "extended": "l3-fila-inferior-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "c-tres-filas-der",
+          "extended": "c-tres-filas-der-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "c-tres-filas-izq",
+          "extended": "c-tres-filas-izq-ampliada",
+          "introduces": []
         },
         {
           "exercise": "l3-tres-filas",
-          "extended": "l3-tres-filas-ampliada"
+          "extended": "l3-tres-filas-ampliada",
+          "introduces": []
         }
       ]
     },
     {
       "level": 4,
-      "title": "Español: tildes, mayúsculas, signos y números",
-      "summary": "Tildes, mayúsculas, puntuación, ¿ y ¡, y la fila de los números.",
+      "title": "Bloque D · Escritura en español",
+      "summary": "Espacios, mayúsculas, tildes, diéresis, puntuación, números, ¿? ¡! y símbolos, de uno en uno.",
       "lessons": [
         {
+          "exercise": "d-espacios",
+          "extended": "d-espacios-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "d-mayus-izq",
+          "extended": "d-mayus-izq-ampliada",
+          "introduces": [
+            "ShiftRight"
+          ]
+        },
+        {
+          "exercise": "d-mayus-der",
+          "extended": "d-mayus-der-ampliada",
+          "introduces": [
+            "ShiftLeft"
+          ]
+        },
+        {
           "exercise": "l4-tildes",
-          "extended": "l4-tildes-ampliada"
+          "extended": "l4-tildes-ampliada",
+          "introduces": [
+            "Quote",
+            "acute"
+          ]
         },
         {
-          "exercise": "l4-mayusculas-puntuacion",
-          "extended": "l4-mayusculas-puntuacion-ampliada"
+          "exercise": "d-dieresis",
+          "extended": "d-dieresis-ampliada",
+          "introduces": [
+            "diaeresis"
+          ]
         },
         {
-          "exercise": "l4-interrogacion-exclamacion",
-          "extended": "l4-interrogacion-exclamacion-ampliada"
+          "exercise": "d-puntuacion",
+          "extended": "d-puntuacion-ampliada",
+          "introduces": []
         },
         {
-          "exercise": "l4-numeros",
-          "extended": "l4-numeros-ampliada"
+          "exercise": "d-numeros-izq",
+          "extended": "d-numeros-izq-ampliada",
+          "introduces": [
+            "Digit1",
+            "Digit2",
+            "Digit3",
+            "Digit4",
+            "Digit5"
+          ]
+        },
+        {
+          "exercise": "d-numeros-der",
+          "extended": "d-numeros-der-ampliada",
+          "introduces": [
+            "Digit6",
+            "Digit7",
+            "Digit8",
+            "Digit9",
+            "Digit0"
+          ]
+        },
+        {
+          "exercise": "d-interrogacion",
+          "extended": "d-interrogacion-ampliada",
+          "introduces": [
+            "Minus",
+            "Equal"
+          ]
+        },
+        {
+          "exercise": "d-exclamacion",
+          "extended": "d-exclamacion-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "d-simbolos",
+          "extended": "d-simbolos-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "d-altgr",
+          "extended": "d-altgr-ampliada",
+          "introduces": [
+            "AltRight"
+          ]
         }
       ]
     },
     {
       "level": 5,
-      "title": "Fluidez",
-      "summary": "Frases y textos para escribir con ritmo y precisión.",
+      "title": "Bloque E · Fluidez y consolidación",
+      "summary": "Palabras frecuentes, alternancia, frases y textos naturales para ganar precisión, ritmo y velocidad.",
       "lessons": [
         {
+          "exercise": "e-palabras-frecuentes",
+          "extended": "e-palabras-frecuentes-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "e-alternancia",
+          "extended": "e-alternancia-ampliada",
+          "introduces": []
+        },
+        {
           "exercise": "l5-frases",
-          "extended": "l5-frases-ampliada"
+          "extended": "l5-frases-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "e-frases-largas",
+          "extended": "e-frases-largas-ampliada",
+          "introduces": []
         },
         {
           "exercise": "l5-texto-breve",
-          "extended": "l5-texto-breve-ampliada"
+          "extended": "l5-texto-breve-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "e-textos-largos",
+          "extended": "e-textos-largos-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "e-precision",
+          "extended": "e-precision-ampliada",
+          "introduces": []
+        },
+        {
+          "exercise": "e-ritmo",
+          "extended": "e-ritmo-ampliada",
+          "introduces": []
         }
       ]
     }
@@ -96,11 +465,38 @@
     {
       "exercise": "l1-alternar-fj",
       "title": "Alternar F y J",
-      "continueAt": "l2-asdf"
+      "continueAt": "a-der-j"
     },
     {
       "exercise": "l1-alternar-fj-ampliada",
       "title": "Alternar F y J (ampliada)"
+    },
+    {
+      "exercise": "l4-mayusculas-puntuacion",
+      "title": "Mayúsculas y puntuación",
+      "continueAt": "d-mayus-izq"
+    },
+    {
+      "exercise": "l4-mayusculas-puntuacion-ampliada",
+      "title": "Mayúsculas y puntuación (ampliada)"
+    },
+    {
+      "exercise": "l4-interrogacion-exclamacion",
+      "title": "¿Preguntas? ¡Exclamaciones!",
+      "continueAt": "d-interrogacion"
+    },
+    {
+      "exercise": "l4-interrogacion-exclamacion-ampliada",
+      "title": "¿Preguntas? ¡Exclamaciones! (ampliada)"
+    },
+    {
+      "exercise": "l4-numeros",
+      "title": "Números",
+      "continueAt": "d-numeros-izq"
+    },
+    {
+      "exercise": "l4-numeros-ampliada",
+      "title": "Números (ampliada)"
     }
   ]
 }

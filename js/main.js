@@ -12,7 +12,7 @@ import {
 import { createCatalog, libraryLessons, filterLessons, exerciseTitle } from './catalog.js';
 import {
   getExerciseProgress, recordCompletion, getCurrentExerciseId, nextInCourse,
-  advanceCourse, skipCurrent, academyView, resolveRetiredPosition,
+  advanceCourse, skipCurrent, academyView, resolveRetiredPosition, restartCourse,
 } from './progress.js';
 import { evaluateObjectives } from './objectives.js';
 import { parseRoute, routeHash } from './router.js';
@@ -98,7 +98,10 @@ function renderRoute(route) {
   if (route === 'home') courseUi.renderHome(ce, currentCourseExercise());
   else if (route === 'academy') renderAcademy();
   else if (route === 'library') renderLibrary();
-  else if (route === 'history') renderHistory();
+  else if (route === 'history') {
+    renderHistory();
+    courseUi.renderCourseReset(ce, { available: catalog !== null });
+  }
 }
 
 function handleHashChange() {
@@ -158,7 +161,8 @@ function renderAcademy() {
 function renderLibrary() {
   if (!catalog) return;
   const lessons = filterLessons(libraryLessons(catalog), courseUi.readLibraryFilters(ce));
-  courseUi.renderLibrary(ce, lessons, (id) => getExerciseProgress(progress, id).status);
+  const levelTitles = new Map(catalog.levels.map((l) => [l.level, l.title]));
+  courseUi.renderLibrary(ce, lessons, (id) => getExerciseProgress(progress, id).status, levelTitles);
 }
 
 // Una posición guardada en una lección retirada pasa a su continuación y se guarda.
@@ -490,6 +494,27 @@ function handleClearConfirm() {
   els.history.title.focus();
 }
 
+// «Reiniciar Academia»: pide confirmación en la propia pantalla (sin confirm()).
+function handleCourseResetRequest() {
+  courseUi.renderCourseReset(ce, { available: true, confirming: true });
+  ce.courseReset.cancelButton.focus();
+}
+
+function handleCourseResetCancel() {
+  courseUi.renderCourseReset(ce, { available: true });
+  ce.courseReset.button.focus();
+}
+
+// Solo la posición vuelve a la primera lección: historial, estados y marcas se conservan.
+function handleCourseResetConfirm() {
+  if (!catalog) return;
+  const error = saveProgress(restartCourse(progress, catalog.courseOrder));
+  renderAcademy();
+  const message = error ?? 'Academia reiniciada: al volver a la Academia empezarás por la primera lección.';
+  courseUi.renderCourseReset(ce, { available: true, message });
+  ce.courseReset.button.focus();
+}
+
 function startStatsTimer() {
   stopStatsTimer();
   statsTimer = setInterval(() => {
@@ -569,13 +594,40 @@ function bindTypingInput() {
 
 // --- Acciones de partida y resultados ----------------------------------------------
 
-// «Reintentar» / «Repetir»: el mismo texto con el modo elegido ahora.
-function handleRetry() {
+// Vuelve a empezar la sesión actual (texto, ejercicio, origen y paso del
+// recorrido) con el MISMO modo y desde cero: cronómetro, entrada, métricas,
+// fragmentos, avisos, efectos y guía. No toca el progreso ni el historial; la
+// nueva partida, si termina, se guarda como otra sesión.
+function restartSession() {
+  ui.clearChunkEffects(els);
   ui.clearResultsAnnouncement(els);
   ui.renderSaveError(els, null);
-  session.state = restartGame(session.state, { mode: selectedMode });
+  syncSelectedMode(session.state.mode);
+  session.state = restartGame(session.state);
   session.savedRecordId = null;
+  lastKeyCode = null;
   enterPlay();
+}
+
+// «Repetir ejercicio» / «Repetir texto» (Resultados). Solo actúa desde Resultados:
+// un segundo clic ya no repite ni duplica nada.
+function handleRetry() {
+  if (currentScreen !== 'results' || !session) return;
+  restartSession();
+}
+
+// «Reiniciar ejercicio» (partida en curso): descarta la partida SIN guardarla y
+// devuelve el foco al campo de escritura (enterPlay). Sin confirmación.
+function handleRestart() {
+  if (!isPlaying()) return;
+  restartSession();
+}
+
+// La casilla «Bloquear avance con errores» refleja el modo de la partida repetida.
+function syncSelectedMode(mode) {
+  selectedMode = mode;
+  els.blockOnErrors.checked = mode === 'strict';
+  ui.renderSelectedMode(els, selectedMode);
 }
 
 // «Siguiente ejercicio» (paso actual de la Academia): avanza exactamente un
@@ -695,6 +747,7 @@ function bindEvents() {
   els.sourceText.addEventListener('input', updateSourceCount);
   els.retryButton.addEventListener('click', handleRetry);
   els.newTextButton.addEventListener('click', handleNewText);
+  els.restartButton.addEventListener('click', handleRestart);
   els.exitButton.addEventListener('click', handleExit);
   ce.skipButton.addEventListener('click', handleSkip);
   ce.nextExerciseButton.addEventListener('click', handleNextExercise);
@@ -716,6 +769,9 @@ function bindEvents() {
   els.history.clearButton.addEventListener('click', handleClearRequest);
   els.history.cancelButton.addEventListener('click', handleClearCancel);
   els.history.confirmButton.addEventListener('click', handleClearConfirm);
+  ce.courseReset.button.addEventListener('click', handleCourseResetRequest);
+  ce.courseReset.cancelButton.addEventListener('click', handleCourseResetCancel);
+  ce.courseReset.confirmButton.addEventListener('click', handleCourseResetConfirm);
   els.startButton.addEventListener('click', () => sound.unlock());
   bindTypingInput();
 }

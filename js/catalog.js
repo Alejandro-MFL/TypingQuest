@@ -18,9 +18,12 @@
 // posición guardada en ellas (ver progress.resolveRetiredPosition).
 import { prepareText } from './text-prep.js';
 import { isWpmGoalAllowed } from './objectives.js';
+import { requiredInputs, isValidInputToken } from './keyboard.js';
 
 const EXERCISES_SCHEMA_VERSION = 2;
-const COURSE_SCHEMA_VERSION = 3;
+const COURSE_SCHEMA_VERSION = 4;
+// Veces que la práctica base debe usar cada entrada que su lección introduce.
+const MIN_NEW_INPUT_USES = 2;
 const RETIRED_FIELDS = new Set(['exercise', 'title', 'continueAt']);
 const CUSTOM_TEXT_ID = 'custom-text';
 const MIN_LEVEL = 1;
@@ -33,7 +36,7 @@ const EXERCISE_FIELDS = new Set([
   'id', 'version', 'kind', 'title', 'description', 'level', 'difficulty', 'category',
   'targetAccuracy', 'targetWpm', 'text',
 ]);
-const LESSON_FIELDS = new Set(['exercise', 'extended']);
+const LESSON_FIELDS = new Set(['exercise', 'extended', 'introduces']);
 
 // Objetivos orientativos (provisionales) de cada nivel: precisión mínima y WPM
 // mínimas. Las WPM solo se exigen en textos de al menos MIN_WPM_TEXT_LENGTH.
@@ -63,11 +66,16 @@ export const CATEGORIES = Object.freeze([
   Object.freeze({ id: 'fila-inferior', label: 'Fila inferior' }),
   Object.freeze({ id: 'tres-filas', label: 'Tres filas' }),
   Object.freeze({ id: 'tildes', label: 'Tildes' }),
-  Object.freeze({ id: 'mayusculas-puntuacion', label: 'Mayúsculas y puntuación' }),
+  Object.freeze({ id: 'palabras', label: 'Palabras y espacios' }),
+  Object.freeze({ id: 'mayusculas', label: 'Mayúsculas' }),
+  Object.freeze({ id: 'puntuacion', label: 'Puntuación' }),
   Object.freeze({ id: 'signos', label: '¿? y ¡!' }),
   Object.freeze({ id: 'numeros', label: 'Números' }),
+  Object.freeze({ id: 'simbolos', label: 'Símbolos' }),
   Object.freeze({ id: 'frases', label: 'Frases' }),
   Object.freeze({ id: 'textos', label: 'Textos' }),
+  Object.freeze({ id: 'precision', label: 'Precisión' }),
+  Object.freeze({ id: 'velocidad', label: 'Ritmo y velocidad' }),
 ]);
 
 const KIND_IDS = new Set(KINDS.map((k) => k.id));
@@ -227,7 +235,76 @@ function courseErrors(course, byId) {
     const previous = i > 0 && isObject(course.levels[i - 1]) ? course.levels[i - 1].level : null;
     errors.push(...levelErrors(level, i, previous, byId, placed));
   });
-  return [...errors, ...retiredErrors(course.retired, byId, courseBaseIds(course))];
+  return [
+    ...errors,
+    ...introductionErrors(course, byId),
+    ...retiredErrors(course.retired, byId, courseBaseIds(course)),
+  ];
+}
+
+// --- Teclas introducidas (T10) ------------------------------------------------------
+//
+// Cada lección declara en `introduces` las entradas físicas que enseña: códigos de
+// tecla (`KeyJ`, `ShiftLeft`, `AltRight`…) o habilidades de tecla muerta (`acute`,
+// `diaeresis`). Recorriendo el curso en orden, cada texto solo puede exigir entradas
+// ya introducidas (keyboard.requiredInputs), y la base practica lo que se introduce.
+
+function inputUses(text) {
+  const uses = new Map();
+  for (const char of text) {
+    for (const token of requiredInputs(char) ?? []) uses.set(token, (uses.get(token) ?? 0) + 1);
+  }
+  return uses;
+}
+
+function introducesErrors(label, introduces, known) {
+  if (!Array.isArray(introduces)) return [`${label}: introduces debe ser una lista de teclas`];
+  const errors = [];
+  const seen = new Set();
+  for (const token of introduces) {
+    if (!isValidInputToken(token)) errors.push(`${label}: «${token}» no es una tecla del modelo`);
+    else if (known.has(token) || seen.has(token)) errors.push(`${label}: «${token}» ya se introdujo antes`);
+    seen.add(token);
+  }
+  return errors;
+}
+
+function textInputErrors(label, exercise, known) {
+  if (!exercise || typeof exercise.text !== 'string') return [];
+  const errors = [];
+  for (const char of new Set(exercise.text)) {
+    const tokens = requiredInputs(char);
+    if (tokens === null) {
+      errors.push(`${label}: «${exercise.id}» usa «${char}», sin posición en el teclado español`);
+      continue;
+    }
+    for (const token of tokens) {
+      if (!known.has(token)) errors.push(`${label}: «${exercise.id}» usa ${token} («${char}») antes de enseñarse`);
+    }
+  }
+  return errors;
+}
+
+function practiceErrors(label, introduces, base) {
+  if (!base || typeof base.text !== 'string' || !Array.isArray(introduces)) return [];
+  const uses = inputUses(base.text);
+  return introduces.filter((token) => (uses.get(token) ?? 0) < MIN_NEW_INPUT_USES)
+    .map((token) => `${label}: la práctica base no practica ${token}, que la lección introduce`);
+}
+
+function introductionErrors(course, byId) {
+  const errors = [];
+  const known = new Set();
+  for (const level of course.levels.filter(isObject)) {
+    for (const lesson of (Array.isArray(level.lessons) ? level.lessons : []).filter(isObject)) {
+      const label = `Curso, lección «${lesson.exercise}»`;
+      errors.push(...introducesErrors(label, lesson.introduces, known));
+      if (Array.isArray(lesson.introduces)) lesson.introduces.filter(isValidInputToken).forEach((t) => known.add(t));
+      errors.push(...practiceErrors(label, lesson.introduces, byId.get(lesson.exercise)));
+      for (const id of [lesson.exercise, lesson.extended]) errors.push(...textInputErrors(label, byId.get(id), known));
+    }
+  }
+  return errors;
 }
 
 function courseBaseIds(course) {

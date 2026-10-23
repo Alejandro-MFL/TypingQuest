@@ -740,3 +740,55 @@ describe('applyInput: modo libre', () => {
     assert.deepEqual(before, snapshot);
   });
 });
+
+// --- T10: «Reiniciar ejercicio» durante la partida ----------------------------------
+// La interfaz descarta la partida en curso con restartGame (sin guardar nada): estos
+// casos fijan lo que el botón necesita del motor en cada momento de la partida.
+
+describe('restartGame durante la partida (botón «Reiniciar ejercicio»)', () => {
+  const fresh = (mode) => createGame(SEG_TEXT, { segmentEnds: SEG_ENDS, mode });
+  const zeroStats = { wpm: 0, accuracy: 0, elapsedMs: 0, errors: 0, corrections: 0 };
+
+  for (const mode of ['free', 'strict']) {
+    describe(`modo ${mode}`, () => {
+      const cases = [
+        ['antes de escribir', (g) => g],
+        ['tras varios caracteres correctos', (g) => typeChars(g, 'ab')],
+        ['con errores en el fragmento activo', (g) => typeChars(g, 'ax')],
+        ['tras completar varios fragmentos', (g) => typeChars(g, 'ab cd ')],
+      ];
+      for (const [label, play] of cases) {
+        it(`${label}: vuelve al estado inicial con el mismo texto, fragmentos y modo`, () => {
+          const played = deepFreeze(play(fresh(mode)));
+          const restarted = restartGame(played);
+          assert.deepEqual(restarted, fresh(mode));
+          assert.equal(restarted.mode, mode);
+          assert.deepEqual(getStats(restarted, 99999), zeroStats, 'cronómetro y métricas a cero');
+          assert.equal(getProgress(restarted).typedChars, 0);
+          assert.equal(getProgress(restarted).segmentIndex, 0);
+        });
+      }
+    });
+  }
+
+  it('en estricto, un fragmento bloqueado por errores deja de estarlo tras reiniciar', () => {
+    const blocked = typeChars(fresh('strict'), 'ax ');
+    assert.equal(applyInput(blocked, 'ax c', 5000), blocked, 'no se avanza al siguiente fragmento con errores');
+    const restarted = restartGame(blocked);
+    assert.equal(applyInput(restarted, 'a', 5000).typed, 'a');
+  });
+
+  it('reinicios consecutivos son idempotentes', () => {
+    const played = typeChars(fresh('free'), 'ab c');
+    assert.deepEqual(restartGame(restartGame(restartGame(played))), restartGame(played));
+  });
+
+  it('la partida reiniciada solo cuenta sus propias pulsaciones y su propio tiempo', () => {
+    const discarded = typeChars(fresh('strict'), 'axb', 1000);
+    const restarted = typeChars(restartGame(discarded), SEG_TEXT, 60000, 100);
+    assert.equal(restarted.status, 'finished');
+    assert.deepEqual(restarted.keystrokes, { total: SEG_TEXT.length, correct: SEG_TEXT.length, incorrect: 0 });
+    assert.equal(restarted.startedAt, 60000);
+    assert.equal(getStats(restarted, 0).accuracy, 100);
+  });
+});

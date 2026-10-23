@@ -14,10 +14,11 @@ import {
   filterLessons,
 } from '../js/catalog.js';
 import { isWpmGoalAllowed } from '../js/objectives.js';
+import { requiredInputs } from '../js/keyboard.js';
 import { prepareText } from '../js/text-prep.js';
 
 const MAX = 5000;
-const LONG_TEXT = 'sala falda hada gala sala falda hada gala sala';
+const LONG_TEXT = 'fff jjj fjf jfj ffj jjf fj jf ffff jjjj fjjf jffj';
 
 function readJson(path) {
   return JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -38,7 +39,7 @@ function exercise(overrides = {}) {
     category: 'teclas-guia',
     targetAccuracy: 90,
     targetWpm: null,
-    text: 'fff jjj',
+    text: 'fff jjj ff jj',
     ...overrides,
   };
 }
@@ -47,15 +48,38 @@ function lessonsOf(exercises) {
   return exercises.filter((e) => e.kind === 'base').map((e) => ({ exercise: e.id }));
 }
 
+// Entradas que exigen los textos de una lección (base y ampliada).
+function lessonInputs(lesson, exercises) {
+  const texts = [lesson.exercise, lesson.extended]
+    .map((id) => exercises.find((e) => e.id === id)?.text ?? '');
+  return [...new Set(texts.flatMap((t) => [...t].flatMap((c) => requiredInputs(c) ?? [])))];
+}
+
+// Si una lección de prueba no declara `introduces`, se le asignan las entradas que
+// usa y aún no se habían introducido (los tests de esa regla la declaran a mano).
+function withIntroduces(levels, exercises) {
+  const introduced = new Set();
+  return levels.map((level) => ({
+    ...level,
+    lessons: (level.lessons ?? []).map((lesson) => {
+      if (lesson === null || typeof lesson !== 'object' || 'introduces' in lesson) return lesson;
+      const introduces = lessonInputs(lesson, exercises).filter((t) => !introduced.has(t));
+      introduces.forEach((t) => introduced.add(t));
+      return { ...lesson, introduces };
+    }),
+  }));
+}
+
 function data(exercises, levels) {
+  const rawLevels = levels ?? [{ level: 1, title: 'N1', summary: 'Resumen', lessons: lessonsOf(exercises) }];
   return {
     exercises: { schemaVersion: 2, contentVersion: 'v1', exercises },
     course: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       id: 'curso',
       contentVersion: 'v1',
       title: 'Curso',
-      levels: levels ?? [{ level: 1, title: 'N1', summary: 'Resumen', lessons: lessonsOf(exercises) }],
+      levels: Array.isArray(rawLevels) ? withIntroduces(rawLevels, exercises) : rawLevels,
     },
   };
 }
@@ -80,11 +104,11 @@ describe('catálogo real (data/*.json)', () => {
     assert.equal(REAL_EXERCISES.exercises.length, lessons.length * 2);
   });
 
-  it('tiene 13 lecciones con 13 prácticas base y 13 ampliadas', () => {
-    assert.equal(REAL_COURSE.levels.flatMap((l) => l.lessons).length, 13);
+  it('tantas prácticas base y ampliadas como lecciones', () => {
+    const lessons = REAL_COURSE.levels.flatMap((l) => l.lessons).length;
     const kinds = REAL_EXERCISES.exercises.map((e) => e.kind);
-    assert.equal(kinds.filter((k) => k === 'base').length, 13);
-    assert.equal(kinds.filter((k) => k === 'extended').length, 13);
+    assert.equal(kinds.filter((k) => k === 'base').length, lessons);
+    assert.equal(kinds.filter((k) => k === 'extended').length, lessons);
   });
 
   it('«Postura y teclas guía» es la primera lección y «Alternar F y J» ya no existe', () => {
@@ -93,10 +117,16 @@ describe('catálogo real (data/*.json)', () => {
     assert.equal(active.includes('l1-alternar-fj'), false);
   });
 
-  it('la lección retirada lleva a la siguiente lección del curso', () => {
-    assert.deepEqual(REAL_COURSE.retired, [
-      { exercise: 'l1-alternar-fj', title: 'Alternar F y J', continueAt: 'l2-asdf' },
-      { exercise: 'l1-alternar-fj-ampliada', title: 'Alternar F y J (ampliada)' },
+  it('registra las lecciones retiradas en T8 y T10 con su continuación', () => {
+    assert.deepEqual(REAL_COURSE.retired.map((r) => [r.exercise, r.continueAt ?? null]), [
+      ['l1-alternar-fj', 'a-der-j'],
+      ['l1-alternar-fj-ampliada', null],
+      ['l4-mayusculas-puntuacion', 'd-mayus-izq'],
+      ['l4-mayusculas-puntuacion-ampliada', null],
+      ['l4-interrogacion-exclamacion', 'd-interrogacion'],
+      ['l4-interrogacion-exclamacion-ampliada', null],
+      ['l4-numeros', 'd-numeros-izq'],
+      ['l4-numeros-ampliada', null],
     ]);
   });
 
@@ -113,10 +143,10 @@ describe('catálogo real (data/*.json)', () => {
     assert.deepEqual(REAL_COURSE.levels.map((l) => l.level), [1, 2, 3, 4, 5]);
   });
 
-  it('el nivel 2 incluye la Ñ y el nivel 4 tildes, mayúsculas, ¿, ¡ y números', () => {
+  it('el bloque A (nivel 1) incluye la Ñ y el D (nivel 4) tildes, mayúsculas, ¿, ¡ y números', () => {
     const textOfLevel = (level) => REAL_EXERCISES.exercises
       .filter((e) => e.level === level).map((e) => e.text).join(' ');
-    assert.match(textOfLevel(2), /ñ/);
+    assert.match(textOfLevel(1), /ñ/);
     const level4 = textOfLevel(4);
     for (const pattern of [/[áéíóú]/, /[A-ZÁÉÍÓÚÑ]/, /¿/, /¡/, /\d/, /[,.;:]/]) {
       assert.match(level4, pattern);
@@ -131,11 +161,14 @@ describe('catálogo real (data/*.json)', () => {
     }
   });
 
-  it('los objetivos siguen la tabla por nivel; WPM solo en textos suficientemente largos', () => {
+  // T10: en los bloques A-C la práctica base es el primer contacto con una tecla: solo
+  // precisión. La velocidad se evalúa en las ampliadas y, en D y E, en textos largos.
+  it('los objetivos siguen la tabla por nivel; WPM solo cuando es fiable y no es un primer contacto', () => {
     for (const e of REAL_EXERCISES.exercises) {
       const goals = LEVEL_GOALS[e.level];
       assert.equal(e.targetAccuracy, goals.accuracy, e.id);
-      const expectedWpm = isWpmGoalAllowed(e.text) ? goals.wpm : null;
+      const firstContact = e.kind === 'base' && e.level <= 3;
+      const expectedWpm = isWpmGoalAllowed(e.text) && !firstContact ? goals.wpm : null;
       assert.equal(e.targetWpm, expectedWpm, e.id);
     }
   });
@@ -143,7 +176,7 @@ describe('catálogo real (data/*.json)', () => {
   it('cada lección tiene exactamente una práctica base y una ampliada existentes', () => {
     const byId = new Map(REAL_EXERCISES.exercises.map((e) => [e.id, e]));
     for (const lesson of REAL_COURSE.levels.flatMap((l) => l.lessons)) {
-      assert.deepEqual(Object.keys(lesson).sort(), ['exercise', 'extended'], JSON.stringify(lesson));
+      assert.deepEqual(Object.keys(lesson).sort(), ['exercise', 'extended', 'introduces'], JSON.stringify(lesson));
       assert.equal(byId.get(lesson.exercise)?.kind, 'base', lesson.exercise);
       assert.equal(byId.get(lesson.extended)?.kind, 'extended', lesson.extended);
     }
@@ -274,7 +307,7 @@ describe('validateCatalog: práctica base y ampliada', () => {
     const shortExtended = exercise({ id: 'l1-a-ampliada', kind: 'extended', text: 'fff' });
     const errors = errorsOf([base, shortExtended], level1([{ exercise: 'l1-a', extended: 'l1-a-ampliada' }]));
     assert.ok(errors.some((e) => /más larga/.test(e)), errors.join('\n'));
-    const sameLength = exercise({ id: 'l1-a-ampliada', kind: 'extended', text: 'jjj fff' });
+    const sameLength = exercise({ id: 'l1-a-ampliada', kind: 'extended', text: 'jjj fff jj ff' });
     assert.ok(errorsOf([base, sameLength], level1([{ exercise: 'l1-a', extended: 'l1-a-ampliada' }]))
       .some((e) => /más larga/.test(e)));
   });
@@ -324,9 +357,68 @@ describe('validateCatalog: lecciones retiradas', () => {
     }
   });
 
-  it('el curso exige schemaVersion 3', () => {
+  it('el curso exige schemaVersion 4', () => {
     const d = data([exercise()]);
-    assert.equal(validateCatalog(d.exercises, { ...d.course, schemaVersion: 2 }, { maxTextLength: MAX }).ok, false);
+    assert.equal(validateCatalog(d.exercises, { ...d.course, schemaVersion: 3 }, { maxTextLength: MAX }).ok, false);
+  });
+});
+
+describe('validateCatalog: teclas introducidas en cada lección (T10)', () => {
+  const lesson = (overrides) => ({ exercise: 'l1-a', ...overrides });
+  const errorsWith = (lessons, exercises = [exercise()]) => errorsOf(exercises, level1(lessons));
+
+  it('acepta una lección que introduce exactamente las entradas que usa', () => {
+    assert.deepEqual(errorsWith([lesson({ introduces: ['KeyF', 'Space', 'KeyJ'] })]), []);
+  });
+
+  it('exige la lista introduces en cada lección', () => {
+    const d = data([exercise()], level1([lesson({ introduces: [] })]));
+    delete d.course.levels[0].lessons[0].introduces;
+    const { errors } = validateCatalog(d.exercises, d.course, { maxTextLength: MAX });
+    assert.ok(errors.some((e) => /introduces/.test(e)), errors.join('\n'));
+  });
+
+  it('rechaza un texto que usa teclas aún no enseñadas', () => {
+    const errors = errorsWith([lesson({ introduces: ['KeyF', 'Space'] })]);
+    assert.ok(errors.some((e) => e.includes('KeyJ')), errors.join('\n'));
+  });
+
+  it('las combinaciones cuentan por sus teclas físicas: «A» exige Mayús y «á» la tilde', () => {
+    const upper = exercise({ text: 'Aa' });
+    let errors = errorsWith([lesson({ introduces: ['KeyA'] })], [upper]);
+    assert.ok(errors.some((e) => e.includes('ShiftRight')), errors.join('\n'));
+    const accent = exercise({ text: 'áa' });
+    errors = errorsWith([lesson({ introduces: ['KeyA', 'Quote'] })], [accent]);
+    assert.ok(errors.some((e) => e.includes('acute')), errors.join('\n'));
+  });
+
+  it('las teclas enseñadas en lecciones anteriores se pueden usar después', () => {
+    const second = exercise({ id: 'l1-b', text: 'fj jf ff jj' });
+    const errors = errorsWith([
+      lesson({ introduces: ['KeyF', 'Space', 'KeyJ'] }),
+      { exercise: 'l1-b', introduces: [] },
+    ], [exercise(), second]);
+    assert.deepEqual(errors, []);
+  });
+
+  it('rechaza tokens que no son teclas reales (p. ej. caracteres visibles) y repeticiones', () => {
+    for (const introduces of [['f', 'KeyJ', 'Space'], ['KeyF', 'KeyJ', 'Space', 'KeyF'], 'KeyF']) {
+      assert.ok(errorsWith([lesson({ introduces })]).length > 0, JSON.stringify(introduces));
+    }
+  });
+
+  it('una tecla no se introduce dos veces en el curso', () => {
+    const second = exercise({ id: 'l1-b', text: 'fj jf ff jj' });
+    const errors = errorsWith([
+      lesson({ introduces: ['KeyF', 'Space', 'KeyJ'] }),
+      { exercise: 'l1-b', introduces: ['KeyF'] },
+    ], [exercise(), second]);
+    assert.ok(errors.some((e) => /ya se introdujo/.test(e)), errors.join('\n'));
+  });
+
+  it('la práctica base practica de verdad cada tecla que se introduce', () => {
+    const errors = errorsWith([lesson({ introduces: ['KeyF', 'Space', 'KeyJ', 'KeyK'] })]);
+    assert.ok(errors.some((e) => e.includes('KeyK') && /practica/.test(e)), errors.join('\n'));
   });
 });
 
@@ -428,7 +520,7 @@ describe('createCatalog', () => {
   });
 
   it('expone las lecciones retiradas y su continuación', () => {
-    assert.equal(result.catalog.retired.get('l1-alternar-fj').continueAt, 'l2-asdf');
+    assert.equal(result.catalog.retired.get('l1-alternar-fj').continueAt, 'a-der-j');
     assert.equal(result.catalog.retired.get('l1-alternar-fj-ampliada').continueAt, null);
     assert.equal(result.catalog.byId.has('l1-alternar-fj'), false);
   });
@@ -457,17 +549,18 @@ describe('filterExercises', () => {
   });
 
   it('busca en título y descripción sin distinguir mayúsculas ni tildes', () => {
-    const ids = (query) => filterExercises(exercises, { query }).map((e) => e.id);
-    assert.deepEqual(ids('NUMEROS'), ['l4-numeros', 'l4-numeros-ampliada']);
-    assert.ok(ids('tilde').includes('l4-tildes'));
-    assert.deepEqual(ids('zzz'), []);
+    const plain = (t) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    const found = filterExercises(exercises, { query: 'NUMEROS' });
+    assert.ok(found.length >= 4);
+    for (const e of found) assert.match(plain(`${e.title} ${e.description}`), /numeros/, e.id);
+    assert.ok(filterExercises(exercises, { query: 'tilde' }).some((e) => e.id === 'l4-tildes'));
+    assert.deepEqual(filterExercises(exercises, { query: 'zzz' }), []);
   });
 
   it('filtra por nivel, dificultad y categoría combinados', () => {
     const result = filterExercises(exercises, { level: 4, difficulty: 'intermediate', category: 'numeros' });
-    assert.deepEqual(result.map((e) => e.id), ['l4-numeros']);
-    const advanced = filterExercises(exercises, { level: 4, difficulty: 'advanced', category: 'numeros' });
-    assert.deepEqual(advanced.map((e) => e.id), ['l4-numeros-ampliada']);
+    assert.ok(result.length > 0);
+    assert.ok(result.every((e) => e.level === 4 && e.difficulty === 'intermediate' && e.category === 'numeros'));
     assert.ok(filterExercises(exercises, { level: 2 }).every((e) => e.level === 2));
     assert.ok(filterExercises(exercises, { difficulty: 'advanced' }).every((e) => e.difficulty === 'advanced'));
   });
@@ -484,8 +577,8 @@ describe('libraryLessons', () => {
   const { catalog } = createCatalog(REAL_EXERCISES, REAL_COURSE, { maxTextLength: MAX });
   const lessons = libraryLessons(catalog);
 
-  it('devuelve una entrada por lección (13) en el orden del curso', () => {
-    assert.equal(lessons.length, 13);
+  it('devuelve una entrada por lección en el orden del curso', () => {
+    assert.equal(lessons.length, catalog.courseOrder.length);
     assert.deepEqual(lessons.map((l) => l.base.id), catalog.courseOrder);
   });
 
@@ -499,7 +592,7 @@ describe('libraryLessons', () => {
       assert.equal(lesson.extended, catalog.byId.get(lesson.extended.id));
     }
     const ids = lessons.flatMap((l) => [l.base.id, l.extended.id]);
-    assert.equal(new Set(ids).size, 26);
+    assert.equal(new Set(ids).size, catalog.courseOrder.length * 2);
   });
 
   it('título, descripción, nivel y categoría de la lección son los de su práctica base', () => {
@@ -514,7 +607,7 @@ describe('libraryLessons', () => {
     const extra = Object.freeze({ ...catalog.byId.get('l2-asdf'), id: 'suelto' });
     const withExtra = { ...catalog, exercises: [...catalog.exercises, extra] };
     const result = libraryLessons(withExtra);
-    assert.equal(result.length, 14);
+    assert.equal(result.length, catalog.courseOrder.length + 1);
     assert.deepEqual([result.at(-1).base.id, result.at(-1).extended], ['suelto', null]);
   });
 });
@@ -524,20 +617,24 @@ describe('filterLessons', () => {
   const lessons = libraryLessons(catalog);
   const ids = (filters) => filterLessons(lessons, filters).map((l) => l.id);
 
-  it('sin filtros devuelve las 13 lecciones', () => {
-    assert.equal(filterLessons(lessons, {}).length, 13);
+  it('sin filtros devuelve todas las lecciones', () => {
+    assert.equal(filterLessons(lessons, {}).length, catalog.courseOrder.length);
   });
 
   it('una búsqueda que solo coincide con la ampliada muestra la lección', () => {
-    // «frase larga» solo aparece en la descripción de la ampliada de «Las tres filas».
-    const onlyExtended = catalog.byId.get('l3-tres-filas-ampliada').description;
-    assert.ok(!catalog.byId.get('l3-tres-filas').description.includes('larga'));
-    assert.match(onlyExtended, /larga/);
-    assert.ok(ids({ query: 'frase larga' }).includes('l3-tres-filas'));
+    // Una palabra de la descripción de la ampliada que no está en la base.
+    const lesson = lessons.find((l) => {
+      const baseText = `${l.base.title} ${l.base.description}`.toLowerCase();
+      return l.extended.description.toLowerCase().split(/[^a-záéíóúñü]+/).some((w) => w.length >= 6 && !baseText.includes(w));
+    });
+    const baseText = `${lesson.base.title} ${lesson.base.description}`.toLowerCase();
+    const word = lesson.extended.description.toLowerCase().split(/[^a-záéíóúñü]+/)
+      .find((w) => w.length >= 6 && !baseText.includes(w));
+    assert.ok(ids({ query: word }).includes(lesson.id), word);
   });
 
   it('una búsqueda que coincide con la base también muestra la lección', () => {
-    assert.deepEqual(ids({ query: 'NUMEROS' }), ['l4-numeros']);
+    assert.ok(ids({ query: catalog.byId.get('l4-tildes').title }).includes('l4-tildes'));
   });
 
   it('el filtro de dificultad encuentra lecciones por cualquiera de sus prácticas', () => {
@@ -548,9 +645,10 @@ describe('filterLessons', () => {
   });
 
   it('filtra por nivel y categoría combinados con la búsqueda', () => {
-    assert.deepEqual(ids({ level: 2 }), ['l2-asdf', 'l2-jkl-enie', 'l2-palabras']);
-    assert.deepEqual(ids({ category: 'tildes' }), ['l4-tildes']);
-    assert.deepEqual(ids({ level: 4, query: 'exclamaciones' }), ['l4-interrogacion-exclamacion']);
+    const level2 = REAL_COURSE.levels.find((l) => l.level === 2).lessons.map((l) => l.exercise);
+    assert.deepEqual(ids({ level: 2 }), level2);
+    assert.ok(ids({ category: 'tildes' }).includes('l4-tildes'));
+    assert.ok(ids({ level: 4, query: 'exclamacion' }).includes('d-exclamacion'));
     assert.deepEqual(ids({ level: 1, category: 'tildes' }), []);
   });
 });

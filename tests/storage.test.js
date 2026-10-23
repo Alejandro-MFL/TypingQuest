@@ -12,7 +12,7 @@ import {
   parseProgress,
   createProgressStore,
 } from '../js/storage.js';
-import { createProgress, recordCompletion, recordSkip, advanceCourse } from '../js/progress.js';
+import { createProgress, recordCompletion, recordSkip, advanceCourse, restartCourse } from '../js/progress.js';
 
 // Almacenamiento falso con la interfaz de localStorage. `fail` permite simular
 // fallos por operación: { getItem, setItem, removeItem } → error a lanzar.
@@ -529,5 +529,22 @@ describe('createProgressStore', () => {
     assert.deepEqual(quota.save(sampleProgress()), { ok: false, error: 'quota' });
     const blocked = createProgressStore(new FakeStorage({}, { getItem: domError('SecurityError') }));
     assert.equal(blocked.load().status, 'unavailable');
+  });
+});
+
+describe('«Reiniciar Academia» persistido', () => {
+  const ORDER = ['l1-postura-fj', 'l1-alternar-fj', 'l2-asdf'];
+
+  it('tras recargar, la posición está en la primera lección y se conservan logros e historial', () => {
+    const storage = new FakeStorage();
+    createHistoryStore(storage).add(record());
+    const before = sampleProgress();
+    assert.equal(before.currentExerciseId, 'l1-alternar-fj');
+    createProgressStore(storage).save(restartCourse(before, ORDER));
+
+    const loaded = createProgressStore(storage).load();
+    assert.equal(loaded.progress.currentExerciseId, 'l1-postura-fj');
+    assert.deepEqual(loaded.progress.exercises, before.exercises);
+    assert.equal(createHistoryStore(storage).load().sessions.length, 1);
   });
 });

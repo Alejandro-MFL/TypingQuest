@@ -189,7 +189,7 @@
           </div>
         </form>
         <p class="library-count" id="library-count" role="status" aria-live="polite"></p>
-        <ul class="exercise-list" id="library-list"></ul>
+        <div class="library-groups" id="library-list"></div>
       </div>
     </section>
 
@@ -282,6 +282,14 @@
       </section>
 
       <div class="play-actions">
+        <!-- Descarta la partida en curso (sin guardarla) y empieza de nuevo el mismo texto. -->
+        <button class="button button-secondary button-with-icon" id="restart-button" type="button">
+          <svg class="button-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+            <path d="M20 4v5h-5" />
+          </svg>
+          Reiniciar ejercicio
+        </button>
         <button class="button button-secondary" id="exit-button" type="button">Salir de la partida</button>
         <!-- Solo en ejercicios abiertos desde la Academia. -->
         <button class="button button-secondary" id="skip-button" type="button" hidden>Saltar ejercicio</button>
@@ -414,6 +422,28 @@
       <div class="actions" id="history-actions">
         <button class="button button-danger" id="history-clear-button" type="button">Borrar historial</button>
       </div>
+
+      <section class="course-reset" id="course-reset" aria-labelledby="course-reset-title" hidden>
+        <h3 class="course-reset-title" id="course-reset-title">Recorrido de la Academia</h3>
+        <p class="course-reset-note">
+          Vuelve a la primera lección del curso. No se borran resultados, marcas ni historial.
+        </p>
+        <div class="actions" id="course-reset-actions">
+          <button class="button button-secondary" id="course-reset-button" type="button">Reiniciar Academia</button>
+        </div>
+        <div class="course-reset-confirm" id="course-reset-confirm" role="group"
+          aria-labelledby="course-reset-confirm-text" hidden>
+          <p class="course-reset-confirm-text" id="course-reset-confirm-text">
+            ¿Quieres volver a empezar la Academia desde la primera lección? Tus resultados, marcas e
+            historial se conservarán.
+          </p>
+          <div class="actions">
+            <button class="button button-secondary" id="course-reset-cancel-button" type="button">Cancelar</button>
+            <button class="button" id="course-reset-confirm-button" type="button">Reiniciar Academia</button>
+          </div>
+        </div>
+        <p class="course-reset-status" id="course-reset-status" role="status" aria-live="polite"></p>
+      </section>
     </section>
 
     <!-- Anuncia el resumen de resultados a lectores de pantalla. Fuera de las

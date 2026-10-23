@@ -34,16 +34,35 @@ export function formatLessonCount(count) {
   return count === 1 ? '1 lección' : `${count} lecciones`;
 }
 
+const BLOCK_LETTERS = 'ABCDE';
+
+/** Nombre corto del bloque del temario de un nivel: 1 → «Bloque A». */
+export function blockLabel(level) {
+  const letter = BLOCK_LETTERS[level - 1];
+  return letter ? `Bloque ${letter}` : `Nivel ${level}`;
+}
+
+/** Lecciones agrupadas por nivel, en el orden en que llegan (orden del curso). */
+export function groupLessonsByLevel(lessons) {
+  const groups = [];
+  for (const lesson of lessons) {
+    const last = groups.at(-1);
+    if (last && last.level === lesson.level) last.lessons.push(lesson);
+    else groups.push({ level: lesson.level, lessons: [lesson] });
+  }
+  return groups;
+}
+
 /** Objetivos de un ejercicio en una frase. */
 export function formatGoals({ targetAccuracy, targetWpm }) {
   if (targetWpm === null) {
-    return `Objetivo: ${targetAccuracy} % de precisión (la velocidad no se evalúa en textos breves)`;
+    return `Objetivo: ${targetAccuracy} % de precisión (la velocidad no se evalúa en esta práctica)`;
   }
   return `Objetivos: ${targetAccuracy} % de precisión y ${targetWpm} WPM`;
 }
 
 function wpmItem(wpm) {
-  if (!wpm.applicable) return { state: 'not-applicable', text: 'Velocidad: no se evalúa en este ejercicio breve' };
+  if (!wpm.applicable) return { state: 'not-applicable', text: 'Velocidad: no se evalúa en esta práctica' };
   if (!wpm.reliable) {
     return { state: 'unreliable', text: 'Velocidad: tiempo demasiado corto para medirla con fiabilidad; pendiente' };
   }
@@ -116,6 +135,15 @@ export function getCourseElements(doc = document) {
     courseEnd: byId('course-end'),
     nextExerciseButton: byId('next-exercise-button'),
     backToOriginButton: byId('back-to-origin-button'),
+    courseReset: {
+      section: byId('course-reset'),
+      actions: byId('course-reset-actions'),
+      button: byId('course-reset-button'),
+      confirm: byId('course-reset-confirm'),
+      confirmButton: byId('course-reset-confirm-button'),
+      cancelButton: byId('course-reset-cancel-button'),
+      status: byId('course-reset-status'),
+    },
   };
 }
 
@@ -179,7 +207,7 @@ function renderExtended(a, extended) {
 export function renderAcademy(ce, view) {
   const a = ce.academy;
   const { exercise, level } = view;
-  a.position.textContent = `Nivel ${level.level} · ${level.title} — Ejercicio ${view.position} de ${view.total}`;
+  a.position.textContent = `${level.title} — Ejercicio ${view.position} de ${view.total}`;
   a.levelSummary.textContent = level.summary;
   a.title.textContent = exercise.title;
   a.description.textContent = exercise.description;
@@ -220,8 +248,8 @@ function createLessonCard(lesson, statusOf) {
     practices.append(createPracticeRow(exercise, statusOf(exercise.id), lesson.title));
   }
   card.append(
-    element('h3', 'exercise-card-title', lesson.title),
-    element('p', 'exercise-card-meta', `Nivel ${lesson.level} · ${categoryLabel(lesson.category)}`),
+    element('h4', 'exercise-card-title', lesson.title),
+    element('p', 'exercise-card-meta', `${blockLabel(lesson.level)} · ${categoryLabel(lesson.category)}`),
     element('p', 'exercise-card-description', lesson.description),
     practices
   );
@@ -240,8 +268,7 @@ function fillSelect(select, allLabel, options) {
 
 /** Opciones de los filtros de la Biblioteca a partir del catálogo. */
 export function renderLibraryFilters(ce, catalog) {
-  const levels = [...new Set(catalog.exercises.map((e) => e.level))].sort((a, b) => a - b);
-  fillSelect(ce.library.level, 'Todos', levels.map((l) => ({ value: String(l), label: `Nivel ${l}` })));
+  fillSelect(ce.library.level, 'Todos', catalog.levels.map((l) => ({ value: String(l.level), label: l.title })));
   fillSelect(ce.library.difficulty, 'Todas', DIFFICULTIES.map((d) => ({ value: d.id, label: d.label })));
   const used = new Set(catalog.exercises.map((e) => e.category));
   fillSelect(ce.library.category, 'Todas', CATEGORIES.filter((c) => used.has(c.id))
@@ -258,12 +285,26 @@ export function readLibraryFilters(ce) {
   };
 }
 
+// Un bloque del temario en la Biblioteca: encabezado y sus tarjetas.
+function createLibraryGroup({ level, lessons }, levelTitles, statusOf) {
+  const group = element('section', 'library-group');
+  const headingId = `library-group-${level}`;
+  group.setAttribute('aria-labelledby', headingId);
+  const heading = element('h3', 'library-group-title', levelTitles.get(level) ?? blockLabel(level));
+  heading.id = headingId;
+  const list = element('ul', 'exercise-list');
+  list.append(...lessons.map((lesson) => createLessonCard(lesson, statusOf)));
+  group.append(heading, list);
+  return group;
+}
+
 /**
- * Biblioteca: una tarjeta por lección (filterLessons); `statusOf(id)` da el
- * estado individual de cada práctica.
+ * Biblioteca: una tarjeta por lección (filterLessons), agrupadas por bloque del
+ * temario; `statusOf(id)` da el estado individual de cada práctica.
  */
-export function renderLibrary(ce, lessons, statusOf) {
-  ce.library.list.replaceChildren(...lessons.map((lesson) => createLessonCard(lesson, statusOf)));
+export function renderLibrary(ce, lessons, statusOf, levelTitles = new Map()) {
+  ce.library.list.replaceChildren(...groupLessonsByLevel(lessons)
+    .map((group) => createLibraryGroup(group, levelTitles, statusOf)));
   const count = formatLessonCount(lessons.length);
   if (ce.library.count.textContent !== count) ce.library.count.textContent = count;
 }
@@ -297,13 +338,31 @@ export function renderObjectiveResults(ce, exercise, evaluation) {
 const ORIGIN_BACK_LABEL = { academy: 'Volver a la Academia', library: 'Volver a la Biblioteca' };
 
 /**
- * Acciones de Resultados según el origen: práctica libre (Reintentar, Nuevo
- * texto), Biblioteca (Repetir, volver) o Academia (Repetir, volver y, solo en
- * el paso actual del recorrido, Siguiente ejercicio).
+ * «Reiniciar Academia» (en Historial): solo con el curso cargado. `confirming`
+ * alterna entre el botón y la confirmación; `message` va a la región de estado
+ * y solo se reescribe al cambiar, para no repetir el anuncio.
+ */
+export function renderCourseReset(ce, { available, confirming = false, message = '' }) {
+  const r = ce.courseReset;
+  r.section.hidden = !available;
+  r.confirm.hidden = !confirming;
+  r.actions.hidden = confirming;
+  if (r.status.textContent !== message) r.status.textContent = message;
+}
+
+/** Rótulo del botón que repite la partida terminada desde Resultados. */
+export function retryLabel(origin) {
+  return origin === 'free' ? 'Repetir texto' : 'Repetir ejercicio';
+}
+
+/**
+ * Acciones de Resultados según el origen: práctica libre (Repetir texto, Nuevo
+ * texto), Biblioteca (Repetir ejercicio, volver) o Academia (Repetir ejercicio,
+ * volver y, solo en el paso actual del recorrido, Siguiente ejercicio).
  */
 export function renderResultsActions(els, ce, { origin, courseStep, hasNext }) {
   const isExercise = origin !== 'free';
-  els.retryButton.textContent = isExercise ? 'Repetir' : 'Reintentar';
+  els.retryButton.textContent = retryLabel(origin);
   els.newTextButton.hidden = isExercise;
   ce.nextExerciseButton.hidden = !(courseStep && hasNext);
   ce.courseEnd.hidden = !(courseStep && !hasNext);

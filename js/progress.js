@@ -116,6 +116,14 @@ export function skipCurrent(progress, courseOrder) {
   return advanceCourse(recordSkip(progress, currentId), courseOrder);
 }
 
+/**
+ * «Reiniciar Academia»: la posición vuelve a la primera lección del curso. Es un
+ * reinicio del recorrido, no un borrado: estados y mejores marcas se conservan.
+ */
+export function restartCourse(progress, courseOrder) {
+  return { ...progress, currentExerciseId: courseOrder[0] ?? null };
+}
+
 function findLesson(catalog, exerciseId) {
   for (const level of catalog.levels) {
     const lesson = level.lessons.find((l) => l.exerciseId === exerciseId);

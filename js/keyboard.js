@@ -45,6 +45,8 @@ const DEAD_NAMES = Object.freeze({
   [GRAVE]: 'el acento grave (`)',
   [CIRCUMFLEX]: 'el acento circunflejo (^)',
 });
+// Habilidad de cada tecla muerta, para validar qué se ha enseñado en el currículo.
+const DEAD_KINDS = Object.freeze({ [ACUTE]: 'acute', [DIAERESIS]: 'diaeresis', [GRAVE]: 'grave', [CIRCUMFLEX]: 'circumflex' });
 // Vocales que las teclas muertas del español combinan de forma fiable.
 const DEAD_COMBINABLE = new Set([...'aeiouAEIOU']);
 
@@ -176,8 +178,10 @@ function modifiersFor({ code, shift, altGr }) {
 }
 
 // Paso: una tecla física con sus modificadores. `label` es lo que se nombra en la ayuda.
-function step(keyRef, { dead = false, label }) {
-  return { code: keyRef.code, fingers: [...getKey(keyRef.code).fingers], modifiers: modifiersFor(keyRef), dead, label };
+function step(keyRef, { dead = false, deadKind = null, label }) {
+  return {
+    code: keyRef.code, fingers: [...getKey(keyRef.code).fingers], modifiers: modifiersFor(keyRef), dead, deadKind, label,
+  };
 }
 
 function charLabel(char) {
@@ -197,7 +201,10 @@ function resolveDeadKey(char) {
   return {
     char,
     known: true,
-    steps: [step(dead, { dead: true, label: DEAD_NAMES[mark] }), step(base, { label: charLabel(baseChar) })],
+    steps: [
+      step(dead, { dead: true, deadKind: DEAD_KINDS[mark], label: DEAD_NAMES[mark] }),
+      step(base, { label: charLabel(baseChar) }),
+    ],
   };
 }
 
@@ -225,7 +232,9 @@ export function resolveBackspace() {
     char: '\b',
     known: true,
     backspace: true,
-    steps: [{ code: 'Backspace', fingers: [...getKey('Backspace').fingers], modifiers: [], dead: false, label: 'Retroceso' }],
+    steps: [{
+      code: 'Backspace', fingers: [...getKey('Backspace').fingers], modifiers: [], dead: false, deadKind: null, label: 'Retroceso',
+    }],
   };
 }
 
@@ -330,4 +339,28 @@ export function helpContext({ origin, screen = null }) {
 /** Recordar la posición de reposo solo en las lecciones introductorias. */
 export function showsRestReminder(exercise) {
   return exercise !== null && exercise !== undefined && exercise.level <= 2;
+}
+
+// --- Entradas físicas por carácter (validación del currículo, T10) -------------------
+
+const INPUT_SKILLS = new Set(Object.values(DEAD_KINDS));
+
+/**
+ * Entradas que exige escribir un carácter: códigos de las teclas físicas (también
+ * Mayús y AltGr) y, en los acentos, la habilidad de la tecla muerta ('acute',
+ * 'diaeresis'…). No confunde el carácter visible con las teclas que lo producen.
+ * null si el carácter no tiene una posición conocida.
+ */
+export function requiredInputs(char) {
+  const resolution = resolveCharacter(char);
+  if (!resolution.known) return null;
+  return resolution.steps.flatMap((s) => [
+    s.code, ...s.modifiers.map((m) => m.code), ...(s.deadKind ? [s.deadKind] : []),
+  ]);
+}
+
+/** true si el token es un código de tecla real del modelo o una habilidad de tecla muerta. */
+export function isValidInputToken(token) {
+  if (INPUT_SKILLS.has(token)) return true;
+  return typeof token === 'string' && token !== 'EnterContinuation' && getKey(token) !== null;
 }

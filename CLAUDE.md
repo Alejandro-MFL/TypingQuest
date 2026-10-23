@@ -13,7 +13,10 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 
 ## Ejecutar
 
-- Servidor local: `python -m http.server 8000` → http://localhost:8000
+- Servidor local: `python tools/dev-server.py` → http://localhost:8000 (biblioteca estándar;
+  envía `Cache-Control: no-cache`). NO usar `python -m http.server`: sin esa cabecera el
+  navegador reutiliza módulos ES antiguos junto a otros nuevos y la aplicación no arranca
+  (p. ej. «progress.js does not provide an export named …»). Si ocurre, Ctrl+F5 una vez.
 - No abrir `index.html` con `file://`: los módulos ES fallan.
 
 ## Estructura
@@ -23,7 +26,7 @@ index.html            # Navegación principal y pantallas: Inicio, Academia, Bib
                       # Práctica libre (preparación), partida, resultados e Historial.
 css/styles.css        # Tema oscuro, carril, avisos, animaciones, catálogo, historial, responsive.
 data/exercises.json   # Catálogo de ejercicios (contenido; sin código).
-data/course.json      # Organización del curso: niveles y orden de los ejercicios.
+data/course.json      # Organización del curso: bloques, lecciones, teclas introducidas y retirados.
 js/config.js          # Parámetros configurables (CONFIG congelado).
 js/text-prep.js       # PURO: sanitizeText, validateText, prepareText, findUnsupportedChars.
 js/chunks.js          # PURO: splitIntoChunks (fragmentos de N palabras).
@@ -42,9 +45,12 @@ js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejerci
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
 js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo, progreso y pantallas.
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
-                      # catalog (incluye los JSON reales), progress, objectives, router, course-ui
-                      # y keyboard.
-.claude/launch.json   # Servidor de vista previa para Claude Code.
+                      # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
+                      # migration (posiciones y registros de T8/T9), progress, objectives,
+                      # router, course-ui, keyboard, modules (imports y exports del grafo de
+                      # js/) y dev-server (cabeceras del servidor local; se omite sin python).
+tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
+.claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
 ```
@@ -117,8 +123,9 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   (`blockOnErrorsDefault: false`; la elección no se guarda entre recargas).
 - Se puede cambiar fuera de la partida y en ella antes de la primera pulsación (la
   partida se recrea con `restartGame(state, { mode })`). Desde la primera pulsación
-  hasta terminar, la casilla está deshabilitada (`isModeLocked`). Las partidas nuevas y
-  «Reintentar» usan el modo elegido en ese momento.
+  hasta terminar, la casilla está deshabilitada (`isModeLocked`). Las partidas nuevas usan
+  el modo elegido en ese momento; «Repetir» usa el MISMO modo de la partida terminada
+  y la casilla se sincroniza con él (se puede cambiar antes de la primera pulsación).
 - Terminar un ejercicio (llegar al final) no equivale a superar sus objetivos de
   precisión y WPM (ver «Objetivos»).
 - Estricto (casilla marcada): comportamiento anterior; un fragmento solo se completa, y
@@ -201,12 +208,21 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 - Resultados: precisión, tiempo y errores; debajo, el WPM destacado (300 %) en dorado.
   `corrections` se mantiene en el motor pero no se muestra. Un anunciador `role="status"`
   lee el resumen a lectores de pantalla.
-- Acciones por origen (`session.origin`):
-  - Práctica libre: «Reintentar» y «Nuevo texto» (vuelve a la preparación con el texto).
-  - Biblioteca: «Repetir» y «Volver a la Biblioteca».
-  - Academia: «Repetir» y «Volver a la Academia». Solo en la lección actual
+- Acciones por origen (`session.origin`, rótulo con `retryLabel`):
+  - Práctica libre: «Repetir texto» y «Nuevo texto» (vuelve a la preparación con el texto).
+  - Biblioteca: «Repetir ejercicio» y «Volver a la Biblioteca».
+  - Academia: «Repetir ejercicio» y «Volver a la Academia». Solo en la lección actual
     (`session.courseStep`), además «Siguiente ejercicio» (oculto en el último) y, en la
     partida, «Saltar ejercicio». La práctica ampliada nunca los ofrece.
+  «Repetir» (Resultados, `handleRetry`) y «Reiniciar ejercicio» (partida, con icono de
+  flecha circular, `handleRestart`) comparten `restartSession`: la MISMA sesión (texto,
+  ejercicio, origen, paso del recorrido y modo; sonido y ayudas no cambian) vuelve a
+  empezar con `restartGame` y `enterPlay`: cronómetro, entrada, métricas, fragmentos,
+  avisos, animaciones y guía a cero, y el foco vuelve al campo. La partida descartada
+  no se guarda; no mueve la posición ni toca historial o marcas; si la nueva termina,
+  se guarda como otra sesión. «Repetir» solo actúa desde Resultados y «Reiniciar»
+  solo con la partida en curso (`isPlaying`), sin confirmación: los clics repetidos
+  no duplican nada.
   «Salir de la partida» vuelve al origen. Todas detienen cronómetro, avisos y efectos y
   descartan la partida.
 
@@ -231,6 +247,11 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   gráficas SVG sin librerías (con descripción textual) y el listado completo de sesiones
   con el nombre del ejercicio. El borrado pide confirmación en la propia pantalla (sin
   `confirm()`) y no borra el progreso de la Academia.
+- «Recorrido de la Academia» (al final del Historial, solo con el curso cargado):
+  «Reiniciar Academia» pide confirmación en la propia pantalla (grupo con «Cancelar»,
+  que recibe el foco, y «Reiniciar Academia»). Al confirmar, `restartCourse`
+  (`progress.js`) devuelve la posición a la primera lección y se guarda; historial,
+  estados, mejores marcas y preferencias se conservan. Resultado en `#course-reset-status`.
 - Gráficas compartidas por resultados e historial (`renderTrendCharts` en `ui.js`,
   geometría en `history.js`).
 
@@ -242,18 +263,44 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   `category` (lista en `CATEGORIES`), `targetAccuracy` (entero 50-100), `targetWpm`
   (entero o `null`) y `text`. Campos desconocidos = error. Una sola definición por
   ejercicio, compartida por Academia y Biblioteca.
-- `course.json` (`schemaVersion: 3`): niveles en orden con `title`, `summary` y
-  `lessons: [{ exercise, extended }]`. `exercise` es la práctica base (breve, forma el
-  recorrido); `extended`, la práctica ampliada opcional (más larga; no forma parte del
-  recorrido ni lo hace avanzar). Hoy hay 13 lecciones, TODAS con las dos (13 + 13 = 26
-  ejercicios); el esquema admite una lección sin ampliada. No hay tercer tipo de práctica.
-- `course.json` → `retired: [{ exercise, title, continueAt? }]`: ejercicios eliminados
-  (hoy «Alternar F y J» base y ampliada, integrada en «Postura y teclas guía»). Ya no
-  están en el catálogo ni en el recorrido, pero sus registros de historial y de progreso
-  se conservan; el Historial los muestra como «<título> · ejercicio retirado»
+- `course.json` (`schemaVersion: 4`): niveles en orden (un nivel = un bloque del temario)
+  con `title`, `summary` y `lessons: [{ exercise, extended, introduces }]`. `exercise` es
+  la práctica base (breve, forma el recorrido); `extended`, la práctica ampliada opcional
+  (más larga; no forma parte del recorrido ni lo hace avanzar). Hoy hay 67 lecciones,
+  TODAS con las dos (134 ejercicios); el esquema admite una lección sin ampliada. No hay
+  tercer tipo de práctica. `introduces`: entradas NUEVAS de la lección (lista, puede
+  estar vacía en repasos y consolidaciones).
+- Temario (T10): una tecla nueva por lección, combinada con las conocidas; primero una
+  mano, luego la otra y después las dos; consolidaciones intercaladas; la velocidad no
+  se exige en el primer contacto.
+  - Bloque A (17): postura F/J y espacio; mano derecha J, K, L, Ñ y consolidación;
+    izquierda F, D, S, A y consolidación; ambas manos (combinaciones, alternancia), G, H,
+    patrones variados y palabras.
+  - Bloque B (14): U I O P Y (derecha), consolidación; R E W Q T (izquierda),
+    consolidación; palabras con ambas manos y fila superior.
+  - Bloque C (16): N M , . - (derecha) y V B C X Z (izquierda), cada mano con su
+    consolidación; fila inferior; tres filas por mano y con las dos.
+  - Bloque D (12): espacios, Mayús izquierda y derecha, tildes, diéresis, puntuación,
+    números (1-5 y 6-0), ¿? ¡!, símbolos y AltGr (@ €), cada uno explicado.
+  - Bloque E (8): palabras frecuentes, alternancia, frases, textos, precisión y ritmo.
+- Entradas (`requiredInputs(char)` en `keyboard.js`): `KeyboardEvent.code` de las teclas
+  físicas, del modificador (`ShiftLeft`, `ShiftRight`, `AltRight`) y habilidades de
+  tecla muerta (`acute`, `diaeresis`). P. ej. «á» → Quote + acute + KeyA; «Ü» exige
+  también Mayús. Se valida por teclas físicas, no por caracteres visibles.
+- `course.json` → `retired: [{ exercise, title, continueAt? }]`: ejercicios eliminados.
+  Ya no están en el catálogo ni en el recorrido, pero sus registros de historial y de
+  progreso se conservan; el Historial los muestra como «<título> · ejercicio retirado»
   (`exerciseTitle`). `continueAt` (práctica base del curso) es adonde se traslada una
-  posición guardada en ellos: `resolveRetiredPosition` al cargar el catálogo, determinista.
-  La validación exige que la ampliada sea más larga que su base y de la misma
+  posición guardada en ellos: `resolveRetiredPosition` al cargar el catálogo,
+  determinista e idempotente. Retirados hoy: «Alternar F y J» (→ `a-der-j`), y de T9
+  «Mayúsculas y puntuación» (→ `d-mayus-izq`), «Interrogación y exclamación»
+  (→ `d-interrogacion`) y «Números» (→ `d-numeros-izq`), con sus ampliadas.
+- Migración (T10): los ejercicios equivalentes conservan su ID (posición y logros siguen
+  valiendo sin convertir nada: `l1-postura-fj`, `l2-*`, `l3-*`, `l4-tildes`, `l5-*`);
+  los demás se retiran con continuación en el MISMO bloque, nunca al inicio. Las
+  lecciones nuevas empiezan sin realizar: nunca se marcan superadas. Formatos de
+  historial y progreso sin cambios (`tests/migration.test.js`).
+- La validación exige que la ampliada sea más larga que su base y de la misma
   categoría y nivel. ID de la ampliada: `<id de la base>-ampliada`.
   La organización está separada del catálogo.
 - Versionado: `schemaVersion` cambia con la forma de los datos; `contentVersion` con
@@ -262,19 +309,21 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   reevalúan con las condiciones nuevas).
 - `validateCatalog` comprueba IDs (formato y duplicados), referencias del curso, tipos
   (base/ampliada), repetidos, que cada ejercicio esté en su nivel, campos y objetivos
-  (sin `targetWpm` en textos de menos de `MIN_WPM_TEXT_LENGTH` = 40 caracteres), y que
-  el texto sea válido Y ya esté en la forma de `prepareText`. `tests/catalog.test.js`
-  valida los JSON reales, que los objetivos sigan `LEVEL_GOALS`, que cada lección tenga
-  base y ampliada, que la ampliada sea al menos 1,5 veces más larga, que tenga la
-  longitud de su nivel (N1 100-140, N2 120-180, N3 160-240, N4 220-320, N5 300-450
-  caracteres) y que no repita mecánicamente un mismo bloque. Las bases mantienen su
-  longitud breve.
-- Las ampliadas usan solo las teclas aprendidas hasta su lección (N1 solo F/J, N2 fila
-  central con Ñ, N3 sin tildes ni signos…): secuencias en los niveles iniciales y
-  palabras o frases naturales después.
-- Contenido para teclado español: N1 postura y F/J; N2 fila central con Ñ; N3 filas
-  superior e inferior; N4 tildes, mayúsculas, puntuación, ¿ ¡ y números; N5 frases y
-  textos. Enseñanza visual de dedos: T9.
+  (sin `targetWpm` en textos de menos de `MIN_WPM_TEXT_LENGTH` = 40 caracteres), que
+  el texto sea válido Y ya esté en la forma de `prepareText`, y las teclas: `introduces`
+  con entradas válidas y no repetidas en el curso, ningún texto (base ni ampliada) con
+  entradas aún no introducidas, y cada entrada nueva usada al menos
+  `MIN_NEW_INPUT_USES` (2) veces en su práctica base. `tests/catalog.test.js` valida los
+  JSON reales, que los objetivos sigan `LEVEL_GOALS` (las bases de los bloques A-C sin
+  objetivo de WPM: primer contacto), que la ampliada sea al menos 1,5 veces más larga,
+  que tenga la longitud de su nivel (N1 100-140, N2 120-180, N3 160-240, N4 220-320,
+  N5 300-450 caracteres) y que no repita mecánicamente un mismo bloque.
+  `tests/curriculum.test.js` comprueba el orden aprobado de las teclas, una por lección
+  en A-C, la cobertura de las 27 letras, las consolidaciones por mano y con ambas, y que
+  la descripción nombre el dedo del modelo de T9.
+- Categorías (`CATEGORIES`): teclas guía, fila central, superior, inferior, tres filas,
+  palabras y espacios, mayúsculas, tildes, puntuación, signos, números, símbolos,
+  frases, textos, precisión y ritmo.
 
 ## Objetivos (`js/objectives.js`)
 
@@ -305,8 +354,9 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
   repetirla) y «Práctica ampliada» (opcional; nunca ofrece Siguiente ni Saltar). Si la
   base ya está terminada aparece «Siguiente ejercicio»: avanza uno y abre la siguiente
   base.
-- La Biblioteca muestra UNA tarjeta por lección (`libraryLessons`, 13): título,
-  descripción, nivel y categoría de la lección, y sus dos prácticas, cada una con su
+- La Biblioteca muestra UNA tarjeta por lección (`libraryLessons`, 67), agrupadas por
+  bloque con un encabezado por bloque (`groupLessonsByLevel`, `blockLabel`): título,
+  descripción, bloque y categoría de la lección, y sus dos prácticas, cada una con su
   propio estado, dificultad, objetivos y botón «Empezar» (abre esa práctica; nunca
   mueve el recorrido ni ofrece Saltar/Siguiente). Búsqueda y filtros (`filterLessons`)
   muestran la lección si CUALQUIERA de sus prácticas coincide. Los objetos son los del
@@ -347,7 +397,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
 - Ayudas (`HELP_MODES`: `full`, `keyboard`, `none`) en Opciones, cambiables durante la
   partida sin reiniciarla. Preferencia por contexto (`helpContext`): ejercicios
   (Academia y Biblioteca) por defecto `full`; práctica libre por defecto `none`. No se
-  guarda entre recargas. Recordatorio de reposo solo en niveles 1-2 (`showsRestReminder`).
+  guarda entre recargas. Recordatorio de reposo solo en los bloques A y B, niveles 1-2 (`showsRestReminder`).
 - Móvil: el teclado se ajusta al ancho (sin scroll horizontal) y oculta los rótulos
   secundarios; las manos se reducen. `prefers-reduced-motion`: sin transiciones.
 - Pendiente (no T9): estadísticas por dedo.

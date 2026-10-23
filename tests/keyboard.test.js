@@ -17,6 +17,8 @@ import {
   DEFAULT_HELP_MODES,
   helpContext,
   showsRestReminder,
+  requiredInputs,
+  isValidInputToken,
 } from '../js/keyboard.js';
 
 function deepFreeze(obj) {
@@ -414,5 +416,51 @@ describe('ayudas visuales: modos y valores por defecto', () => {
     assert.equal(showsRestReminder({ level: 2 }), true);
     assert.equal(showsRestReminder({ level: 3 }), false);
     assert.equal(showsRestReminder(null), false);
+  });
+});
+
+// --- T10: entradas físicas que exige cada carácter (validación del currículo) ---------
+
+describe('requiredInputs', () => {
+  it('una letra exige solo su tecla física', () => {
+    assert.deepEqual(requiredInputs('a'), ['KeyA']);
+    assert.deepEqual(requiredInputs('ñ'), ['Semicolon']);
+    assert.deepEqual(requiredInputs(' '), ['Space']);
+  });
+
+  it('las mayúsculas exigen además la Mayús de la mano contraria', () => {
+    assert.deepEqual(requiredInputs('A'), ['KeyA', 'ShiftRight']);
+    assert.deepEqual(requiredInputs('Ñ'), ['Semicolon', 'ShiftLeft']);
+  });
+
+  it('los acentos exigen la tecla muerta y la habilidad correspondiente, no solo el carácter visible', () => {
+    assert.deepEqual(requiredInputs('á'), ['Quote', 'acute', 'KeyA']);
+    assert.deepEqual(requiredInputs('Á'), ['Quote', 'acute', 'KeyA', 'ShiftRight']);
+    assert.deepEqual(requiredInputs('ü'), ['Quote', 'ShiftLeft', 'diaeresis', 'KeyU']);
+  });
+
+  it('AltGr y signos con Mayús', () => {
+    assert.deepEqual(requiredInputs('@'), ['Digit2', 'AltRight']);
+    assert.deepEqual(requiredInputs('¿'), ['Equal', 'ShiftLeft']);
+    assert.deepEqual(requiredInputs('!'), ['Digit1', 'ShiftRight']);
+  });
+
+  it('un carácter sin posición conocida devuelve null', () => {
+    assert.equal(requiredInputs('ń'), null);
+    assert.equal(requiredInputs(''), null);
+  });
+});
+
+describe('isValidInputToken', () => {
+  it('acepta códigos de teclas reales y habilidades de tecla muerta', () => {
+    for (const token of ['KeyA', 'Space', 'Semicolon', 'ShiftLeft', 'AltRight', 'Digit0', 'acute', 'diaeresis']) {
+      assert.equal(isValidInputToken(token), true, token);
+    }
+  });
+
+  it('rechaza caracteres visibles, códigos inexistentes y la parte visual del Intro', () => {
+    for (const token of ['a', 'ñ', 'KeyÑ', 'EnterContinuation', '', null, 'tilde']) {
+      assert.equal(isValidInputToken(token), false, String(token));
+    }
   });
 });
