@@ -44,6 +44,7 @@ js/analysis-ui.js     # «Análisis de escritura» en Resultados e Historial; he
 js/typing-trends.js   # PURO: agregación de diagnósticos de varias sesiones y evolución por carácter.
 js/trends-ui.js       # «Mi evolución» en el Historial; helpers puros de textos.
 js/library-memory.js  # PURO: billete de vuelta a la Biblioteca (filtros, desplazamiento, práctica).
+js/recommendations.js # PURO: «Practicar mis dificultades» (dificultades de T12 → prácticas del catálogo).
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
@@ -53,7 +54,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -66,7 +67,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
   `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`,
-  `typing-trends.js`, `library-memory.js`. El instante actual se inyecta
+  `typing-trends.js`, `library-memory.js`, `recommendations.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
@@ -224,6 +225,8 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Acciones por origen (`session.origin`, rótulo con `retryLabel`):
   - Práctica libre: «Repetir texto» y «Nuevo texto» (vuelve a la preparación con el texto).
   - Biblioteca: «Repetir ejercicio» y «Volver a la Biblioteca».
+  - «Mi evolución» (origen `evolution`, T13): «Repetir ejercicio» y «Volver a Mi evolución»
+    (Historial con el foco en «Practicar mis dificultades»; también al salir).
   - Academia: «Repetir ejercicio» y «Volver a la Academia». Solo en la lección actual
     (`session.courseStep`), además «Siguiente ejercicio» (oculto en el último) y, en la
     partida, «Saltar ejercicio». La práctica ampliada nunca los ofrece.
@@ -321,6 +324,29 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Limitaciones: no corrige la diferente dificultad de los ejercicios; T11 guarda como
   máximo 64 caracteres y 8 confusiones por sesión (lo descartado no se suma); sin datos
   de transiciones entre letras consecutivas (no se infieren).
+
+## Entrenamiento personalizado (T13: `js/recommendations.js`)
+
+- «Practicar mis dificultades», primer apartado de «Mi evolución». Reglas locales y
+  explicables (sin IA), calculadas al vuelo: `recommendPractice({ report, catalog, progress })`
+  con el informe de `analyzeTrends`. No crea ejercicios ni toca textos ni progreso.
+- Qué reforzar (`selectTargets`): SOLO criterios de T12 (muestra suficiente y recurrente
+  o empeora). Prioridad: empeora > recurrente sin mejorar > recurrente que mejora; luego
+  tasa, oportunidades y carácter. Una por tecla física («d»/«D»). Máx. 3.
+- Con qué (`exerciseMatches`): el TEXTO real. Carácter exacto (≥ `MIN_TARGET_OCCURRENCES`
+  = 4); vocales con tilde/diéresis: todas las de la misma tecla muerta (`accent`); si el
+  carácter casi no aparece (p. ej. «Ñ»), los de su tecla física (`key`).
+- Nivel: lecciones hasta la más avanzada trabajada (posición del recorrido o práctica
+  terminada) o, si es posterior, hasta la que introduce las teclas del carácter
+  (`introduces`, ahora también en las lecciones del catálogo). Gana la lección con más
+  densidad del carácter; base, salvo que esté superada y la ampliada sirva
+  (`upgraded`). Alternativa: la mejor de una lección posterior del mismo nivel. Sin
+  lecciones repetidas entre recomendaciones.
+- Estados: `empty`/`insufficient` («Todavía necesitamos algunas prácticas más…»), `none`
+  (sin dificultades destacables) y `ok`; los vacíos enlazan a Academia y Biblioteca.
+- «Practicar» abre el ejercicio con origen `evolution`: como la Biblioteca (actualiza su
+  estado, nunca la posición del recorrido ni otras lecciones). Al terminar se guarda la
+  sesión con su diagnóstico y las recomendaciones se recalculan al volver.
 
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 
@@ -521,6 +547,9 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Mostrar los cambios relevantes antes de cada commit.
 - Realizar commits pequeños, coherentes y con mensajes descriptivos.
 - No descartar cambios existentes sin aprobación.
+- Los commits deben utilizar la identidad Git configurada por el usuario. No añadir
+  automáticamente líneas Co-Authored-By de Claude (`.claude/settings.json` →
+  `attribution` con textos vacíos; forma de objeto, compatible con versiones antiguas).
 
 ## Cómo explicar el trabajo al usuario
 

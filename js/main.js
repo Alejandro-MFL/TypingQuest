@@ -25,6 +25,7 @@ import * as courseUi from './course-ui.js';
 import * as analysisUi from './analysis-ui.js';
 import * as trendsUi from './trends-ui.js';
 import { analyzeTrends } from './typing-trends.js';
+import { recommendPractice } from './recommendations.js';
 import {
   createTypingAnalysis, recordTransition, summarizeAnalysis, packAnalysis, unpackAnalysis, diagnose,
 } from './typing-analysis.js';
@@ -86,6 +87,8 @@ let lastKeyCode = null;
 let guideErrorCode = null;
 // Billete de vuelta a la Biblioteca (T12, library-memory.js): solo en memoria.
 let libraryReturn = null;
+// Al volver de una práctica recomendada (T13), el foco va a «Practicar mis dificultades».
+let pendingPracticeFocus = false;
 // Entrada del historial del navegador añadida al abrir una práctica desde la
 // Biblioteca: así «Atrás» vuelve a la Biblioteca y no a la sección anterior.
 const LIBRARY_GAME_STATE = 'typingquest-library-game';
@@ -115,6 +118,21 @@ function showRoute(route) {
   if (ticket) restoreLibraryPosition(ticket);
   else if (route === 'practice') els.sourceText.focus();
   else els.screens[ROUTE_SCREENS[route]].querySelector('.screen-title').focus();
+  if (route === 'history' && pendingPracticeFocus) focusPracticeSection();
+  pendingPracticeFocus = false;
+}
+
+// «Volver a Mi evolución»: el Historial, desplazado hasta las recomendaciones.
+function focusPracticeSection() {
+  const title = document.getElementById('practice-title');
+  if (!title) return;
+  title.focus({ preventScroll: true });
+  title.scrollIntoView({ block: 'start' });
+}
+
+function returnToEvolution() {
+  pendingPracticeFocus = true;
+  navigate('history');
 }
 
 // Desplazamiento guardado y foco en el botón de la práctica abierta (sin saltos:
@@ -544,8 +562,12 @@ function recordExerciseProgress(stats, evaluation) {
 function renderHistory({ cleared = false } = {}) {
   const history = historyStore.load();
   ui.renderHistory(els, history, { chartSessions: CONFIG.historyChartSessions, exerciseName, cleared });
-  // «Mi evolución» (T12): se calcula al vuelo con los diagnósticos ya guardados.
-  trendsUi.renderEvolution(document.getElementById('evolution-body'), analyzeTrends(history.sessions));
+  // «Mi evolución» (T12) y sus recomendaciones (T13): al vuelo, con lo ya guardado.
+  const report = analyzeTrends(history.sessions);
+  const recommendations = catalog
+    ? recommendPractice({ report, catalog, progress })
+    : { status: report.status === 'ok' ? 'none' : report.status, items: [] };
+  trendsUi.renderEvolution(document.getElementById('evolution-body'), report, recommendations);
   de.history.panel.hidden = true;
 }
 
@@ -743,7 +765,15 @@ function handleSkip() {
 
 function handleBackToOrigin() {
   if (session?.origin === 'library') returnToLibrary();
+  else if (session?.origin === 'evolution') returnToEvolution();
   else navigate('academy');
+}
+
+// «Practicar» en «Mi evolución» (delegación): como una práctica de la Biblioteca,
+// actualiza el estado del ejercicio pero nunca la posición del recorrido.
+function handlePracticeClick(event) {
+  const id = event.target.closest('[data-practice-id]')?.dataset.practiceId;
+  if (id) startExercise(id, 'evolution');
 }
 
 function handleNewText() {
@@ -756,6 +786,7 @@ function handleNewText() {
 function handleExit() {
   const origin = session?.origin ?? 'free';
   if (origin === 'library') returnToLibrary();
+  else if (origin === 'evolution') returnToEvolution();
   else navigate(origin === 'free' ? 'practice' : origin);
 }
 
@@ -868,6 +899,7 @@ function bindEvents() {
   els.history.confirmButton.addEventListener('click', handleClearConfirm);
   els.history.rows.addEventListener('click', handleHistoryDiagnosis);
   de.history.closeButton.addEventListener('click', handleHistoryDiagnosisClose);
+  document.getElementById('evolution-body').addEventListener('click', handlePracticeClick);
   ce.courseReset.button.addEventListener('click', handleCourseResetRequest);
   ce.courseReset.cancelButton.addEventListener('click', handleCourseResetCancel);
   ce.courseReset.confirmButton.addEventListener('click', handleCourseResetConfirm);

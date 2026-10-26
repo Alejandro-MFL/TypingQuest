@@ -9,6 +9,7 @@ import {
   blockLabel,
   groupLessonsByLevel,
   retryLabel,
+  backToOriginLabel,
 } from '../js/course-ui.js';
 import { EXERCISE_STATUS } from '../js/progress.js';
 import { evaluateObjectives } from '../js/objectives.js';
@@ -150,5 +151,14 @@ describe('retryLabel (Resultados)', () => {
 
   it('en práctica libre: «Repetir texto» (el mismo texto personalizado)', () => {
     assert.equal(retryLabel('free'), 'Repetir texto');
+  });
+});
+
+describe('backToOriginLabel (Resultados)', () => {
+  it('cada origen vuelve a su sitio; las prácticas recomendadas, a «Mi evolución» (T13)', () => {
+    assert.equal(backToOriginLabel('academy'), 'Volver a la Academia');
+    assert.equal(backToOriginLabel('library'), 'Volver a la Biblioteca');
+    assert.equal(backToOriginLabel('evolution'), 'Volver a Mi evolución');
+    assert.equal(retryLabel('evolution'), 'Repetir ejercicio');
   });
 });

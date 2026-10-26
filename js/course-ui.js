@@ -362,7 +362,14 @@ export function renderObjectiveResults(ce, exercise, evaluation) {
   }));
 }
 
-const ORIGIN_BACK_LABEL = { academy: 'Volver a la Academia', library: 'Volver a la Biblioteca' };
+const ORIGIN_BACK_LABEL = {
+  academy: 'Volver a la Academia', library: 'Volver a la Biblioteca', evolution: 'Volver a Mi evolución',
+};
+
+/** Rótulo del botón de Resultados que vuelve al origen del ejercicio. */
+export function backToOriginLabel(origin) {
+  return ORIGIN_BACK_LABEL[origin] ?? '';
+}
 
 /**
  * «Reiniciar Academia» (en Historial): solo con el curso cargado. `confirming`
@@ -394,5 +401,5 @@ export function renderResultsActions(els, ce, { origin, courseStep, hasNext }) {
   ce.nextExerciseButton.hidden = !(courseStep && hasNext);
   ce.courseEnd.hidden = !(courseStep && !hasNext);
   ce.backToOriginButton.hidden = !isExercise;
-  ce.backToOriginButton.textContent = ORIGIN_BACK_LABEL[origin] ?? '';
+  ce.backToOriginButton.textContent = backToOriginLabel(origin);
 }

@@ -652,3 +652,13 @@ describe('filterLessons', () => {
     assert.deepEqual(ids({ level: 1, category: 'tildes' }), []);
   });
 });
+
+describe('createCatalog: teclas introducidas en cada lección (T13)', () => {
+  it('cada lección del catálogo conserva su lista `introduces`', () => {
+    const { catalog } = createCatalog(REAL_EXERCISES, REAL_COURSE, { maxTextLength: MAX });
+    const lessons = catalog.levels.flatMap((l) => l.lessons);
+    assert.deepEqual(lessons[0].introduces, ['KeyF', 'KeyJ', 'Space']);
+    assert.deepEqual(lessons.find((l) => l.exerciseId === 'l2-jkl-enie').introduces, ['Semicolon']);
+    assert.ok(lessons.every((l) => Array.isArray(l.introduces) && Object.isFrozen(l.introduces)));
+  });
+});

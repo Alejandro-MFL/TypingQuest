@@ -80,6 +80,51 @@ export function trendLabel(status) {
   return TREND_LABELS[status];
 }
 
+// --- «Practicar mis dificultades» (T13, recommendations.js) -------------------------------
+
+export function practiceStatusText(status) {
+  if (status === 'empty' || status === 'insufficient') {
+    return 'Todavía necesitamos algunas prácticas más para identificar qué teclas te conviene reforzar.';
+  }
+  if (status === 'none') {
+    return 'Ahora mismo no hay ninguna tecla que destaque por encima de tu media. Sigue practicando a tu ritmo.';
+  }
+  return '';
+}
+
+const subject = (char) => (char === ' ' ? 'el espacio' : charName(char));
+
+export function recommendationTitle(item) {
+  return `Reforzar ${subject(item.target.char)}`;
+}
+
+export function practiceKindLabel(kind) {
+  return kind === 'extended' ? 'Práctica ampliada' : 'Práctica base';
+}
+
+const TREND_NOTES = {
+  worsening: ' Además, últimamente te está costando más.',
+  improving: ' Estás mejorando, pero sigue por encima de tu media.',
+};
+
+function matchText(item) {
+  if (item.match === 'accent') {
+    const mark = /[üÜ]/.test(item.target.char) ? 'diéresis' : 'tilde';
+    return `Esta práctica tiene ${item.count} vocales con ${mark}`;
+  }
+  if (item.match === 'key') return `Esta práctica trabaja la misma tecla ${item.count} veces`;
+  return `Esta práctica la repite ${item.count} veces`;
+}
+
+/** Por qué se recomienda: tasa con sus oportunidades, evolución y qué aporta la práctica. */
+export function recommendationReason(item) {
+  const { char, rate, firstTryErrors, opportunities, trend } = item.target;
+  const upgraded = item.upgraded ? ' Como ya superaste la práctica base, te proponemos la ampliada.' : '';
+  return `Has fallado ${subject(char)} al primer intento en el ${formatPercent(rate)} de tus oportunidades `
+    + `(${firstTryErrors} de ${opportunities}).${TREND_NOTES[trend] ?? ''} `
+    + `${matchText(item)} y es de un nivel que ya has trabajado.${upgraded}`;
+}
+
 // --- DOM --------------------------------------------------------------------------------
 
 function element(tag, className, text) {
@@ -175,12 +220,68 @@ function createReportGroups(report) {
   return groups;
 }
 
-/** Pinta el informe de analyzeTrends dentro de `container`. */
-export function renderEvolution(container, report) {
+function practiceButton(exercise, label, target) {
+  const button = element('button', 'button button-small', label);
+  button.type = 'button';
+  button.dataset.practiceId = exercise.id;
+  button.setAttribute('aria-label',
+    `${label}: «${exercise.title}» (${practiceKindLabel(exercise.kind).toLowerCase()}) para reforzar ${subject(target.char)}`);
+  return button;
+}
+
+function recommendationItem(item) {
+  const li = element('li', 'practice-item');
+  li.append(
+    element('strong', 'practice-target', recommendationTitle(item)),
+    element('p', 'practice-exercise', `«${item.exercise.title}» · ${practiceKindLabel(item.exercise.kind)}`),
+    element('p', 'practice-reason', recommendationReason(item)),
+    practiceButton(item.exercise, 'Practicar', item.target),
+  );
+  if (item.alternative) {
+    li.append(
+      element('p', 'practice-alternative', `¿Te resulta sencilla? Prueba «${item.alternative.title}» `
+        + `(${practiceKindLabel(item.alternative.kind).toLowerCase()}).`),
+      practiceButton(item.alternative, 'Practicar alternativa', item.target),
+    );
+  }
+  return li;
+}
+
+// Enlaces para seguir practicando cuando no hay recomendaciones.
+function continueLinks() {
+  const p = element('p', 'practice-links');
+  for (const [href, text] of [['#/academia', 'Ir a la Academia'], ['#/biblioteca', 'Ir a la Biblioteca']]) {
+    const a = element('a', 'button button-small button-secondary', text);
+    a.href = href;
+    p.append(a);
+  }
+  return p;
+}
+
+// Primer apartado de «Mi evolución»: hasta tres prácticas recomendadas.
+function createPracticeGroup(recommendations) {
+  const group = element('section', 'evolution-group practice-group');
+  const title = element('h4', 'evolution-group-title', 'Practicar mis dificultades');
+  title.id = 'practice-title';
+  title.tabIndex = -1;
+  group.append(title);
+  if (recommendations.status !== 'ok') {
+    group.append(element('p', 'evolution-empty', practiceStatusText(recommendations.status)), continueLinks());
+    return group;
+  }
+  const list = element('ol', 'practice-list');
+  list.append(...recommendations.items.map(recommendationItem));
+  group.append(list);
+  return group;
+}
+
+/** Pinta el informe de analyzeTrends (y las recomendaciones de T13) dentro de `container`. */
+export function renderEvolution(container, report, recommendations = { status: report.status, items: [] }) {
   const nodes = [];
   const status = statusText(report);
   if (status) nodes.push(element('p', 'evolution-status', status));
   if (report.sessionsAnalyzed > 0) nodes.push(element('p', 'evolution-summary', summaryText(report)));
+  nodes.push(createPracticeGroup(recommendations));
   if (report.status === 'ok') nodes.push(...createReportGroups(report), createDetail(report.chars));
   if (report.status !== 'empty') nodes.push(createDefinitions());
   container.replaceChildren(...nodes);

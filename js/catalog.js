@@ -371,6 +371,7 @@ export function createCatalog(exercisesData, courseData, options) {
     summary: l.summary,
     lessons: Object.freeze(l.lessons.map((lesson) => Object.freeze({
       exerciseId: lesson.exercise, extendedId: lesson.extended ?? null,
+      introduces: Object.freeze([...lesson.introduces]),
     }))),
   })));
   return {

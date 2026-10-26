@@ -11,6 +11,10 @@ import {
   confusionText,
   trendLabel,
   EVOLUTION_DEFINITIONS,
+  practiceStatusText,
+  recommendationTitle,
+  recommendationReason,
+  practiceKindLabel,
 } from '../js/trends-ui.js';
 import { MIN_TREND_OPPORTUNITIES, MIN_TREND_SESSIONS } from '../js/typing-trends.js';
 
@@ -107,5 +111,43 @@ describe('EVOLUTION_DEFINITIONS', () => {
     assert.match(text, /Tasa de fallo: porcentaje de veces que no escribiste correctamente una letra al primer intento/);
     assert.match(text, new RegExp(`${MIN_TREND_OPPORTUNITIES} oportunidades`));
     assert.match(text, /más difíciles/);
+  });
+});
+
+describe('«Practicar mis dificultades» (T13)', () => {
+  const item = (overrides = {}) => ({
+    target: { char: 'ñ', rate: 0.28, opportunities: 50, firstTryErrors: 14, trend: 'stable' },
+    exercise: { id: 'l2-jkl-enie', title: 'Fila central derecha', kind: 'base' },
+    match: 'exact', count: 14, upgraded: false, alternative: null, ...overrides,
+  });
+
+  it('sin datos suficientes: mensaje útil, no un error', () => {
+    for (const status of ['empty', 'insufficient']) {
+      assert.equal(practiceStatusText(status),
+        'Todavía necesitamos algunas prácticas más para identificar qué teclas te conviene reforzar.');
+    }
+    assert.match(practiceStatusText('none'), /no hay ninguna tecla que destaque/);
+    assert.equal(practiceStatusText('ok'), '');
+  });
+
+  it('título y tipo de práctica', () => {
+    assert.equal(recommendationTitle(item()), 'Reforzar «ñ»');
+    assert.equal(recommendationTitle(item({ target: { ...item().target, char: ' ' } })), 'Reforzar el espacio');
+    assert.equal(practiceKindLabel('base'), 'Práctica base');
+    assert.equal(practiceKindLabel('extended'), 'Práctica ampliada');
+  });
+
+  it('motivo: tasa con sus oportunidades y por qué esta práctica', () => {
+    assert.equal(recommendationReason(item()),
+      'Has fallado «ñ» al primer intento en el 28 % de tus oportunidades (14 de 50). '
+        + 'Esta práctica la repite 14 veces y es de un nivel que ya has trabajado.');
+  });
+
+  it('evolución, tildes, misma tecla y ampliada', () => {
+    assert.match(recommendationReason(item({ target: { ...item().target, trend: 'worsening' } })), /últimamente te está costando más/);
+    assert.match(recommendationReason(item({ target: { ...item().target, trend: 'improving' } })), /Estás mejorando, pero/);
+    assert.match(recommendationReason(item({ match: 'accent', count: 8, target: { ...item().target, char: 'á' } })), /tiene 8 vocales con tilde/);
+    assert.match(recommendationReason(item({ match: 'key', target: { ...item().target, char: 'Ñ' } })), /trabaja la misma tecla 14 veces/);
+    assert.match(recommendationReason(item({ upgraded: true })), /Como ya superaste la práctica base/);
   });
 });
