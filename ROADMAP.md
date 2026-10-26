@@ -17,24 +17,31 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T13 | Entrenamiento personalizado: «Practicar mis dificultades» en «Mi evolución» recomienda hasta tres prácticas existentes del catálogo para las dificultades detectadas por T11 y T12, con reglas locales y explicables (sin IA); se abren como una práctica de la Biblioteca, sin mover el recorrido de la Academia. |
 | T14 | Experiencia pedagógica: introducción inicial, instrucciones por lección (tecla, dedo, movimiento desde la posición de reposo y objetivo), movimiento del dedo en la guía («J → U → J»), consejo «Siguiente paso» en Resultados y recorrido por bloques en la Academia. |
 
+## En revisión
+
+- **T15 · Rediseño visual y temas:** sistema de diseño con variables, temas claro, oscuro y
+  automático (sin destello al cargar), componentes unificados (botones, campos, tarjetas,
+  estados, foco), cabecera compacta, Inicio con acción principal y microinteracciones
+  discretas. Primera entrega guardada como T15.1; pendiente de la revisión visual.
+
 ## Próximas fases (propuestas)
 
 Pendientes de aprobación, en este orden. No están implementadas.
 
-1. **T15 · Rediseño visual:** nueva identidad (colores, tipografía, espaciados y
-   componentes) sobre la estructura actual, sin cambiar el funcionamiento.
-   Depende de: T14 (sus componentes ya tienen clases propias para personalizarlos).
-2. **T16 · Calidad y accesibilidad:** pruebas con teclado físico español (teclas muertas,
-   AltGr, Mayús), Firefox, Safari y móviles reales; revisión con lector de pantalla y
-   contraste del nuevo diseño; estudiar la solución de H2.
-   Depende de: T15 (revisar el diseño definitivo).
-3. **T17 · Preparación para publicación:** revisión integral de código y rendimiento,
-   README, licencia, aviso de privacidad y publicación como web estática.
-   Depende de: T15 y T16.
+1. **T16 · Ergonomía educativa:** pulir el recorrido de aprendizaje con lo aprendido al
+   usarlo (redacción de las instrucciones, ritmo de las lecciones, preferencias guardadas).
+   Depende de: T14 y T15.
+2. **T17 · Calidad, accesibilidad y compatibilidad:** teclado físico español (teclas
+   muertas, AltGr, Mayús), Firefox, Safari y móviles reales; lector de pantalla; estudiar
+   la solución de H2.
+   Depende de: T15 (diseño definitivo).
+3. **T18 · README profesional y publicación:** README, licencia, aviso de privacidad y
+   publicación como web estática.
+   Depende de: T16 y T17.
 
 ## Mejoras futuras (sin fase asignada)
 
-- **Guardar preferencias** (sonido, modo y ayudas) entre sesiones.
+- **Guardar preferencias** (sonido, modo y ayudas) entre sesiones; el tema ya se guarda (T15).
 - **Copia de seguridad:** exportar e importar historial y progreso (JSON).
 - **Calibrar con datos reales** los umbrales de T11-T13 y `LEVEL_GOALS`.
 - **Errores de transición entre letras consecutivas:** necesitaría guardar datos nuevos
@@ -72,5 +79,8 @@ Pendientes de aprobación, en este orden. No están implementadas.
 - **Instrucciones (T14):** generadas por reglas a partir del currículo; conviene que una
   persona revise su redacción. El movimiento del dedo es una recomendación: no se puede
   comprobar qué dedo se usa.
+- **Diseño (T15):** probado en Chromium (anchos 375, 768 y 1280 px y texto al 150 %); falta
+  revisarlo en Firefox y Safari. Usa `:has()` para detalles de presentación (sin él solo se
+  pierde el subtítulo oculto durante la partida y el estilo secundario de «Repetir»).
 - **Servidor de desarrollo:** usar `python tools/dev-server.py`; con `python -m http.server`
   el navegador puede mezclar módulos de versiones distintas.

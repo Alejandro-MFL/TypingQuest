@@ -19,6 +19,7 @@ import { MODES } from './game.js';
 import { isValidExerciseId } from './catalog.js';
 import { EXERCISE_STATUS, createProgress } from './progress.js';
 import { packAnalysis, unpackAnalysis } from './typing-analysis.js';
+import { THEME_KEY, parseThemePreference, serializeThemePreference } from './theme.js';
 
 export const HISTORY_KEY = 'typingquest:history:v1';
 // Campos permitidos de una sesión guardada, en el orden en que se escriben.
@@ -327,6 +328,34 @@ export function createGuideStore(storage) {
     const clean = parseGuide(JSON.stringify({ version: GUIDE_VERSION, ...state }));
     try {
       storage.setItem(GUIDE_KEY, JSON.stringify({ version: GUIDE_VERSION, ...clean }));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: classifyWriteError(error) };
+    }
+  }
+
+  return { load, save };
+}
+
+// --- Tema visual (T15) ---------------------------------------------------------------
+//
+// Solo la preferencia ('light' | 'dark' | 'auto'), en su propia clave (THEME_KEY).
+// El formato y su validación están en js/theme.js.
+
+export function createThemeStore(storage) {
+  function load() {
+    if (!storage) return 'auto';
+    try {
+      return parseThemePreference(storage.getItem(THEME_KEY));
+    } catch {
+      return 'auto';
+    }
+  }
+
+  function save(preference) {
+    if (!storage) return { ok: false, error: 'unavailable' };
+    try {
+      storage.setItem(THEME_KEY, serializeThemePreference(preference));
       return { ok: true };
     } catch (error) {
       return { ok: false, error: classifyWriteError(error) };

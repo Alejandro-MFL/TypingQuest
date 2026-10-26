@@ -5,7 +5,8 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ## Stack
 
 - HTML, CSS y JavaScript vanilla con módulos ES. SIN frameworks ni dependencias npm.
-- Persistencia: localStorage, accedido solo a través de `js/storage.js`.
+- Persistencia: localStorage, accedido solo a través de `js/storage.js`. Única excepción:
+  `js/theme-boot.js` lee la preferencia de tema antes de pintar (ver «Diseño visual y temas»).
 - Tests de lógica: `node --test "tests/*.test.js"` (runner nativo de Node 22, sin instalar nada).
 - Tests del Hook de sintaxis: `node --test ".claude/hooks/*.test.cjs"` (no entran en la suite anterior).
 - No instalar dependencias, incorporar frameworks ni añadir `package.json` sin aprobación explícita.
@@ -24,7 +25,7 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ```
 index.html            # Navegación principal y pantallas: Inicio, Academia, Biblioteca,
                       # Práctica libre (preparación), partida, resultados e Historial.
-css/styles.css        # Tema oscuro, carril, avisos, animaciones, catálogo, historial, responsive.
+css/styles.css        # Sistema de diseño (variables de los temas claro y oscuro) y todos los componentes.
 data/exercises.json   # Catálogo de ejercicios (contenido; sin código).
 data/course.json      # Organización del curso: bloques, lecciones, teclas introducidas y retirados.
 js/config.js          # Parámetros configurables (CONFIG congelado).
@@ -46,6 +47,8 @@ js/trends-ui.js       # «Mi evolución» en el Historial; helpers puros de text
 js/library-memory.js  # PURO: billete de vuelta a la Biblioteca (filtros, desplazamiento, práctica).
 js/recommendations.js # PURO: «Practicar mis dificultades» (dificultades de T12 → prácticas del catálogo).
 js/lesson-guide.js    # PURO: introducciones por lección, movimiento del dedo e instrucciones vistas (T14).
+js/theme.js           # PURO: preferencia de tema (claro, oscuro, automático) y tema resultante (T15).
+js/theme-boot.js      # Script CLÁSICO en el <head>: aplica el tema antes de pintar (sin destello).
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
@@ -55,7 +58,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -68,7 +71,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
   `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`,
-  `typing-trends.js`, `library-memory.js`, `recommendations.js`, `lesson-guide.js`. El instante actual se inyecta
+  `typing-trends.js`, `library-memory.js`, `recommendations.js`, `lesson-guide.js`, `theme.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
@@ -377,6 +380,37 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   recorridas (posición), prácticas base terminadas y superadas, por separado; las
   ampliadas no cuentan. Tras «Reiniciar Academia» el recorrido vuelve a 0 y los logros se
   conservan. Componentes sencillos con los colores actuales (se rediseñarán en T15).
+
+## Diseño visual y temas (T15)
+
+- Estilo moderno y minimalista, sin ilustraciones ni personajes; el texto de escritura es
+  el protagonista. Tipografía del sistema para la interfaz (`--font-ui`) y monoespaciada
+  para el carril (`--font-mono`); sin fuentes externas.
+- Variables en `css/styles.css`: `:root` = tema oscuro; `:root[data-theme="light"]` = claro.
+  Superficies `--color-bg` < `--color-surface` < `--color-raised`; texto `--color-text` y
+  `--color-muted`; acento `--color-accent` (+ `-strong`, `-soft`, `--color-on-accent`);
+  estados `--color-status-*`, `--color-correct`/`--color-incorrect`; guía `--color-guide-modifier`,
+  `--color-key`, `--color-hand*`, `--finger-*`; forma `--radius-*`, `--transition-fast`. Ningún
+  color fijo fuera de las variables. Contrastes AA comprobados en ambos temas (texto ≥ 4,5:1
+  sobre su superficie; la vista previa del carril va sobre `--color-surface`).
+- El acento SOLO significa acción principal, foco, elemento activo, progreso y tecla
+  objetivo. Los títulos de sección usan el color de texto. Botones: `.button` (principal),
+  `.button-secondary` (neutro), `.button-danger` y `.button-link`; con «Siguiente ejercicio»
+  visible, «Repetir» se ve como secundario (`:has`). Un solo estilo de campo (`.source-text`,
+  `.filter-input`) y de sección plegable (`.collapsible`).
+- Cabecera compacta en rejilla (marca, navegación en píldoras y herramientas; dos filas por
+  debajo de 48rem); el subtítulo se oculta durante la partida. Inicio: «Continuar la
+  Academia» como acción principal (`.home-card-primary`). Historial: listado de sesiones
+  plegado («Todas las sesiones»).
+- Temas (`js/theme.js`): preferencias `light`, `dark` y `auto` (por defecto). Clave
+  `typingquest:theme:v1` con `{ version: 1, theme }` (`createThemeStore` en `storage.js`); dato
+  inválido o almacenamiento bloqueado → `auto`. `js/theme-boot.js` (clásico, síncrono, antes de
+  la hoja de estilos) fija `data-theme` y `data-theme-preference` en `<html>` para que no haya
+  destello; repite la lógica de `theme.js` y `tests/theme.test.js` comprueba que coinciden.
+  Selector «Tema» en Opciones; cambiarlo solo toca atributos de `<html>` (no la partida, el
+  foco ni los datos). En `auto`, `main.js` escucha `prefers-color-scheme` y cambia en vivo.
+- Microinteracciones discretas (hover, foco, progreso, estados, cambio de tema, 140-300 ms);
+  `prefers-reduced-motion` las anula. Sin nuevas mecánicas de juego.
 
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 

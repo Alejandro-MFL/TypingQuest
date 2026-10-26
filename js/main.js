@@ -8,7 +8,9 @@ import { createGame, applyInput, restartGame, getStats, getProgress } from './ga
 import { createSoundPlayer } from './sound.js';
 import {
   createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT, createGuideStore,
+  createThemeStore,
 } from './storage.js';
+import { THEME_PREFERENCES, resolveTheme } from './theme.js';
 import { createCatalog, libraryLessons, filterLessons, exerciseTitle } from './catalog.js';
 import {
   getExerciseProgress, recordCompletion, getCurrentExerciseId, nextInCourse,
@@ -69,6 +71,10 @@ let catalog = null;
 let progress = progressStore.load().progress;
 // Instrucciones vistas (T14): introducción inicial y por lección.
 const guideStore = createGuideStore(storage);
+// Tema (T15): preferencia guardada; theme-boot.js ya la aplicó antes de pintar.
+const themeStore = createThemeStore(storage);
+const systemLight = window.matchMedia?.('(prefers-color-scheme: light)') ?? null;
+let themePreference = themeStore.load();
 let guideState = guideStore.load();
 // Lección cuyas instrucciones muestra la Academia y si están desplegadas.
 let lessonIntroView = { lessonId: null, expanded: false };
@@ -976,12 +982,43 @@ function bindEvents() {
   bindTypingInput();
 }
 
+// --- Tema (T15) ------------------------------------------------------------------------
+
+// Solo cambia atributos de <html>: no toca la partida, el foco ni los datos guardados.
+function applyTheme() {
+  const root = document.documentElement;
+  root.dataset.theme = resolveTheme(themePreference, { prefersLight: systemLight?.matches ?? false });
+  root.dataset.themePreference = themePreference;
+}
+
+function renderThemeOption() {
+  for (const radio of document.querySelectorAll('input[name="theme"]')) radio.checked = radio.value === themePreference;
+}
+
+function handleThemeChange(event) {
+  if (!THEME_PREFERENCES.includes(event.target.value)) return;
+  themePreference = event.target.value;
+  themeStore.save(themePreference);
+  applyTheme();
+}
+
+function bindTheme() {
+  document.getElementById('theme-option').addEventListener('change', handleThemeChange);
+  // En automático, el tema sigue los cambios del sistema sin recargar.
+  systemLight?.addEventListener?.('change', () => {
+    if (themePreference === 'auto') applyTheme();
+  });
+  renderThemeOption();
+  applyTheme();
+}
+
 async function init() {
   // T12: el desplazamiento de la Biblioteca lo restaura la aplicación, no el
   // navegador; y tras recargar no queda ninguna partida a la que volver.
   history.scrollRestoration = 'manual';
   if (history.state === LIBRARY_GAME_STATE) history.replaceState(null, '');
   bindEvents();
+  bindTheme();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderSoundToggle(els, sound.isEnabled());
   ui.renderSelectedMode(els, selectedMode);

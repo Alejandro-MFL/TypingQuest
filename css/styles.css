@@ -1,27 +1,92 @@
+/* --- Sistema de diseño (T15) ---------------------------------------------------------
+   Tema oscuro por defecto (y en [data-theme="dark"]); claro en [data-theme="light"].
+   js/theme-boot.js fija data-theme antes de pintar; sin JavaScript, el tema sigue al
+   sistema con prefers-color-scheme. Los nombres --color-* se conservan de T1-T14.
+   Contrastes AA comprobados: texto ≥ 4,5:1 sobre su superficie (ver CLAUDE.md). */
+
 :root {
-  --color-bg: #1e1f26;
-  --color-surface: #2a2c36;
-  --color-border: #3a3d4a;
-  --color-text: #e6e6e6;
-  --color-muted: #9a9daa;
-  --color-pending: #adb0bd;   /* 6,43:1 sobre --color-surface */
-  --color-preview: #9396a3;   /* 4,72:1 sobre --color-surface (WCAG AA) */
-  --color-correct: #6fcf97;
-  --color-incorrect: #ff6b6b;
-  --color-incorrect-bg: rgba(255, 107, 107, 0.28);
-  --color-accent: #f2c94c;
+  color-scheme: dark;
+  /* Superficies: fondo < superficie < elevada (teclas, filas, gráficas). */
+  --color-bg: #151923;
+  --color-surface: #222838;
+  --color-raised: #2b3245;
+  --color-border: #343c51;
+  --color-border-strong: #4a536b;
+  /* Texto. */
+  --color-text: #f0f2f8;
+  --color-muted: #b8c0d0;
+  --color-pending: #c9cfdb;   /* 9,4:1 sobre --color-surface */
+  --color-preview: #959eb2;   /* 5,5:1 sobre --color-surface (WCAG AA) */
+  /* Acento: acciones, foco, elemento activo, progreso y tecla objetivo. */
+  --color-accent: #a8a3f6;
+  --color-accent-strong: #c3bffa;
+  --color-accent-soft: rgba(168, 163, 246, 0.16);
+  --color-on-accent: #151923;
+  /* Escritura: acierto y error. */
+  --color-correct: #6fd39b;
+  --color-incorrect: #ff7a85;
+  --color-incorrect-bg: rgba(255, 122, 133, 0.22);
   /* Estados de los ejercicios (siempre acompañados de icono y texto). */
-  --color-status-not-started: #9a9daa;
-  --color-status-skipped: #f4f4f6;
-  --color-status-completed: #f2994a;
-  --color-status-passed: #6fcf97;
+  --color-status-not-started: #9aa3b5;
+  --color-status-skipped: #e6e9f2;
+  --color-status-completed: #f5a55b;
+  --color-status-passed: #6fd39b;
   /* Guía de teclado: modificadores (Mayús, AltGr) en azul; error en el rojo del juego. */
-  --color-guide-modifier: #56ccf2;
-  --color-hand: #3d404e;
-  --color-hand-line: #8a8ea0;
-  --font-mono: "Consolas", "Courier New", monospace;
+  --color-guide-modifier: #5cc8f0;
+  --color-modifier-soft: rgba(92, 200, 240, 0.18);
+  --color-key: #1b2030;
+  --color-hand: #2e3546;
+  --color-hand-line: #8a93a8;
+  /* Zona de cada dedo (borde inferior de las teclas). */
+  --finger-pinky: #a78bfa;
+  --finger-ring: #60a5fa;
+  --finger-middle: #34d399;
+  --finger-index: #fbbf24;
+  --shadow-popover: 0 0.75rem 2rem rgba(0, 0, 0, 0.45);
+  /* Tipografía: la del sistema para la interfaz y una monoespaciada para escribir. */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+  /* Forma y movimiento. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --transition-fast: 140ms ease;
   --chunk-line-height: 1.6;
   --chunk-lines: 3;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f5f6fa;
+  --color-surface: #ffffff;
+  --color-raised: #eef0f6;
+  --color-border: #dde1ea;
+  --color-border-strong: #c4cad6;
+  --color-text: #252a39;
+  --color-muted: #5c6575;
+  --color-pending: #3e4555;   /* 9,6:1 sobre --color-surface */
+  --color-preview: #6a7283;   /* 4,8:1 sobre --color-surface (WCAG AA) */
+  --color-accent: #5b4dc4;
+  --color-accent-strong: #4a3db0;
+  --color-accent-soft: rgba(91, 77, 196, 0.1);
+  --color-on-accent: #ffffff;
+  --color-correct: #1b7a44;
+  --color-incorrect: #c02b3a;
+  --color-incorrect-bg: rgba(192, 43, 58, 0.14);
+  --color-status-not-started: #666e7e;
+  --color-status-skipped: #394050;
+  --color-status-completed: #ad5207;
+  --color-status-passed: #1b7a44;
+  --color-guide-modifier: #0b6e9e;
+  --color-modifier-soft: rgba(11, 110, 158, 0.12);
+  --color-key: #f7f8fb;
+  --color-hand: #e3e6ee;
+  --color-hand-line: #8a93a6;
+  --finger-pinky: #7c3aed;
+  --finger-ring: #2563eb;
+  --finger-middle: #059669;
+  --finger-index: #d97706;
+  --shadow-popover: 0 0.75rem 2rem rgba(37, 42, 57, 0.16);
 }
 
 * {
@@ -33,7 +98,14 @@ body {
   min-height: 100vh;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+a {
+  color: var(--color-accent);
 }
 
 [hidden] {
@@ -45,10 +117,23 @@ body {
   outline-offset: 2px;
 }
 
+/* Cabecera compacta: marca, navegación y herramientas en una fila (dos en móvil). */
 .header {
-  position: relative;
-  text-align: center;
-  padding: 2rem 1rem 1rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title nav tools"
+    "subtitle nav tools";
+  align-items: center;
+  gap: 0 1.5rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+}
+
+/* Durante la partida, el texto es el protagonista: sin subtítulo. */
+body:has(#play-screen:not([hidden])) .subtitle {
+  display: none;
 }
 
 .visually-hidden {
@@ -66,9 +151,8 @@ body {
 /* --- Herramientas de la cabecera: Opciones y sonido --- */
 
 .header-tools {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+  position: relative;
+  grid-area: tools;
   z-index: 10;
   display: flex;
   gap: 0.5rem;
@@ -83,8 +167,14 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 50%;
   background: var(--color-surface);
-  color: var(--color-accent);
+  color: var(--color-text);
   cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tool-button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-raised);
 }
 
 .sound-icon,
@@ -110,24 +200,32 @@ body {
 }
 
 .title {
+  grid-area: title;
   margin: 0;
-  color: var(--color-accent);
+  color: var(--color-text);
+  font-size: 1.375rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
-  margin: 0.5rem 0 0;
+  grid-area: subtitle;
+  margin: 0;
   color: var(--color-muted);
+  font-size: 0.8125rem;
 }
 
 .game {
   max-width: 48rem;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0.5rem 1.25rem 3rem;
 }
 
 .screen-title {
-  margin: 0 0 1rem;
-  font-size: 1.25rem;
+  margin: 0.5rem 0 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-align: center;
 }
 
@@ -143,15 +241,32 @@ body {
   color: var(--color-muted);
 }
 
-.source-text {
+.source-text,
+.filter-input {
   width: 100%;
-  min-height: 10rem;
-  padding: 0.75rem;
+  padding: 0.625rem 0.75rem;
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.source-text:hover,
+.filter-input:hover {
+  border-color: var(--color-border-strong);
+}
+
+.source-text:focus,
+.filter-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+}
+
+.source-text {
+  min-height: 10rem;
   line-height: 1.5;
   resize: vertical;
 }
@@ -193,7 +308,8 @@ body {
 
 .stat-value {
   font-size: 2rem;
-  font-weight: bold;
+  font-weight: 700;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 
@@ -207,16 +323,18 @@ body {
 }
 
 .progress-track {
-  height: 0.5rem;
-  border-radius: 0.25rem;
-  background: var(--color-surface);
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--color-raised);
   overflow: hidden;
 }
 
 .progress-fill {
   width: 0;
   height: 100%;
-  background: var(--color-correct);
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: width 200ms ease;
 }
 
 .progress-label {
@@ -232,15 +350,17 @@ body {
   position: relative;
   /* Recorta el fragmento saliente para que no invada otros elementos. */
   overflow: clip;
-  padding: 1rem 1.5rem;
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   cursor: text;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .lane-blurred {
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 .chunk {
@@ -284,6 +404,7 @@ body {
 
 .char-current {
   color: var(--color-text);
+  background: var(--color-accent-soft);
   box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
@@ -372,10 +493,16 @@ body {
 
 /* --- Resultados --- */
 
-.results {
-  padding: 1.5rem;
-  border-radius: 0.5rem;
+/* Tarjeta principal de una pantalla (Resultados, Historial, lección actual). */
+.results,
+.history {
+  padding: 1.75rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+}
+
+.results {
   text-align: center;
 }
 
@@ -396,7 +523,7 @@ body {
 .result-item dd {
   margin: 0.25rem 0 0;
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -412,17 +539,18 @@ body {
 .result-main-value {
   color: var(--color-accent);
   font-size: 4.5rem;
-  font-weight: bold;
+  font-weight: 750;
   line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .result-main-label {
   margin-top: 0.25rem;
   color: var(--color-accent);
-  font-size: 1.125rem;
-  font-weight: bold;
-  letter-spacing: 0.1em;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 
 .result-main-label abbr {
@@ -441,29 +569,51 @@ body {
   gap: 0.75rem;
 }
 
+/* Botones: principal (acento), secundario (neutro), peligro y enlace. Un solo estilo por función. */
 .button {
   align-self: center;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.375rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-on-accent);
+  font: inherit;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 650;
+  text-decoration: none;
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.button:hover {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
 }
 
 .button-secondary {
-  border: 1px solid var(--color-accent);
-  background: transparent;
-  color: var(--color-accent);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.button-secondary:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 /* --- Pantallas estrechas --- */
 
 @media (max-width: 30rem) {
   .header {
-    padding: 1.25rem 1rem 0.5rem;
+    padding: 0.75rem 1rem 0.5rem;
   }
 
   .stats {
@@ -488,14 +638,7 @@ body {
     min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1rem);
   }
 
-  .header {
-    padding-top: 4rem;
-  }
 
-  .header-tools {
-    top: 0.75rem;
-    right: 0.75rem;
-  }
 
   .results {
     padding: 1.25rem 0.75rem;
@@ -581,11 +724,12 @@ body {
 .mode-badge {
   display: inline-block;
   padding: 0.125rem 0.625rem;
-  border: 1px solid var(--color-accent);
-  border-radius: 1rem;
+  border: 1px solid var(--color-accent-soft);
+  border-radius: 999px;
+  background: var(--color-accent-soft);
   color: var(--color-accent);
-  font-size: 0.875rem;
-  font-weight: bold;
+  font-size: 0.8125rem;
+  font-weight: 650;
 }
 
 .setup-mode {
@@ -618,9 +762,9 @@ body {
   width: min(22rem, calc(100vw - 1.5rem));
   padding: 1rem;
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-popover);
   text-align: left;
 }
 
@@ -644,7 +788,8 @@ body {
 }
 
 .button-small {
-  padding: 0.5rem 1rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.875rem;
   font-size: 0.875rem;
 }
 
@@ -752,8 +897,9 @@ body {
 
 .evolution-group-title {
   margin: 0 0 0.5rem;
+  color: var(--color-text);
   font-size: 1rem;
-  color: var(--color-accent);
+  font-weight: 650;
 }
 
 .evolution-list {
@@ -789,11 +935,11 @@ body {
   display: grid;
   justify-items: start;
   gap: 0.35rem;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   border: 1px solid var(--color-border);
   border-left: 4px solid var(--color-accent);
-  border-radius: 0.5rem;
-  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  background: var(--color-raised);
 }
 
 .practice-exercise,
@@ -839,13 +985,13 @@ body {
 
 .rate-bar-track {
   height: 0.5rem;
-  border-radius: 0.25rem;
-  background: var(--color-bg);
+  border-radius: 999px;
+  background: var(--color-raised);
 }
 
 .rate-bar-fill {
   height: 100%;
-  border-radius: 0.25rem;
+  border-radius: 999px;
   background: var(--color-accent);
 }
 
@@ -880,15 +1026,23 @@ body {
   padding: 0.5rem;
 }
 
-/* Botón con aspecto de enlace (acciones por fila de una tabla). */
+/* Botón con aspecto de enlace (acciones discretas): subrayado para distinguirlo del texto. */
 .button-link {
   padding: 0.25rem 0;
   border: 0;
   background: none;
   color: var(--color-accent);
   font: inherit;
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
   cursor: pointer;
+}
+
+.button-link:hover {
+  color: var(--color-accent-strong);
+  text-decoration-thickness: 2px;
 }
 
 .button-link:focus-visible {
@@ -910,19 +1064,20 @@ body {
   margin: 0;
 }
 
-.button-danger {
-  border: 1px solid var(--color-incorrect);
+.button-danger,
+.button-danger:hover {
+  border-color: var(--color-incorrect);
   background: transparent;
   color: var(--color-incorrect);
 }
 
+.button-danger:hover {
+  background: var(--color-incorrect-bg);
+}
+
 /* --- Historial --- */
 
-.history {
-  padding: 1.5rem;
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
+
 
 .history-status {
   margin: 0 0 1.5rem;
@@ -952,10 +1107,9 @@ body {
 
 .chart {
   margin: 0;
-  padding: 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-bg);
+  padding: 0.875rem;
+  border-radius: var(--radius-md);
+  background: var(--color-raised);
 }
 
 .chart-title {
@@ -997,6 +1151,32 @@ body {
   color: var(--color-muted);
   font-size: 0.8125rem;
   line-height: 1.4;
+}
+
+/* Sección plegable: el resumen indica qué contiene y se abre con teclado o ratón. */
+.collapsible {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.collapsible > summary {
+  padding: 0.75rem 1rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.collapsible > summary:hover {
+  color: var(--color-accent);
+}
+
+.collapsible[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.collapsible > .history-table-wrapper {
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.75rem;
 }
 
 /* La tabla se desplaza dentro de su contenedor, nunca la página. */
@@ -1118,35 +1298,39 @@ body {
 /* --- Navegación principal --- */
 
 .main-nav {
-  margin-top: 1rem;
+  grid-area: nav;
 }
 
 .main-nav-list {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.25rem 0.5rem;
+  gap: 0.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Pestañas en forma de píldora: la activa con fondo de acento y peso (no solo color). */
 .main-nav-link {
   display: inline-block;
-  padding: 0.375rem 0.75rem;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  color: var(--color-muted);
+  font-weight: 550;
   text-decoration: none;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .main-nav-link:hover {
-  color: var(--color-accent);
+  background: var(--color-raised);
+  color: var(--color-text);
 }
 
 .main-nav-link[aria-current="page"] {
-  border-bottom-color: var(--color-accent);
+  background: var(--color-accent-soft);
   color: var(--color-accent);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .screen-title:focus {
@@ -1163,7 +1347,7 @@ body {
 
 .home-cards {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin: 0;
   padding: 0;
@@ -1175,22 +1359,49 @@ body {
   flex-direction: column;
   gap: 0.375rem;
   height: 100%;
-  padding: 1.25rem;
+  padding: 1.25rem 1.375rem;
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .home-card-link:hover {
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  transform: translateY(-1px);
 }
 
 .home-card-title {
-  color: var(--color-accent);
-  font-size: 1.25rem;
-  font-weight: bold;
+  color: var(--color-text);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+/* Acción principal de Inicio: continuar la Academia (ocupa toda la fila). */
+.home-card-primary {
+  grid-column: 1 / -1;
+}
+
+.home-card-primary .home-card-link {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.home-card-primary .home-card-title {
+  font-size: 1.375rem;
+}
+
+.home-card-cta {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1.125rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 650;
 }
 
 .home-card-text {
@@ -1228,10 +1439,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  padding: 1rem;
+  padding: 1rem 1.125rem;
   border: 1px solid var(--color-border);
   border-left: 4px solid var(--status-color, var(--color-border));
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
@@ -1274,11 +1485,12 @@ body {
   gap: 0.25rem;
   padding: 0.0625rem 0.5rem;
   border: 1px solid var(--status-color);
-  border-radius: 1rem;
+  border-radius: 999px;
   color: var(--status-color);
   font-size: 0.75rem;
-  font-weight: bold;
+  font-weight: 650;
   white-space: nowrap;
+  transition: color 200ms ease, border-color 200ms ease;
 }
 
 .library-filters {
@@ -1295,15 +1507,7 @@ body {
   min-width: 0;
 }
 
-.filter-input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-}
+
 
 .library-count {
   margin: 0 0 0.75rem;
@@ -1340,11 +1544,11 @@ body {
 }
 
 .target-result {
-  max-width: 28rem;
+  max-width: 30rem;
   margin: 0 auto 1.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
   border: 1px solid var(--color-status-completed);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .target-result.target-met {
@@ -1387,8 +1591,8 @@ body {
   flex-direction: column;
   gap: 0.5rem;
   padding: 1.5rem;
-  border: 1px solid var(--color-accent);
-  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
@@ -1396,10 +1600,12 @@ body {
   margin: 0;
 }
 
+/* Antetítulo: bloque y posición. */
 .lesson-position {
   color: var(--color-accent);
-  font-size: 0.875rem;
-  font-weight: bold;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .lesson-level-summary,
@@ -1410,7 +1616,9 @@ body {
 
 .lesson-title {
   margin: 0.25rem 0 0;
-  font-size: 1.375rem;
+  font-size: 1.625rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
 }
 
 .lesson-title:focus {
@@ -1433,14 +1641,14 @@ body {
   grid-template-columns: 13rem 1fr;
   align-items: baseline;
   gap: 0.25rem 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  background: var(--color-bg);
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  background: var(--color-raised);
 }
 
 .lesson-practice dt {
-  color: var(--color-accent);
-  font-weight: bold;
+  color: var(--color-text);
+  font-weight: 650;
 }
 
 .lesson-practice dd {
@@ -1516,7 +1724,8 @@ body {
   margin: 0 0 0.75rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--color-border);
-  font-size: 1.1rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
 }
 
 .library-lesson .exercise-card-meta {
@@ -1524,7 +1733,17 @@ body {
 }
 
 .library-lesson .lesson-practices {
-  margin-top: 0.5rem;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.library-lesson .lesson-practice {
+  padding: 0.5rem 0.75rem;
+}
+
+.library-lesson .exercise-card-description {
+  color: var(--color-muted);
+  font-size: 0.9375rem;
 }
 
 /* Cada práctica con su estado: color en el borde, además de icono y texto. */
@@ -1552,14 +1771,15 @@ body {
 
 .guide {
   margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
 /* Alto reservado: el texto cambia con cada tecla sin mover el teclado. */
 .guide-hint {
-  min-height: 3em;
+  min-height: 1.5em;
   margin: 0 0 0.5rem;
   font-size: 0.9375rem;
   line-height: 1.5;
@@ -1597,8 +1817,8 @@ body {
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-bottom-width: 3px;
-  border-radius: 0.3em;
-  background: var(--color-bg);
+  border-radius: 0.35em;
+  background: var(--color-key);
   color: var(--color-pending);
   line-height: 1.1;
   white-space: nowrap;
@@ -1615,10 +1835,10 @@ body {
 }
 
 /* Zona de cada dedo: color sutil en el borde inferior de la tecla. */
-.kb-key[data-finger="left-pinky"], .kb-key[data-finger="right-pinky"] { border-bottom-color: #a78bfa; }
-.kb-key[data-finger="left-ring"], .kb-key[data-finger="right-ring"] { border-bottom-color: #60a5fa; }
-.kb-key[data-finger="left-middle"], .kb-key[data-finger="right-middle"] { border-bottom-color: #34d399; }
-.kb-key[data-finger="left-index"], .kb-key[data-finger="right-index"] { border-bottom-color: #fbbf24; }
+.kb-key[data-finger="left-pinky"], .kb-key[data-finger="right-pinky"] { border-bottom-color: var(--finger-pinky); }
+.kb-key[data-finger="left-ring"], .kb-key[data-finger="right-ring"] { border-bottom-color: var(--finger-ring); }
+.kb-key[data-finger="left-middle"], .kb-key[data-finger="right-middle"] { border-bottom-color: var(--finger-middle); }
+.kb-key[data-finger="left-index"], .kb-key[data-finger="right-index"] { border-bottom-color: var(--finger-index); }
 
 /* Teclas de reposo F y J (y el resto de la fila guía): marca en relieve. */
 .kb-home::after {
@@ -1641,11 +1861,11 @@ body {
 .kb-key.is-target {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-on-accent);
 }
 
 .kb-key.is-target .kb-top {
-  color: var(--color-bg);
+  color: var(--color-on-accent);
 }
 
 /* Primer paso de un acento: tecla muerta, marcada con borde discontinuo. */
@@ -1655,7 +1875,7 @@ body {
 
 .kb-key.is-modifier {
   border: 2px dashed var(--color-guide-modifier);
-  background: rgba(86, 204, 242, 0.18);
+  background: var(--color-modifier-soft);
   color: var(--color-text);
 }
 
@@ -1772,15 +1992,14 @@ body {
   }
 }
 
-/* --- Experiencia pedagógica (T14) ------------------------------------------------------
-   Componentes sencillos con los colores actuales: se personalizarán en el rediseño (T15). */
+/* --- Experiencia pedagógica (T14), con el sistema visual de T15 --------------------- */
 
 .intro-panel {
   margin-bottom: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   border: 1px solid var(--color-accent);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
   text-align: left;
 }
 
@@ -1811,10 +2030,10 @@ body {
 
 .lesson-intro {
   margin-bottom: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
   border-left: 4px solid var(--color-accent);
-  border-radius: 0.25rem;
-  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
   text-align: left;
 }
 
@@ -1829,7 +2048,11 @@ body {
 }
 
 .course-overview {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   text-align: left;
 }
 
@@ -1865,14 +2088,15 @@ body {
 
 .course-block-track {
   height: 0.5rem;
-  border-radius: 0.25rem;
-  background: var(--color-border);
+  border-radius: 999px;
+  background: var(--color-raised);
 }
 
 .course-block-fill {
   height: 100%;
-  border-radius: 0.25rem;
+  border-radius: 999px;
   background: var(--color-accent);
+  transition: width 300ms ease;
 }
 
 .course-block-text,
@@ -1887,7 +2111,21 @@ body {
 
 .result-advice {
   margin: 0.75rem 0 0;
-  font-weight: bold;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--color-border);
+  line-height: 1.45;
+}
+
+/* Con «Siguiente ejercicio» visible, esa es la acción principal y «Repetir» pasa a secundaria. */
+.actions:has(#next-exercise-button:not([hidden])) #retry-button {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.actions:has(#next-exercise-button:not([hidden])) #retry-button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
 }
 
 .guide-movement {
@@ -1900,4 +2138,43 @@ body {
 /* Tecla de reposo desde la que sale el dedo: borde punteado (no solo color). */
 .kb-key.is-origin {
   border: 2px dotted var(--color-accent);
+}
+
+/* --- Opciones: tema (T15) --- */
+
+.theme-option {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- Pantallas medianas y estrechas: cabecera en dos filas (T15) --- */
+
+@media (max-width: 48rem) {
+  .header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title tools"
+      "subtitle tools"
+      "nav nav";
+    gap: 0 1rem;
+  }
+
+  .main-nav {
+    margin-top: 0.75rem;
+  }
+}
+
+/* Sin movimiento si el sistema lo pide: transiciones casi instantáneas. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+
+  .home-card-link:hover {
+    transform: none;
+  }
 }

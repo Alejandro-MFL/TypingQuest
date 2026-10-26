@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <title>TypingQuest</title>
+  <!-- Tema (T15): script clásico y síncrono antes de los estilos para que no haya destello. -->
+  <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="css/styles.css">
   <script type="module" src="js/main.js"></script>
 </head>
@@ -49,6 +51,13 @@
           <label class="help-choice"><input type="radio" name="help-mode" value="keyboard"> Solo teclado</label>
           <label class="help-choice"><input type="radio" name="help-mode" value="none"> Sin ayudas</label>
         </fieldset>
+        <!-- Tema (T15): se guarda en este navegador y se puede cambiar durante la partida. -->
+        <fieldset class="help-option theme-option" id="theme-option">
+          <legend class="help-legend">Tema</legend>
+          <label class="help-choice"><input type="radio" name="theme" value="auto"> Automático (como el sistema)</label>
+          <label class="help-choice"><input type="radio" name="theme" value="light"> Claro</label>
+          <label class="help-choice"><input type="radio" name="theme" value="dark"> Oscuro</label>
+        </fieldset>
       </div>
     </div>
     <button
@@ -90,11 +99,13 @@
       <h2 class="screen-title" id="home-title" tabindex="-1">Inicio</h2>
       <p class="screen-intro">Aprende a escribir sin mirar el teclado o practica con tus propios textos.</p>
       <ul class="home-cards">
-        <li class="home-card">
+        <!-- Acción principal: continuar el recorrido de la Academia. -->
+        <li class="home-card home-card-primary">
           <a class="home-card-link" href="#/academia">
-            <span class="home-card-title">Academia</span>
+            <span class="home-card-title">Continuar la Academia</span>
             <span class="home-card-text">El curso paso a paso, de las teclas guía a los textos completos.</span>
             <span class="home-card-extra" id="home-continue"></span>
+            <span class="home-card-cta" aria-hidden="true">Continuar</span>
           </a>
         </li>
         <li class="home-card">
@@ -445,6 +456,9 @@
           <div class="evolution-body" id="evolution-body"></div>
         </section>
 
+        <!-- Listado plegable (T15): el resumen, las gráficas y «Mi evolución» quedan a la vista. -->
+        <details class="collapsible" id="history-sessions">
+        <summary>Todas las sesiones</summary>
         <div class="history-table-wrapper">
           <table class="history-table">
             <caption>Sesiones anteriores, de la más reciente a la más antigua</caption>
@@ -461,6 +475,7 @@
             <tbody id="history-rows"></tbody>
           </table>
         </div>
+        </details>
 
         <!-- Diagnóstico de la sesión elegida en la tabla (T11). -->
         <section class="diagnosis history-diagnosis" id="history-diagnosis"

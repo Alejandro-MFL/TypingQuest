@@ -283,7 +283,7 @@ export function renderAcademyIntro(ce, visible) {
 /** Consejo de Resultados (practiceAdvice) o nada en la práctica libre. */
 export function renderAdvice(ce, advice) {
   ce.resultAdvice.hidden = !advice;
-  ce.resultAdvice.textContent = advice ? `Siguiente paso: ${advice.text}` : '';
+  ce.resultAdvice.replaceChildren(...(advice ? [element('strong', null, 'Siguiente paso: '), advice.text] : []));
 }
 
 // Una práctica (base o ampliada) dentro de la tarjeta de su lección: tipo,
