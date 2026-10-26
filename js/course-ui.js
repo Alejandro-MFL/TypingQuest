@@ -112,6 +112,17 @@ export function getCourseElements(doc = document) {
       extendedGoals: byId('lesson-extended-goals'),
       extendedStatus: byId('lesson-extended-status'),
       extendedButton: byId('lesson-extended-start'),
+      introPanel: byId('academy-intro'),
+      introTitle: byId('academy-intro-title'),
+      introDone: byId('academy-intro-done'),
+      introSkip: byId('academy-intro-skip'),
+      introOpen: byId('academy-intro-open'),
+      lessonIntroToggle: byId('lesson-intro-toggle'),
+      lessonIntro: byId('lesson-intro'),
+      lessonIntroSkill: byId('lesson-intro-skill'),
+      lessonIntroText: byId('lesson-intro-text'),
+      overviewSummary: byId('course-overview-summary'),
+      overviewBlocks: byId('course-overview-blocks'),
     },
     library: {
       error: byId('library-error'),
@@ -131,6 +142,7 @@ export function getCourseElements(doc = document) {
     resultExercise: byId('result-exercise'),
     targetResult: byId('target-result'),
     targetResultTitle: byId('target-result-title'),
+    resultAdvice: byId('result-advice'),
     objectiveList: byId('objective-list'),
     courseEnd: byId('course-end'),
     nextExerciseButton: byId('next-exercise-button'),
@@ -218,6 +230,60 @@ export function renderAcademy(ce, view) {
   a.nextButton.hidden = !view.canAdvance;
   a.courseEnd.hidden = !(view.isLast && hasFinished(view.status));
   renderExtended(a, view.extended);
+}
+
+// --- Experiencia pedagógica (T14) -------------------------------------------------------
+
+/** Resumen del recorrido: recorridas, restantes, terminadas y superadas, por separado. */
+export function overviewSummaryText({ lessons, traveled, remaining, finished, passed }) {
+  return `Has recorrido ${traveled} de ${lessons} lecciones y te quedan ${remaining}. `
+    + `Prácticas base terminadas: ${finished}; con el objetivo superado: ${passed}.`;
+}
+
+export function blockProgressText({ total, traveled, finished, passed, current }) {
+  const text = `${traveled} de ${total} recorridas · ${finished} terminadas · ${passed} superadas`;
+  return current ? `${text} · bloque actual` : text;
+}
+
+// Una fila por bloque: título, barra discreta del recorrido (decorativa) y su texto.
+function createBlockRow(block) {
+  const item = element('li', `course-block${block.current ? ' is-current' : ''}`);
+  const track = element('div', 'course-block-track');
+  track.setAttribute('aria-hidden', 'true');
+  const fill = element('div', 'course-block-fill');
+  fill.style.width = `${block.total ? (block.traveled / block.total) * 100 : 0}%`;
+  track.append(fill);
+  item.append(element('span', 'course-block-title', block.title), track,
+    element('span', 'course-block-text', blockProgressText(block)));
+  return item;
+}
+
+export function renderCourseOverview(ce, overview) {
+  ce.academy.overviewSummary.textContent = overviewSummaryText(overview.totals);
+  ce.academy.overviewBlocks.replaceChildren(...overview.blocks.map(createBlockRow));
+}
+
+/** Instrucciones de la lección actual; `expanded` decide si se ven ya. */
+export function renderLessonIntro(ce, intro, expanded) {
+  const a = ce.academy;
+  a.lessonIntroToggle.hidden = !intro;
+  a.lessonIntro.hidden = !intro || !expanded;
+  if (!intro) return;
+  a.lessonIntroToggle.setAttribute('aria-expanded', String(expanded));
+  a.lessonIntroToggle.textContent = expanded ? 'Ocultar instrucciones' : 'Ver instrucciones';
+  a.lessonIntroSkill.textContent = `Qué aprenderás: ${intro.skill}`;
+  a.lessonIntroText.replaceChildren(...intro.sentences.map((text) => element('p', null, text)));
+}
+
+export function renderAcademyIntro(ce, visible) {
+  ce.academy.introPanel.hidden = !visible;
+  ce.academy.introOpen.hidden = visible;
+}
+
+/** Consejo de Resultados (practiceAdvice) o nada en la práctica libre. */
+export function renderAdvice(ce, advice) {
+  ce.resultAdvice.hidden = !advice;
+  ce.resultAdvice.textContent = advice ? `Siguiente paso: ${advice.text}` : '';
 }
 
 // Una práctica (base o ampliada) dentro de la tarjeta de su lección: tipo,

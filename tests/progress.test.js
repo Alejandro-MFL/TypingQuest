@@ -13,6 +13,7 @@ import {
   academyView,
   resolveRetiredPosition,
   restartCourse,
+  courseOverview,
 } from '../js/progress.js';
 
 const { NOT_STARTED, SKIPPED, COMPLETED, PASSED } = EXERCISE_STATUS;
@@ -308,5 +309,45 @@ describe('restartCourse («Reiniciar Academia»)', () => {
   it('después se avanza de nuevo de uno en uno desde la primera', () => {
     const p = advanceCourse(restartCourse(at('e'), ORDER), ORDER);
     assert.equal(current(p), 'b');
+  });
+});
+
+describe('courseOverview: progreso por bloques (T14)', () => {
+  // Dos bloques: [a, b] y [c, d, e, f]; las ampliadas son opcionales.
+  const catalog = {
+    levels: [
+      { level: 1, title: 'N1', lessons: [{ exerciseId: 'a', extendedId: 'a-plus' }, { exerciseId: 'b', extendedId: null }] },
+      { level: 2, title: 'N2', lessons: ['c', 'd', 'e', 'f'].map((id) => ({ exerciseId: id, extendedId: null })) },
+    ],
+    courseOrder: ORDER,
+  };
+
+  it('al empezar: bloque actual el primero, nada recorrido', () => {
+    const o = courseOverview(catalog, createProgress());
+    assert.deepEqual(o.totals, { lessons: 6, traveled: 0, remaining: 6, finished: 0, passed: 0 });
+    assert.deepEqual(o.blocks.map((b) => [b.level, b.total, b.traveled, b.current]), [[1, 2, 0, true], [2, 4, 0, false]]);
+  });
+
+  it('distingue recorrido, terminados y superados (solo prácticas base)', () => {
+    let p = complete(at('d'), 'a', true);
+    p = complete(p, 'b', false);
+    p = complete(p, 'e', true);
+    p = complete(p, 'a-plus', true);
+    const o = courseOverview(catalog, p);
+    assert.deepEqual(o.totals, { lessons: 6, traveled: 3, remaining: 3, finished: 3, passed: 2 });
+    assert.deepEqual(o.blocks.map((b) => [b.traveled, b.finished, b.passed, b.current]), [[2, 2, 1, false], [1, 1, 1, true]]);
+  });
+
+  it('las ampliadas no cuentan ni bloquean; saltar recorre pero no termina', () => {
+    const p = skipCurrent(complete(createProgress(), 'a-plus', true), ORDER);
+    const o = courseOverview(catalog, p);
+    assert.deepEqual([o.totals.traveled, o.totals.finished, o.totals.passed], [1, 0, 0]);
+  });
+
+  it('reiniciar la Academia vuelve el recorrido a cero, pero conserva terminados y superados', () => {
+    const p = restartCourse(complete(complete(at('e'), 'a', true), 'b', false), ORDER);
+    const o = courseOverview(catalog, p);
+    assert.deepEqual(o.totals, { lessons: 6, traveled: 0, remaining: 6, finished: 2, passed: 1 });
+    assert.equal(o.blocks[0].current, true);
   });
 });

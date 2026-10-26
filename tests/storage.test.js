@@ -11,6 +11,9 @@ import {
   PROGRESS_KEY,
   parseProgress,
   createProgressStore,
+  GUIDE_KEY,
+  parseGuide,
+  createGuideStore,
 } from '../js/storage.js';
 import { createProgress, recordCompletion, recordSkip, advanceCourse, restartCourse } from '../js/progress.js';
 
@@ -618,5 +621,45 @@ describe('sesiones con diagnóstico (analysis, opcional y versionado)', () => {
     const bytes = storage.data.get(HISTORY_KEY).length;
     assert.equal(store.load().sessions.length, 500);
     assert.ok(bytes < 2_000_000, `${bytes} bytes`);
+  });
+});
+
+describe('instrucciones vistas (T14)', () => {
+  it('clave versionada propia, distinta del historial y del progreso', () => {
+    assert.match(GUIDE_KEY, /^typingquest:guide:v\d+$/);
+    assert.notEqual(GUIDE_KEY, HISTORY_KEY);
+    assert.notEqual(GUIDE_KEY, PROGRESS_KEY);
+  });
+
+  it('guarda y recupera: introducción inicial y lecciones vistas', () => {
+    const storage = new FakeStorage();
+    const state = { introSeen: true, lessonsSeen: ['a-der-jk', 'b-u'] };
+    assert.deepEqual(createGuideStore(storage).save(state), { ok: true });
+    assert.deepEqual(createGuideStore(storage).load(), state);
+  });
+
+  it('sin datos, corruptos o sin almacenamiento: estado inicial, sin lanzar', () => {
+    const initial = { introSeen: false, lessonsSeen: [] };
+    assert.deepEqual(parseGuide(null), initial);
+    assert.deepEqual(parseGuide('{no json'), initial);
+    assert.deepEqual(parseGuide(JSON.stringify({ version: 9, introSeen: true })), initial);
+    assert.deepEqual(createGuideStore(null).load(), initial);
+    assert.deepEqual(createGuideStore(null).save(initial), { ok: false, error: 'unavailable' });
+  });
+
+  it('descarta IDs no válidos o repetidos y limita el tamaño', () => {
+    const raw = JSON.stringify({ version: 1, introSeen: 'sí', lessonsSeen: ['a', 'a', 'MAL', 7, ...Array.from({ length: 300 }, (_, i) => `l${i}`)] });
+    const parsed = parseGuide(raw);
+    assert.equal(parsed.introSeen, false);
+    assert.equal(parsed.lessonsSeen[0], 'a');
+    assert.equal(new Set(parsed.lessonsSeen).size, parsed.lessonsSeen.length);
+    assert.ok(parsed.lessonsSeen.length <= 200);
+  });
+
+  it('no toca el historial ni el progreso', () => {
+    const storage = new FakeStorage();
+    createGuideStore(storage).save({ introSeen: true, lessonsSeen: [] });
+    assert.equal(storage.data.has(HISTORY_KEY), false);
+    assert.equal(storage.data.has(PROGRESS_KEY), false);
   });
 });

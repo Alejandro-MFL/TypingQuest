@@ -10,6 +10,8 @@ import {
   groupLessonsByLevel,
   retryLabel,
   backToOriginLabel,
+  overviewSummaryText,
+  blockProgressText,
 } from '../js/course-ui.js';
 import { EXERCISE_STATUS } from '../js/progress.js';
 import { evaluateObjectives } from '../js/objectives.js';
@@ -160,5 +162,21 @@ describe('backToOriginLabel (Resultados)', () => {
     assert.equal(backToOriginLabel('library'), 'Volver a la Biblioteca');
     assert.equal(backToOriginLabel('evolution'), 'Volver a Mi evolución');
     assert.equal(retryLabel('evolution'), 'Repetir ejercicio');
+  });
+});
+
+describe('progreso del curso por bloques (T14)', () => {
+  it('resumen: recorridas, restantes, terminadas y superadas, sin mezclarlas', () => {
+    assert.equal(overviewSummaryText({ lessons: 67, traveled: 8, remaining: 59, finished: 10, passed: 7 }),
+      'Has recorrido 8 de 67 lecciones y te quedan 59. Prácticas base terminadas: 10; con el objetivo superado: 7.');
+    assert.equal(overviewSummaryText({ lessons: 67, traveled: 0, remaining: 67, finished: 0, passed: 0 }),
+      'Has recorrido 0 de 67 lecciones y te quedan 67. Prácticas base terminadas: 0; con el objetivo superado: 0.');
+  });
+
+  it('cada bloque: recorridas, terminadas y superadas, y si es el actual', () => {
+    assert.equal(blockProgressText({ total: 17, traveled: 8, finished: 6, passed: 4, current: true }),
+      '8 de 17 recorridas · 6 terminadas · 4 superadas · bloque actual');
+    assert.equal(blockProgressText({ total: 14, traveled: 0, finished: 0, passed: 0, current: false }),
+      '0 de 14 recorridas · 0 terminadas · 0 superadas');
   });
 });

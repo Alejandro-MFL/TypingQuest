@@ -33,3 +33,27 @@ export function evaluateObjectives({ accuracy, wpm, elapsedMs }, { targetAccurac
     passed: accuracyMet && (!applicable || wpmMet),
   };
 }
+
+// --- Consejo al terminar (T14) --------------------------------------------------------
+
+const ADVICE_TEXTS = {
+  continue: 'Objetivo superado. Puedes seguir con el siguiente ejercicio; repetirlo de vez en cuando también ayuda.',
+  fluency: 'La precisión ya está. Ahora trabaja la fluidez: repite buscando un ritmo constante, sin pararte entre letras.',
+  'slow-down': 'Vas rápido, pero fallas más de lo previsto: baja un poco el ritmo y céntrate en no fallar.',
+  calm: 'Repite con calma: primero escribe sin errores; la velocidad llegará con la práctica.',
+  unreliable: 'La precisión está bien, pero la práctica fue demasiado corta para medir la velocidad con fiabilidad.',
+};
+
+/**
+ * Qué conviene hacer a continuación según el resultado de evaluateObjectives:
+ * { kind, text }. Solo usa esta partida (no compara con sesiones anteriores) y
+ * nunca cambia los objetivos ni bloquea el avance.
+ */
+export function practiceAdvice(evaluation) {
+  const { accuracy, wpm } = evaluation;
+  let kind;
+  if (evaluation.passed) kind = 'continue';
+  else if (!accuracy.met) kind = wpm.applicable && wpm.reliable && wpm.met ? 'slow-down' : 'calm';
+  else kind = wpm.reliable ? 'fluency' : 'unreliable';
+  return { kind, text: ADVICE_TEXTS[kind] };
+}

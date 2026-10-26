@@ -158,3 +158,38 @@ export function academyView(catalog, progress) {
       : null,
   };
 }
+
+// --- Progreso por bloques (T14) -------------------------------------------------------
+
+const FINISHED = new Set([EXERCISE_STATUS.COMPLETED, EXERCISE_STATUS.PASSED]);
+
+/**
+ * Resumen del recorrido por bloques para la Academia. Tres medidas distintas:
+ * recorridas (lecciones por delante de las que ya ha pasado la posición actual),
+ * terminadas (práctica base terminada o superada) y superadas (base superada).
+ * Las ampliadas son opcionales y no cuentan. Reiniciar la Academia pone el
+ * recorrido a cero, pero los terminados y superados se conservan.
+ */
+export function courseOverview(catalog, progress) {
+  const position = catalog.courseOrder.indexOf(getCurrentExerciseId(progress, catalog.courseOrder));
+  let offset = 0;
+  const blocks = catalog.levels.map((level) => {
+    const ids = level.lessons.map((l) => l.exerciseId);
+    const status = (id) => getExerciseProgress(progress, id).status;
+    const block = {
+      level: level.level,
+      title: level.title,
+      total: ids.length,
+      traveled: Math.min(ids.length, Math.max(0, position - offset)),
+      finished: ids.filter((id) => FINISHED.has(status(id))).length,
+      passed: ids.filter((id) => status(id) === EXERCISE_STATUS.PASSED).length,
+      current: position >= offset && position < offset + ids.length,
+    };
+    offset += ids.length;
+    return block;
+  });
+  const sum = (key) => blocks.reduce((n, b) => n + b[key], 0);
+  const lessons = sum('total');
+  const traveled = sum('traveled');
+  return { blocks, totals: { lessons, traveled, remaining: lessons - traveled, finished: sum('finished'), passed: sum('passed') } };
+}

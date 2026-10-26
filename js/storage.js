@@ -284,3 +284,54 @@ export function createProgressStore(storage) {
 
   return { load, save };
 }
+
+// --- Instrucciones vistas (T14) -------------------------------------------------------
+//
+// Formato: { version: 1, introSeen: boolean, lessonsSeen: [id de la práctica base] }.
+// Solo recuerda qué introducciones ya se han mostrado; no toca progreso ni historial.
+
+export const GUIDE_KEY = 'typingquest:guide:v1';
+const GUIDE_VERSION = 1;
+const MAX_LESSONS_SEEN = 200;
+
+function initialGuide() {
+  return { introSeen: false, lessonsSeen: [] };
+}
+
+/** Interpreta las instrucciones vistas. Nunca lanza: ante cualquier problema, el estado inicial. */
+export function parseGuide(raw) {
+  if (raw === null || raw === undefined) return initialGuide();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return initialGuide();
+  }
+  if (!data || data.version !== GUIDE_VERSION) return initialGuide();
+  const ids = Array.isArray(data.lessonsSeen) ? data.lessonsSeen.filter(isValidExerciseId) : [];
+  return { introSeen: data.introSeen === true, lessonsSeen: [...new Set(ids)].slice(0, MAX_LESSONS_SEEN) };
+}
+
+export function createGuideStore(storage) {
+  function load() {
+    if (!storage) return initialGuide();
+    try {
+      return parseGuide(storage.getItem(GUIDE_KEY));
+    } catch {
+      return initialGuide();
+    }
+  }
+
+  function save(state) {
+    if (!storage) return { ok: false, error: 'unavailable' };
+    const clean = parseGuide(JSON.stringify({ version: GUIDE_VERSION, ...state }));
+    try {
+      storage.setItem(GUIDE_KEY, JSON.stringify({ version: GUIDE_VERSION, ...clean }));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: classifyWriteError(error) };
+    }
+  }
+
+  return { load, save };
+}

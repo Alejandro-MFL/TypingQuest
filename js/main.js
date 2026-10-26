@@ -7,14 +7,17 @@ import { splitIntoChunks } from './chunks.js';
 import { createGame, applyInput, restartGame, getStats, getProgress } from './game.js';
 import { createSoundPlayer } from './sound.js';
 import {
-  createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT,
+  createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT, createGuideStore,
 } from './storage.js';
 import { createCatalog, libraryLessons, filterLessons, exerciseTitle } from './catalog.js';
 import {
   getExerciseProgress, recordCompletion, getCurrentExerciseId, nextInCourse,
-  advanceCourse, skipCurrent, academyView, resolveRetiredPosition, restartCourse,
+  advanceCourse, skipCurrent, academyView, resolveRetiredPosition, restartCourse, courseOverview,
 } from './progress.js';
-import { evaluateObjectives } from './objectives.js';
+import { evaluateObjectives, practiceAdvice } from './objectives.js';
+import {
+  lessonIntro, fingerMoves, movementText, markLessonSeen, markIntroSeen, shouldShowLessonIntro,
+} from './lesson-guide.js';
 import { formatDateTime } from './history.js';
 import {
   createLibraryReturn, nextLibraryReturn, restoreTarget, sanitizeLibraryFilters,
@@ -64,6 +67,11 @@ const progressStore = createProgressStore(storage);
 // Catálogo validado (null si no se pudo cargar) y progreso académico en memoria.
 let catalog = null;
 let progress = progressStore.load().progress;
+// Instrucciones vistas (T14): introducción inicial y por lección.
+const guideStore = createGuideStore(storage);
+let guideState = guideStore.load();
+// Lección cuyas instrucciones muestra la Academia y si están desplegadas.
+let lessonIntroView = { lessonId: null, expanded: false };
 // Partida en curso: { state, chunks, savedRecordId, origin, exercise }.
 // origin: 'free' (práctica libre), 'academy' o 'library'; exercise: null en libre.
 // savedRecordId evita guardar dos veces la misma finalización.
@@ -225,7 +233,56 @@ function currentCourseId() {
 
 function renderAcademy() {
   const view = catalog ? academyView(catalog, progress) : null;
-  if (view) courseUi.renderAcademy(ce, view);
+  if (!view) return;
+  courseUi.renderAcademy(ce, view);
+  courseUi.renderAcademyIntro(ce, !guideState.introSeen);
+  const intro = lessonIntro(catalog, view.exercise.id);
+  // Desplegadas solas la primera vez; al cambiar de lección se vuelve a decidir.
+  if (intro && lessonIntroView.lessonId !== intro.lessonId) {
+    lessonIntroView = { lessonId: intro.lessonId, expanded: shouldShowLessonIntro(guideState, intro.lessonId) };
+  }
+  courseUi.renderLessonIntro(ce, intro, lessonIntroView.expanded);
+  courseUi.renderCourseOverview(ce, courseOverview(catalog, progress));
+}
+
+function saveGuide(next) {
+  guideState = next;
+  guideStore.save(guideState);
+}
+
+// «Entendido» u «Omitir» en la introducción inicial: no vuelve a mostrarse sola.
+function handleIntroClose() {
+  saveGuide(markIntroSeen(guideState));
+  courseUi.renderAcademyIntro(ce, false);
+  ce.academy.introOpen.focus();
+}
+
+// «Cómo colocar las manos»: vuelve a abrir la introducción inicial.
+function handleIntroOpen() {
+  courseUi.renderAcademyIntro(ce, true);
+  ce.academy.introTitle.focus();
+}
+
+// «Ver / Ocultar instrucciones» de la lección actual.
+function handleLessonIntroToggle() {
+  lessonIntroView = { ...lessonIntroView, expanded: !lessonIntroView.expanded };
+  courseUi.renderLessonIntro(ce, lessonIntro(catalog, lessonIntroView.lessonId), lessonIntroView.expanded);
+}
+
+// Al empezar una práctica desde la Academia, sus instrucciones quedan vistas y,
+// al volver, plegadas («Ver instrucciones» las muestra de nuevo).
+function markCurrentLessonSeen() {
+  if (!lessonIntroView.lessonId) return;
+  saveGuide(markLessonSeen(guideState, lessonIntroView.lessonId));
+  lessonIntroView = { ...lessonIntroView, expanded: false };
+}
+
+// Abre la lección actual del recorrido: si sus instrucciones no se han visto, va a
+// la Academia con ellas desplegadas; si ya se vieron, empieza directamente.
+function openCurrentLesson() {
+  const id = currentCourseId();
+  if (shouldShowLessonIntro(guideState, id)) navigate('academy');
+  else startExercise(id, 'academy', { courseStep: true });
 }
 
 // Una tarjeta por lección; la búsqueda y los filtros miran sus dos prácticas.
@@ -263,13 +320,17 @@ function handleLibraryClick(event) {
 
 // «Empezar» / «Repetir» la lección actual: es el paso actual del recorrido.
 function handleLessonStart() {
-  if (catalog) startExercise(currentCourseId(), 'academy', { courseStep: true });
+  if (!catalog) return;
+  markCurrentLessonSeen();
+  startExercise(currentCourseId(), 'academy', { courseStep: true });
 }
 
 // Práctica ampliada: opcional y nunca hace avanzar el recorrido.
 function handleExtendedStart() {
   const id = ce.academy.extendedButton.dataset.exerciseId;
-  if (id) startExercise(id, 'academy');
+  if (!id) return;
+  markCurrentLessonSeen();
+  startExercise(id, 'academy');
 }
 
 // «Siguiente ejercicio» desde la Academia (base ya terminada, sin repetirla):
@@ -278,7 +339,7 @@ function handleExtendedStart() {
 function handleLessonNext() {
   if (!catalog || !academyView(catalog, progress)?.canAdvance) return;
   saveProgress(advanceCourse(progress, catalog.courseOrder));
-  startExercise(currentCourseId(), 'academy', { courseStep: true });
+  openCurrentLesson();
 }
 
 function saveProgress(next) {
@@ -359,6 +420,7 @@ function createGuide() {
     section: byId('guide'),
     hint: byId('guide-hint'),
     rest: byId('guide-rest'),
+    movement: byId('guide-movement'),
     keyboard: byId('keyboard'),
     hands: byId('hands'),
     keys: createKeyboard(byId('keyboard')),
@@ -386,6 +448,8 @@ function renderKeyboardGuide() {
     text: resolution ? describeResolution(resolution) : '',
     errorCode: guideErrorCode,
     showRest: showsRestReminder(session?.exercise ?? null),
+    movement: movementText(resolution),
+    origins: fingerMoves(resolution).map((m) => m.from),
   });
 }
 
@@ -479,6 +543,7 @@ function finishGame() {
   const evaluation = session.exercise ? evaluateObjectives(stats, session.exercise) : null;
   ui.renderResults(els, stats, session.state.mode);
   courseUi.renderObjectiveResults(ce, session.exercise, evaluation);
+  courseUi.renderAdvice(ce, evaluation ? practiceAdvice(evaluation) : null);
   const analysis = summarizeAnalysis(session.analysis, session.state.typed);
   analysisUi.renderDiagnosis(de.resultsBody, diagnose(analysis));
   courseUi.renderResultsActions(els, ce, {
@@ -750,7 +815,7 @@ function syncSelectedMode(mode) {
 function handleNextExercise() {
   if (!hasNextCourseStep()) return;
   saveProgress(advanceCourse(progress, catalog.courseOrder));
-  startExercise(currentCourseId(), 'academy', { courseStep: true });
+  openCurrentLesson();
 }
 
 // «Saltar ejercicio» (paso actual de la Academia): lo marca como saltado si no
@@ -759,7 +824,7 @@ function handleSkip() {
   if (!catalog || !session?.courseStep) return;
   const before = currentCourseId();
   saveProgress(skipCurrent(progress, catalog.courseOrder));
-  if (currentCourseId() !== before) startExercise(currentCourseId(), 'academy', { courseStep: true });
+  if (currentCourseId() !== before) openCurrentLesson();
   else navigate('academy');
 }
 
@@ -901,6 +966,10 @@ function bindEvents() {
   de.history.closeButton.addEventListener('click', handleHistoryDiagnosisClose);
   document.getElementById('evolution-body').addEventListener('click', handlePracticeClick);
   ce.courseReset.button.addEventListener('click', handleCourseResetRequest);
+  ce.academy.introDone.addEventListener('click', handleIntroClose);
+  ce.academy.introSkip.addEventListener('click', handleIntroClose);
+  ce.academy.introOpen.addEventListener('click', handleIntroOpen);
+  ce.academy.lessonIntroToggle.addEventListener('click', handleLessonIntroToggle);
   ce.courseReset.cancelButton.addEventListener('click', handleCourseResetCancel);
   ce.courseReset.confirmButton.addEventListener('click', handleCourseResetConfirm);
   els.startButton.addEventListener('click', () => sound.unlock());

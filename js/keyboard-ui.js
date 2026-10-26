@@ -90,15 +90,17 @@ export function createHands(container) {
 
 // --- Pintado -------------------------------------------------------------------------
 
-const KEY_STATES = ['is-target', 'is-dead', 'is-modifier', 'is-error'];
+const KEY_STATES = ['is-target', 'is-dead', 'is-modifier', 'is-error', 'is-origin'];
 const FINGER_STATES = ['is-primary', 'is-modifier'];
 
 function clearStates(elements, states) {
   for (const el of elements.values()) el.classList.remove(...states);
 }
 
-function markKeys(keys, highlights, deadCodes, errorCode) {
+// `origins`: teclas de reposo desde las que sale (y a las que vuelve) el dedo (T14).
+function markKeys(keys, highlights, deadCodes, errorCode, origins = []) {
   clearStates(keys, KEY_STATES);
+  for (const code of origins) keys.get(code)?.classList.add('is-origin');
   for (const code of highlights.targetCodes) keys.get(code)?.classList.add('is-target');
   for (const code of deadCodes) keys.get(code)?.classList.add('is-dead');
   for (const code of highlights.modifierCodes) keys.get(code)?.classList.add('is-modifier');
@@ -116,16 +118,17 @@ function markFingers(fingers, highlights) {
  * `resolution` null oculta los resaltados (p. ej. al terminar). El texto de ayuda
  * solo se reescribe si cambia y no es una región viva: no se anuncia en cada tecla.
  */
-export function renderGuide(guide, { mode, resolution, text, errorCode = null, showRest = false }) {
+export function renderGuide(guide, { mode, resolution, text, errorCode = null, showRest = false, movement = '', origins = [] }) {
   guide.section.hidden = mode === 'none';
   guide.keyboard.hidden = mode === 'none';
   guide.hands.hidden = mode !== 'full';
   guide.rest.hidden = !showRest;
   const hint = text ?? '';
   if (guide.hint.textContent !== hint) guide.hint.textContent = hint;
+  if (guide.movement && guide.movement.textContent !== movement) guide.movement.textContent = movement;
   const empty = { targetCodes: [], modifierCodes: [], primaryFingers: [], modifierFingers: [] };
   const highlights = resolution ? guideHighlights(resolution) : empty;
   const deadCodes = resolution ? resolution.steps.filter((s) => s.dead).map((s) => s.code) : [];
-  markKeys(guide.keys, highlights, deadCodes, errorCode);
+  markKeys(guide.keys, highlights, deadCodes, errorCode, resolution ? origins : []);
   markFingers(guide.fingers, highlights);
 }

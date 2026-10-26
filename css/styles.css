@@ -1771,3 +1771,133 @@ body {
     transition: none;
   }
 }
+
+/* --- Experiencia pedagógica (T14) ------------------------------------------------------
+   Componentes sencillos con los colores actuales: se personalizarán en el rediseño (T15). */
+
+.intro-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  text-align: left;
+}
+
+.intro-panel-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.intro-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.intro-actions {
+  justify-content: flex-start;
+}
+
+.academy-tools {
+  margin: 0 0 0.75rem;
+  text-align: right;
+}
+
+.lesson-intro-toggle {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.lesson-intro {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--color-accent);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  text-align: left;
+}
+
+.lesson-intro-skill {
+  margin: 0 0 0.35rem;
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+.lesson-intro-text p {
+  margin: 0 0 0.35rem;
+}
+
+.course-overview {
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.course-overview-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.course-overview-summary {
+  margin: 0 0 0.75rem;
+}
+
+.course-overview-blocks {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.course-block {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.course-block-title {
+  font-weight: bold;
+}
+
+.course-block.is-current .course-block-title {
+  color: var(--color-accent);
+}
+
+.course-block-track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--color-border);
+}
+
+.course-block-fill {
+  height: 100%;
+  border-radius: 0.25rem;
+  background: var(--color-accent);
+}
+
+.course-block-text,
+.course-overview-note {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.course-overview-note {
+  margin: 0;
+}
+
+.result-advice {
+  margin: 0.75rem 0 0;
+  font-weight: bold;
+}
+
+.guide-movement {
+  min-height: 1.4em;
+  margin: 0 0 0.5rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* Tecla de reposo desde la que sale el dedo: borde punteado (no solo color). */
+.kb-key.is-origin {
+  border: 2px dotted var(--color-accent);
+}

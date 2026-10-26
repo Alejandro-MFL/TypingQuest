@@ -45,6 +45,7 @@ js/typing-trends.js   # PURO: agregación de diagnósticos de varias sesiones y 
 js/trends-ui.js       # «Mi evolución» en el Historial; helpers puros de textos.
 js/library-memory.js  # PURO: billete de vuelta a la Biblioteca (filtros, desplazamiento, práctica).
 js/recommendations.js # PURO: «Practicar mis dificultades» (dificultades de T12 → prácticas del catálogo).
+js/lesson-guide.js    # PURO: introducciones por lección, movimiento del dedo e instrucciones vistas (T14).
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
@@ -54,7 +55,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -67,7 +68,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
   `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`,
-  `typing-trends.js`, `library-memory.js`, `recommendations.js`. El instante actual se inyecta
+  `typing-trends.js`, `library-memory.js`, `recommendations.js`, `lesson-guide.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
@@ -348,6 +349,35 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   estado, nunca la posición del recorrido ni otras lecciones). Al terminar se guarda la
   sesión con su diagnóstico y las recomendaciones se recalculan al volver.
 
+## Experiencia pedagógica (T14: `js/lesson-guide.js`)
+
+- Introducción inicial («Antes de empezar», HTML estático en la Academia): posición de
+  reposo, relieves de F y J, postura, mirar la pantalla, precisión antes que velocidad y
+  base frente a ampliada. Se muestra hasta pulsar «Entendido» u «Omitir»; «Cómo colocar
+  las manos» la reabre. Preferencia local: clave `typingquest:guide:v1` (`createGuideStore`
+  en `storage.js`) con `{ version: 1, introSeen, lessonsSeen: [id base] }` (máx. 200 IDs);
+  no toca progreso ni historial.
+- Instrucciones por lección (`lessonIntro(catalog, exerciseId)` → `{ lessonId, skill,
+  sentences }`, 2-3 frases): a partir de `introduces` (ahora en las lecciones del
+  catálogo), del texto real de la base y del modelo de T9. Tecla y dedo, desde qué tecla
+  de reposo se mueve («desde J, estira el dedo hacia arriba hasta U y vuelve a J»),
+  consejos propios para postura, tildes, diéresis, Mayús, números, signos ¿ ? y AltGr;
+  repasos concretos (teclas o signos del texto) y el objetivo de la base. Desplegadas la
+  primera vez (`shouldShowLessonIntro`); al empezar la práctica quedan vistas y plegadas
+  tras «Ver instrucciones» (`aria-expanded`). Nunca dicen que se detecta el dedo.
+- Movimiento en la guía (`fingerMoves`, `movementText` → «Movimiento: J → U → J»):
+  modificador primero y después cada tecla; las teclas de reposo y el espacio no se
+  mueven. La tecla de reposo de origen lleva `is-origin` (borde punteado). Va dentro de
+  la guía, así que respeta las ayudas (`none` la oculta).
+- Resultados: «Siguiente paso» (`practiceAdvice(evaluation)` en `objectives.js`):
+  `continue`, `fluency` (precisión sí, WPM no), `slow-down` (WPM sí, precisión no),
+  `calm` (ambos pendientes o solo precisión pendiente) y `unreliable` (medición de WPM
+  demasiado corta). Solo esta partida; no cambia objetivos ni bloquea.
+- Academia: «Tu recorrido» (`courseOverview` en `progress.js`): por bloque, lecciones
+  recorridas (posición), prácticas base terminadas y superadas, por separado; las
+  ampliadas no cuentan. Tras «Reiniciar Academia» el recorrido vuelve a 0 y los logros se
+  conservan. Componentes sencillos con los colores actuales (se rediseñarán en T15).
+
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 
 - `exercises.json` (`schemaVersion: 2`): `contentVersion` y `exercises`, cada uno con
@@ -446,7 +476,8 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   práctica, y dos botones sin requisitos previos: «Práctica base» (también para
   repetirla) y «Práctica ampliada» (opcional; nunca ofrece Siguiente ni Saltar). Si la
   base ya está terminada aparece «Siguiente ejercicio»: avanza uno y abre la siguiente
-  base.
+  base (T14: si sus instrucciones no se han visto, abre la Academia con ellas desplegadas
+  en lugar de empezar; igual con «Saltar» y con «Siguiente» desde Resultados).
 - La Biblioteca muestra UNA tarjeta por lección (`libraryLessons`, 67), agrupadas por
   bloque con un encabezado por bloque (`groupLessonsByLevel`, `blockLabel`): título,
   descripción, bloque y categoría de la lección, y sus dos prácticas, cada una con su

@@ -124,11 +124,39 @@
       <p class="catalog-error" id="academy-error" role="alert" hidden></p>
       <!-- Solo la lección actual del recorrido; el catálogo completo está en la Biblioteca. -->
       <div id="academy-content">
+        <!-- Introducción inicial (T14): la primera vez; se puede omitir y volver a abrir. -->
+        <section class="intro-panel" id="academy-intro" aria-labelledby="academy-intro-title" hidden>
+          <h3 class="intro-panel-title" id="academy-intro-title" tabindex="-1">Antes de empezar</h3>
+          <ul class="intro-list">
+            <li>Coloca los dedos en la fila central: A S D F con la mano izquierda y J K L Ñ con la derecha;
+              los pulgares descansan sobre el espacio.</li>
+            <li>Las teclas F y J tienen un pequeño relieve: tócalo con los índices para encontrar la posición sin mirar.</li>
+            <li>Siéntate recto y relajado, con los hombros sueltos y las muñecas sin apoyarlas con fuerza.</li>
+            <li>Mira la pantalla en lugar del teclado siempre que puedas: la guía te indica la tecla y el dedo.</li>
+            <li>Primero la precisión: escribe sin errores aunque vayas despacio; la velocidad llega con la práctica.</li>
+            <li>Cada lección tiene una práctica base, breve, que te hace avanzar, y una práctica ampliada, más larga y
+              opcional, para afianzarla.</li>
+          </ul>
+          <div class="actions intro-actions">
+            <button class="button" id="academy-intro-done" type="button">Entendido</button>
+            <button class="button button-secondary" id="academy-intro-skip" type="button">Omitir</button>
+          </div>
+        </section>
+        <p class="academy-tools">
+          <button class="button-link" id="academy-intro-open" type="button">Cómo colocar las manos</button>
+        </p>
         <article class="lesson-card" aria-labelledby="lesson-title">
           <p class="lesson-position" id="lesson-position"></p>
           <p class="lesson-level-summary" id="lesson-level-summary"></p>
           <h3 class="lesson-title" id="lesson-title"></h3>
           <p class="lesson-description" id="lesson-description"></p>
+          <!-- Instrucciones de la lección (T14): desplegadas la primera vez; después, a demanda. -->
+          <button class="button-link lesson-intro-toggle" id="lesson-intro-toggle" type="button"
+            aria-expanded="false" aria-controls="lesson-intro">Ver instrucciones</button>
+          <div class="lesson-intro" id="lesson-intro" hidden>
+            <p class="lesson-intro-skill" id="lesson-intro-skill"></p>
+            <div class="lesson-intro-text" id="lesson-intro-text"></div>
+          </div>
           <!-- Una sola tarjeta: estado y objetivos de cada práctica y dos botones. Solo la
                base forma el recorrido; la ampliada es opcional y está disponible desde el principio. -->
           <dl class="lesson-practices">
@@ -158,6 +186,16 @@
             Has terminado el recorrido de la Academia. Puedes repasar cualquier ejercicio en la Biblioteca.
           </p>
         </article>
+        <!-- Progreso por bloques (T14): recorrido, terminadas y superadas, sin listar las 67 lecciones. -->
+        <section class="course-overview" id="course-overview" aria-labelledby="course-overview-title">
+          <h3 class="course-overview-title" id="course-overview-title">Tu recorrido</h3>
+          <p class="course-overview-summary" id="course-overview-summary"></p>
+          <ol class="course-overview-blocks" id="course-overview-blocks"></ol>
+          <p class="course-overview-note">
+            Recorridas: hasta dónde has llegado en el curso. Terminadas: prácticas base completadas. Superadas: con
+            el objetivo cumplido. Las prácticas ampliadas son opcionales y no cuentan aquí.
+          </p>
+        </section>
         <p class="academy-hint">
           ¿Quieres repasar otro ejercicio? Todos están en la <a href="#/biblioteca">Biblioteca</a>
           y practicarlos allí no cambia tu posición en el curso.
@@ -261,7 +299,7 @@
           class="hidden-input"
           id="typing-input"
           aria-label="Escribe aquí el fragmento activo"
-          aria-describedby="guide-hint"
+          aria-describedby="guide-hint guide-movement"
           autocomplete="off"
           autocorrect="off"
           autocapitalize="off"
@@ -274,6 +312,8 @@
       <section class="guide" id="guide" aria-labelledby="guide-title" hidden>
         <h3 class="visually-hidden" id="guide-title">Guía de teclado</h3>
         <p class="guide-hint" id="guide-hint"></p>
+        <!-- Recorrido recomendado del dedo (T14): tecla de reposo → tecla → reposo. -->
+        <p class="guide-movement" id="guide-movement"></p>
         <p class="guide-rest" id="guide-rest" hidden>
           Posición de reposo: A S D F con la mano izquierda y J K L Ñ con la derecha, índices en F y J.
         </p>
@@ -304,6 +344,8 @@
       <div class="target-result" id="target-result" hidden>
         <p class="target-result-title" id="target-result-title"></p>
         <ul class="objective-list" id="objective-list"></ul>
+        <!-- Qué conviene hacer a continuación (T14), según los objetivos de esta partida. -->
+        <p class="result-advice" id="result-advice"></p>
       </div>
       <dl class="results-secondary">
         <div class="result-item">
