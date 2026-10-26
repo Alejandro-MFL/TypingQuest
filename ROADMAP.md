@@ -13,17 +13,16 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T9 | Teclado visual español (ISO) y manos SVG con guía de dedos y teclas muertas. |
 | T10 | Currículo progresivo de 67 lecciones y 134 ejercicios en cinco bloques (A–E), validación de teclas por lección, migración del progreso y del historial anteriores, «Repetir ejercicio», «Reiniciar ejercicio» durante la partida, «Reiniciar Academia» y servidor local sin caché heurística. |
 | T11 | Diagnóstico de escritura por carácter y tecla: oportunidades, fallos al primer intento, correcciones y confusiones; tecla y dedo recomendados; «Análisis de escritura» en Resultados y en el Historial; guardado opcional y versionado sin el texto practicado. |
+| T12 | Memoria de la Biblioteca (búsqueda, filtros, desplazamiento y práctica abierta, también con «Atrás») y «Mi evolución» en el Historial: tasa de fallo acumulada y ponderada, dificultades recurrentes, mejora o empeoramiento por carácter y confusiones frecuentes. |
 
 ## Propuestas para las siguientes fases
 
 Son propuestas pendientes de aprobación, no funcionalidades comprometidas.
 
-- **T12 · Continuidad y evolución del diagnóstico (próxima prioridad):**
-  - Conservar la búsqueda, los filtros y la posición de desplazamiento de la Biblioteca
-    al abrir un ejercicio y volver.
-  - Analizar los errores acumulados de varias sesiones.
-  - Mostrar la evolución de las dificultades por carácter.
-  - Las recomendaciones automáticas de ejercicios quedan para una fase posterior.
+- **Recomendaciones automáticas de ejercicios** a partir de «Mi evolución» (pospuestas
+  desde T12; fase por decidir).
+- **Errores de transición entre letras consecutivas:** necesitaría guardar datos nuevos
+  (pares de letras) que T11 no guarda.
 - **T13 · Interfaz, accesibilidad y experiencia de usuario:** mejoras generales.
 - **T14 · Revisión integral y publicación:** auditoría completa y preparación para publicar.
 
@@ -42,8 +41,13 @@ Son propuestas pendientes de aprobación, no funcionalidades comprometidas.
   revisarse con uso real.
 - **Estadísticas por dedo:** no se pueden medir (el navegador no sabe qué dedo se usa);
   T11 solo muestra el dedo recomendado.
-- **Diagnóstico (T11):** por sesión, sin agregado entre sesiones; la muestra mínima
-  (5 oportunidades) es provisional; en modo libre, un fallo en la última posición
-  termina la partida y queda sin corregir.
+- **Diagnóstico (T11):** la muestra mínima (5 oportunidades) es provisional; en modo
+  libre, un fallo en la última posición termina la partida y queda sin corregir.
+- **Mi evolución (T12):** umbrales provisionales (20 oportunidades en 3 sesiones, 10 %,
+  1,5 × la media); no tiene en cuenta que los ejercicios recientes pueden ser más
+  difíciles; lo que T11 no guardó (más de 64 caracteres u 8 confusiones por sesión) no
+  se suma.
+- **Memoria de la Biblioteca (T12):** solo dura mientras la página está abierta (no
+  sobrevive a recargar).
 - **Servidor de desarrollo:** usar `python tools/dev-server.py`; con `python -m http.server`
   el navegador puede mezclar módulos de versiones distintas.

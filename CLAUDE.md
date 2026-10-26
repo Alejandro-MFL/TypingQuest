@@ -41,6 +41,9 @@ js/keyboard.js        # PURO: teclado español ISO, dedos, resolución carácter
 js/keyboard-ui.js     # Guía visual: teclado (HTML/CSS) y manos (SVG propio), solo presentación.
 js/typing-analysis.js # PURO: diagnóstico por carácter (transiciones aceptadas, resumen, formato guardado).
 js/analysis-ui.js     # «Análisis de escritura» en Resultados e Historial; helpers puros de textos.
+js/typing-trends.js   # PURO: agregación de diagnósticos de varias sesiones y evolución por carácter.
+js/trends-ui.js       # «Mi evolución» en el Historial; helpers puros de textos.
+js/library-memory.js  # PURO: billete de vuelta a la Biblioteca (filtros, desplazamiento, práctica).
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
@@ -49,7 +52,8 @@ js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
-                      # router, course-ui, keyboard, typing-analysis, analysis-ui, modules (imports y exports del grafo de
+                      # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
+                      # trends-ui, library-memory, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -61,11 +65,12 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
-  `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`. El instante actual se inyecta
+  `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`,
+  `typing-trends.js`, `library-memory.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
-- Módulos de interfaz: `ui.js`, `course-ui.js`, `keyboard-ui.js` y `analysis-ui.js` (pintan el DOM), `main.js`
+- Módulos de interfaz: `ui.js`, `course-ui.js`, `keyboard-ui.js`, `analysis-ui.js` y `trends-ui.js` (pintan el DOM), `main.js`
   (escucha eventos, gestiona rutas, foco, temporizadores y pantallas) y `sound.js` (audio).
 - `ui.js` y `course-ui.js` exportan además helpers PUROS (`charStates`, `spaceHintPosition`,
   `isFragmentBlocked`, `resolveNotice`, `statusInfo`, `formatTargetResult`, formatos)
@@ -73,6 +78,12 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Navegación por rutas hash (`router.js`): Inicio, Academia, Biblioteca, Historial y
   Práctica libre. La partida y los resultados NO son rutas: cambiar de ruta (navegación,
   botón Atrás) descarta la partida en pantalla (`leaveGame`) sin guardar nada.
+- Excepción (T12): abrir una práctica DESDE LA BIBLIOTECA añade una entrada al historial
+  del navegador con la misma URL (`history.pushState('typingquest-library-game')`), así
+  «Atrás» vuelve a la Biblioteca (`popstate`, sin hashchange). «Volver a la Biblioteca»,
+  «Salir» y el enlace «Biblioteca» retroceden esa entrada (`returnToLibrary`) para no
+  dejarla huérfana. `history.scrollRestoration = 'manual'`; tras recargar, la marca se
+  limpia con `replaceState`.
 - `main.js` descarga `data/*.json` con `fetch` y los valida con `createCatalog`; si
   fallan, Academia y Biblioteca muestran un error y el resto sigue funcionando.
 - Flujo: fuente de texto → `prepareText` → `splitIntoChunks` → `createGame(text, { segmentEnds, mode })`
@@ -289,6 +300,28 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   sesión» (nunca cero errores). Privacidad: solo recuentos por carácter, en orden de
   dificultad; nunca el texto ni secuencias (también en práctica libre).
 
+## Mi evolución (T12: `js/typing-trends.js`, `js/trends-ui.js`)
+
+- En el Historial, entre las gráficas y la tabla. Se calcula al vuelo con los
+  diagnósticos de T11 ya guardados (`analyzeTrends(history.sessions)`): no guarda nada
+  nuevo. Sesiones sin diagnóstico válido (T7-T10 o dañadas) se ignoran y se cuentan aparte.
+- Agregación ponderada: tasa acumulada = Σ fallos al primer intento / Σ oportunidades;
+  nunca el promedio de las tasas de cada sesión. Orden cronológico por `finishedAt`
+  (a igual fecha, orden de guardado).
+- Umbrales PROVISIONALES (constantes exportadas): muestra suficiente ≥ 20 oportunidades
+  en ≥ 3 sesiones; recurrente = suficiente, tasa ≥ 10 % y ≥ 1,5 × la tasa media del alumno.
+  Evolución: las sesiones del carácter se parten en dos periodos con oportunidades lo
+  más parecidas posible (≥ 15 cada uno); mejora/empeora si la diferencia es ≥ 5 puntos y
+  una prueba de dos proporciones da |z| ≥ 1,96; si no, «sin cambios claros».
+- Listas (máx. 5): dificultades recurrentes (con su evolución), en mejora, necesitan
+  atención (empeora, o recurrente sin mejorar) y confusiones sumadas (≥ 3). Detalle por
+  carácter plegado (`<details>`), solo con muestra suficiente. Teclado de T9 numerado
+  (`createMarkedKeyboard` de `analysis-ui.js`), barras «antes / ahora» decorativas y
+  definiciones en lenguaje sencillo. Estados `empty` e `insufficient` con mensaje útil.
+- Limitaciones: no corrige la diferente dificultad de los ejercicios; T11 guarda como
+  máximo 64 caracteres y 8 confusiones por sesión (lo descartado no se suma); sin datos
+  de transiciones entre letras consecutivas (no se infieren).
+
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 
 - `exercises.json` (`schemaVersion: 2`): `contentVersion` y `exercises`, cada uno con
@@ -397,6 +430,13 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   catálogo: no se duplican ejercicios. Todo se hace sin bloqueos.
 - Saltar (solo dentro de la lección actual) registra `skipped` si no había un logro
   superior, avanza uno y abre el nuevo actual (en el último, vuelve a la Academia).
+- Memoria de la Biblioteca (T12, `library-memory.js`): al abrir una práctica se guarda un
+  billete de vuelta (búsqueda, filtros, `scrollY` y práctica). Al volver a la Biblioteca
+  se usa UNA vez: filtros (`sanitizeLibraryFilters`), desplazamiento, foco en el botón
+  de esa práctica (`preventScroll`) y la tarjeta marcada con borde y el texto «Última
+  práctica abierta». Se sustituye al abrir otra y se descarta al abrir un ejercicio de
+  otro origen. Solo en memoria (no localStorage): tras recargar no se restaura nada.
+  Nunca toca la posición de la Academia.
 
 ## Guía de teclado y dedos (`js/keyboard.js`, `js/keyboard-ui.js`)
 
@@ -484,15 +524,16 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 
 ## Cómo explicar el trabajo al usuario
 
-- El usuario aprende desarrollo de software con este proyecto. Los informes del chat
-  deben ser completos y DIDÁCTICOS, en español claro: qué se ha hecho, por qué (qué
-  problema resuelve), cómo funciona (con ejemplos de TypingQuest), decisiones técnicas
-  y alternativas descartadas, pruebas (distinguiendo lo comprobado en el navegador de lo
-  cubierto solo por tests), problemas pendientes con sus consecuencias prácticas y Git.
-- Explicar brevemente cada concepto técnico la primera vez (diff, estado, persistencia,
-  migración, serialización…). Sin jerga innecesaria ni listas de funciones sin contexto.
-- CLAUDE.md y ROADMAP.md son la referencia técnica; el informe ayuda a comprender, no
-  los repite.
+- El usuario está aprendiendo programación. Informe final BREVE y práctico, en español
+  sencillo, con solo estos apartados:
+  1. Qué se ha hecho y por qué.
+  2. Problemas encontrados y cómo se solucionaron.
+  3. Cómo han salido las pruebas.
+  4. Qué debe comprobar manualmente, con pasos concretos.
+  5. Qué queda pendiente y el estado de Git.
+- Sin clases teóricas, explicaciones de cada función ni tablas grandes: si quiere
+  profundizar en una decisión técnica, lo preguntará. La documentación técnica va en
+  CLAUDE.md y ROADMAP.md, no en el informe.
 
 ## Uso eficiente de Claude Code
 

@@ -275,6 +275,33 @@ export function renderLibraryFilters(ce, catalog) {
     .map((c) => ({ value: c.id, label: c.label })));
 }
 
+/** Valores que ofrece cada filtro (para descartar los que ya no existen). */
+export function libraryFilterOptions(ce) {
+  const values = (select) => [...select.options].map((o) => o.value).filter((v) => v !== '');
+  return {
+    levels: values(ce.library.level).map(Number),
+    difficulties: values(ce.library.difficulty),
+    categories: values(ce.library.category),
+  };
+}
+
+/** Escribe búsqueda y filtros (los inversos de readLibraryFilters). */
+export function writeLibraryFilters(ce, { query, level, difficulty, category }) {
+  ce.library.query.value = query;
+  ce.library.level.value = level === null ? '' : String(level);
+  ce.library.difficulty.value = difficulty;
+  ce.library.category.value = category;
+}
+
+// Práctica desde la que se volvió: borde y un texto visible (no solo color). Se
+// quita sola en el siguiente pintado de la Biblioteca (filtrar, volver a entrar).
+export function markReturnedPractice(button) {
+  const row = button.closest('.lesson-practice');
+  button.closest('.library-lesson')?.classList.add('is-returned');
+  if (!row || row.querySelector('.returned-label')) return;
+  row.querySelector('dt')?.append(element('span', 'returned-label', ' · Última práctica abierta'));
+}
+
 export function readLibraryFilters(ce) {
   const { query, level, difficulty, category } = ce.library;
   return {

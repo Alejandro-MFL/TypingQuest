@@ -16,10 +16,15 @@ import {
 } from './progress.js';
 import { evaluateObjectives } from './objectives.js';
 import { formatDateTime } from './history.js';
+import {
+  createLibraryReturn, nextLibraryReturn, restoreTarget, sanitizeLibraryFilters,
+} from './library-memory.js';
 import { parseRoute, routeHash } from './router.js';
 import * as ui from './ui.js';
 import * as courseUi from './course-ui.js';
 import * as analysisUi from './analysis-ui.js';
+import * as trendsUi from './trends-ui.js';
+import { analyzeTrends } from './typing-trends.js';
 import {
   createTypingAnalysis, recordTransition, summarizeAnalysis, packAnalysis, unpackAnalysis, diagnose,
 } from './typing-analysis.js';
@@ -79,6 +84,11 @@ const helpModes = { ...DEFAULT_HELP_MODES };
 const MODIFIER_CODES = new Set(['ShiftLeft', 'ShiftRight', 'AltRight', 'AltLeft', 'ControlLeft', 'ControlRight', 'CapsLock']);
 let lastKeyCode = null;
 let guideErrorCode = null;
+// Billete de vuelta a la Biblioteca (T12, library-memory.js): solo en memoria.
+let libraryReturn = null;
+// Entrada del historial del navegador añadida al abrir una práctica desde la
+// Biblioteca: así «Atrás» vuelve a la Biblioteca y no a la sección anterior.
+const LIBRARY_GAME_STATE = 'typingquest-library-game';
 
 // --- Navegación ------------------------------------------------------------------
 
@@ -89,15 +99,51 @@ function navigate(route) {
   else location.hash = hash;
 }
 
-// Cambiar de sección descarta cualquier partida o resultado en pantalla.
+// Cambiar de sección descarta cualquier partida o resultado en pantalla. Al
+// volver a la Biblioteca con billete, se deja como estaba (una sola vez).
 function showRoute(route) {
   leaveGame();
   closeOptions();
   courseUi.renderNav(ce, route);
+  const ticket = route === 'library' && catalog ? libraryReturn : null;
+  if (route === 'library') {
+    if (ticket) courseUi.writeLibraryFilters(ce, sanitizeLibraryFilters(ticket.filters, courseUi.libraryFilterOptions(ce)));
+    libraryReturn = nextLibraryReturn(libraryReturn, { type: 'library-shown' });
+  }
   renderRoute(route);
   showScreen(ROUTE_SCREENS[route]);
-  if (route === 'practice') els.sourceText.focus();
+  if (ticket) restoreLibraryPosition(ticket);
+  else if (route === 'practice') els.sourceText.focus();
   else els.screens[ROUTE_SCREENS[route]].querySelector('.screen-title').focus();
+}
+
+// Desplazamiento guardado y foco en el botón de la práctica abierta (sin saltos:
+// preventScroll), que además queda marcada. Si ya no está visible, foco al título.
+function restoreLibraryPosition(ticket) {
+  const buttons = [...ce.library.list.querySelectorAll('[data-exercise-id]')];
+  const target = restoreTarget(ticket, buttons.map((b) => b.dataset.exerciseId));
+  window.scrollTo(0, target.scrollY);
+  const button = buttons.find((b) => b.dataset.exerciseId === target.exerciseId);
+  if (!button) {
+    els.screens.library.querySelector('.screen-title').focus({ preventScroll: true });
+    return;
+  }
+  courseUi.markReturnedPractice(button);
+  button.focus({ preventScroll: true });
+  button.closest('.library-lesson').scrollIntoView({ block: 'nearest' });
+}
+
+// Volver a la Biblioteca desde su práctica (botones o enlace): si se añadió la
+// entrada del historial, se retrocede (popstate restaura) para no dejarla huérfana.
+function returnToLibrary() {
+  if (history.state === LIBRARY_GAME_STATE) history.back();
+  else navigate('library');
+}
+
+// «Atrás» desde una práctica abierta en la Biblioteca: misma URL, sin hashchange.
+function handlePopState() {
+  const inGame = currentScreen === 'play' || currentScreen === 'results';
+  if (inGame && session?.origin === 'library' && parseRoute(location.hash) === 'library') showRoute('library');
 }
 
 function renderRoute(route) {
@@ -119,7 +165,8 @@ function handleNavClick(event) {
   // Con el hash ya activo no habría hashchange: se muestra la ruta igualmente.
   if (link && link.getAttribute('href') === location.hash) {
     event.preventDefault();
-    showRoute(parseRoute(location.hash));
+    if (session?.origin === 'library' && parseRoute(location.hash) === 'library') returnToLibrary();
+    else showRoute(parseRoute(location.hash));
   }
 }
 
@@ -183,9 +230,17 @@ function exerciseName(id) {
 }
 
 // «Empezar» en una tarjeta de la Biblioteca (delegación). Nunca es un paso del recorrido.
+// Antes de abrir se guarda el billete de vuelta (búsqueda, filtros, desplazamiento
+// y práctica) y se añade una entrada al historial del navegador con la misma URL.
 function handleLibraryClick(event) {
   const button = event.target.closest('[data-exercise-id]');
-  if (button?.dataset.exerciseId) startExercise(button.dataset.exerciseId, 'library');
+  const id = button?.dataset.exerciseId;
+  if (!id) return;
+  const ticket = createLibraryReturn({ filters: courseUi.readLibraryFilters(ce), scrollY: window.scrollY, exerciseId: id });
+  startExercise(id, 'library');
+  if (session?.exercise?.id !== id) return;
+  libraryReturn = nextLibraryReturn(libraryReturn, { type: 'open-library-exercise', ticket });
+  if (history.state !== LIBRARY_GAME_STATE) history.pushState(LIBRARY_GAME_STATE, '');
 }
 
 // «Empezar» / «Repetir» la lección actual: es el paso actual del recorrido.
@@ -245,6 +300,7 @@ function startExercise(id, origin, { courseStep = false } = {}) {
 
 function startGame(text, { origin, exercise, courseStep = false }) {
   leaveGame();
+  if (origin !== 'library') libraryReturn = nextLibraryReturn(libraryReturn, { type: 'open-other-exercise' });
   const chunks = splitIntoChunks(text, CONFIG.wordsPerChunk);
   const state = createGame(text, { segmentEnds: chunks.map((c) => c.end), mode: selectedMode });
   session = { state, chunks, savedRecordId: null, origin, exercise, courseStep, analysis: createTypingAnalysis(state.text) };
@@ -486,7 +542,10 @@ function recordExerciseProgress(stats, evaluation) {
 }
 
 function renderHistory({ cleared = false } = {}) {
-  ui.renderHistory(els, historyStore.load(), { chartSessions: CONFIG.historyChartSessions, exerciseName, cleared });
+  const history = historyStore.load();
+  ui.renderHistory(els, history, { chartSessions: CONFIG.historyChartSessions, exerciseName, cleared });
+  // «Mi evolución» (T12): se calcula al vuelo con los diagnósticos ya guardados.
+  trendsUi.renderEvolution(document.getElementById('evolution-body'), analyzeTrends(history.sessions));
   de.history.panel.hidden = true;
 }
 
@@ -683,7 +742,8 @@ function handleSkip() {
 }
 
 function handleBackToOrigin() {
-  navigate(session?.origin === 'library' ? 'library' : 'academy');
+  if (session?.origin === 'library') returnToLibrary();
+  else navigate('academy');
 }
 
 function handleNewText() {
@@ -695,7 +755,8 @@ function handleNewText() {
 // la preparación con el texto original intacto para reutilizarlo o editarlo.
 function handleExit() {
   const origin = session?.origin ?? 'free';
-  navigate(origin === 'free' ? 'practice' : origin);
+  if (origin === 'library') returnToLibrary();
+  else navigate(origin === 'free' ? 'practice' : origin);
 }
 
 // --- Pantallas y menú Opciones -------------------------------------------------
@@ -795,6 +856,7 @@ function bindEvents() {
   ce.library.filters.addEventListener('submit', (event) => event.preventDefault());
   ce.nav.addEventListener('click', handleNavClick);
   window.addEventListener('hashchange', handleHashChange);
+  window.addEventListener('popstate', handlePopState);
   els.soundToggle.addEventListener('click', handleSoundToggle);
   els.options.toggle.addEventListener('click', handleOptionsToggle);
   els.blockOnErrors.addEventListener('change', handleModeChange);
@@ -814,6 +876,10 @@ function bindEvents() {
 }
 
 async function init() {
+  // T12: el desplazamiento de la Biblioteca lo restaura la aplicación, no el
+  // navegador; y tras recargar no queda ninguna partida a la que volver.
+  history.scrollRestoration = 'manual';
+  if (history.state === LIBRARY_GAME_STATE) history.replaceState(null, '');
   bindEvents();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderSoundToggle(els, sound.isEnabled());

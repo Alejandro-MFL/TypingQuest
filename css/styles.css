@@ -726,6 +726,108 @@ body {
   margin-top: 1.5rem;
 }
 
+/* --- Mi evolución (T12): en el Historial, entre las gráficas y la tabla --- */
+
+.evolution {
+  margin: 2rem 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.evolution-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  text-align: center;
+}
+
+.evolution-status,
+.evolution-summary {
+  margin: 0 0 1rem;
+}
+
+.evolution-group {
+  margin-bottom: 1.25rem;
+}
+
+.evolution-group-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--color-accent);
+}
+
+.evolution-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.evolution-empty,
+.evolution-definitions {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.evolution-definitions {
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 1.25rem;
+}
+
+/* Barras «antes / ahora»: decorativas, el texto ya da los datos. */
+.rate-bars {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 22rem;
+  margin-top: 0.35rem;
+}
+
+.rate-bar-row {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) 4rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+.rate-bar-track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+}
+
+.rate-bar-fill {
+  height: 100%;
+  border-radius: 0.25rem;
+  background: var(--color-accent);
+}
+
+.evolution-detail {
+  margin-bottom: 1rem;
+}
+
+.evolution-detail summary {
+  cursor: pointer;
+  color: var(--color-accent);
+}
+
+.evolution-table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.evolution-table th,
+.evolution-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
 /* position: relative contiene su texto oculto (absoluto) dentro de la tabla con
    scroll: sin ello, en móvil ensanchaba la página. Área táctil ≥ 24 px. */
 .button-link.history-diagnosis-button {
@@ -1385,6 +1487,17 @@ body {
 .library-lesson .lesson-practice {
   grid-template-columns: minmax(0, 1fr);
   border-left: 4px solid var(--status-color);
+}
+
+/* T12: tarjeta desde la que se volvió (borde + texto «Última práctica abierta»). */
+.library-lesson.is-returned {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.returned-label {
+  color: var(--color-accent);
+  font-weight: normal;
 }
 
 .library-lesson .lesson-practice .button {

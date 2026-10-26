@@ -62,15 +62,20 @@ export function insufficientMessage(diagnosis) {
   return `Con menos de ${MIN_OPPORTUNITIES} oportunidades no se valoran (datos insuficientes): ${parts.join(', ')}.`;
 }
 
-/** Tecla principal de cada dificultad con su puesto (sin repetir teclas). */
-export function difficultKeys(diagnosis) {
+/** Tecla principal de cada carácter con su puesto en la lista (sin repetir teclas). */
+export function keysForChars(chars) {
   const keys = [];
-  diagnosis.difficulties.forEach((d, i) => {
-    const resolution = resolveCharacter(d.char);
+  chars.forEach((char, i) => {
+    const resolution = resolveCharacter(char);
     const code = resolution.known ? resolution.steps.at(-1).code : null;
     if (code !== null && !keys.some((k) => k.code === code)) keys.push({ code, rank: i + 1 });
   });
   return keys;
+}
+
+/** Tecla principal de cada dificultad con su puesto (sin repetir teclas). */
+export function difficultKeys(diagnosis) {
+  return keysForChars(diagnosis.difficulties.map((d) => d.char));
 }
 
 // --- DOM --------------------------------------------------------------------------------
@@ -106,13 +111,13 @@ function createDifficultyItem(difficulty) {
   return item;
 }
 
-// Teclado de T9 (decorativo) con las teclas difíciles numeradas por su puesto en
-// la lista: el número acompaña al color, que nunca va solo.
-function createDiagnosisKeyboard(diagnosis) {
+// Teclado de T9 (decorativo) con las teclas de `chars` numeradas por su puesto en
+// la lista: el número acompaña al color, que nunca va solo. También en «Mi evolución».
+export function createMarkedKeyboard(chars) {
   const container = element('div', 'keyboard diagnosis-keyboard');
   container.setAttribute('aria-hidden', 'true');
   const keys = createKeyboard(container);
-  for (const { code, rank } of difficultKeys(diagnosis)) {
+  for (const { code, rank } of keysForChars(chars)) {
     const key = keys.get(code);
     if (!key) continue;
     key.classList.add('is-difficult');
@@ -127,7 +132,7 @@ export function renderDiagnosis(container, diagnosis) {
   if (diagnosis.status === 'difficulties') {
     const list = element('ol', 'diagnosis-list');
     list.append(...diagnosis.difficulties.map(createDifficultyItem));
-    nodes.push(list, createDiagnosisKeyboard(diagnosis));
+    nodes.push(list, createMarkedKeyboard(diagnosis.difficulties.map((d) => d.char)));
   }
   const insufficient = insufficientMessage(diagnosis);
   if (insufficient) nodes.push(element('p', 'diagnosis-insufficient', insufficient));
