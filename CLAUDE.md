@@ -39,6 +39,8 @@ js/objectives.js      # PURO: objetivos de precisión y WPM (aplicabilidad y fia
 js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre).
 js/keyboard.js        # PURO: teclado español ISO, dedos, resolución carácter → teclas y ayudas.
 js/keyboard-ui.js     # Guía visual: teclado (HTML/CSS) y manos (SVG propio), solo presentación.
+js/typing-analysis.js # PURO: diagnóstico por carácter (transiciones aceptadas, resumen, formato guardado).
+js/analysis-ui.js     # «Análisis de escritura» en Resultados e Historial; helpers puros de textos.
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
@@ -47,7 +49,7 @@ js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
-                      # router, course-ui, keyboard, modules (imports y exports del grafo de
+                      # router, course-ui, keyboard, typing-analysis, analysis-ui, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -59,11 +61,11 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
-  `progress.js`, `objectives.js`, `router.js`, `keyboard.js`. El instante actual se inyecta
+  `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
-- Módulos de interfaz: `ui.js`, `course-ui.js` y `keyboard-ui.js` (pintan el DOM), `main.js`
+- Módulos de interfaz: `ui.js`, `course-ui.js`, `keyboard-ui.js` y `analysis-ui.js` (pintan el DOM), `main.js`
   (escucha eventos, gestiona rutas, foco, temporizadores y pantallas) y `sound.js` (audio).
 - `ui.js` y `course-ui.js` exportan además helpers PUROS (`charStates`, `spaceHintPosition`,
   `isFragmentBlocked`, `resolveNotice`, `statusInfo`, `formatTargetResult`, formatos)
@@ -234,8 +236,8 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   `errors`, `mode` y `exercise`: ID estable del catálogo o `'custom-text'` (práctica
   libre y registros de T7, «Texto personalizado»). NUNCA el texto.
   Lista explícita `RECORD_FIELDS`: al guardar y al recuperar se descarta cualquier otra
-  propiedad. Añadir un campo (p. ej. análisis de teclas) exige ampliar la lista, la
-  validación y los tests.
+  propiedad. Añadir un campo exige ampliar la lista, la validación y los tests. Única
+  excepción: `analysis` (T11), opcional y validado aparte (ver «Diagnóstico de escritura»).
 - Solo se guardan partidas terminadas (en `finishGame`), una vez por finalización:
   `session.savedRecordId` en `main.js` y rechazo de `id` duplicados en `storage.js`.
   Abandonar no guarda nada.
@@ -254,6 +256,38 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   estados, mejores marcas y preferencias se conservan. Resultado en `#course-reset-status`.
 - Gráficas compartidas por resultados e historial (`renderTrendCharts` en `ui.js`,
   geometría en `history.js`).
+
+## Diagnóstico de escritura (T11: `js/typing-analysis.js`, `js/analysis-ui.js`)
+
+- Solo observación: no recomienda prácticas (T12) ni cambia motor, métricas ni la guía.
+- Captura: `main.js` llama a `recordTransition(analysis, previous, next)` SOLO cuando el
+  motor acepta la entrada (`next !== previous`). Rechazos (pegado, varios caracteres de
+  una composición IME, exceso, fragmento cerrado o bloqueado), renders y eventos
+  repetidos no llegan. Una transición con un carácter insertado es un INTENTO en esa
+  posición; los borrados no son intentos. El análisis se crea con cada partida y se
+  rehace al reiniciar, repetir o cambiar de modo antes de empezar; abandonar lo descarta.
+- Definiciones por carácter ESPERADO: oportunidades (posiciones con al menos un intento),
+  fallos al primer intento, intentos, errores (intentos incorrectos), corregidos (fallo
+  al primer intento bien escrito al terminar) y confusiones (esperado → escrito). Tasa =
+  fallos al primer intento / oportunidades. Invariante (test): Σ intentos =
+  `keystrokes.total` y Σ errores = `keystrokes.incorrect`: la precisión global no cambia.
+- `diagnose`: solo valora caracteres con ≥ `MIN_OPPORTUNITIES` (5) oportunidades en la
+  sesión; los demás con errores se listan como «datos insuficientes». Estados
+  `unavailable` (sin análisis), `insufficient`, `clean` y `difficulties` (hasta 5, por
+  tasa y luego nº de fallos). Confusiones destacadas si se repiten (≥ 2).
+- Tecla y dedo: los RECOMENDADOS por `keyboard.js` (`describeResolution`); nunca se afirma
+  qué dedo se usó. Resultados («Análisis de escritura», entre las acciones y «Tu
+  evolución») e Historial (columna «Diagnóstico» → «Ver», panel con foco en su título)
+  usan `renderDiagnosis`: lista, teclado de T9 decorativo con las teclas difíciles
+  numeradas (borde discontinuo + número, no solo color) y cómo se calcula.
+- Persistencia: campo OPCIONAL `analysis` del registro de historial (fuera de
+  `RECORD_FIELDS`), con versión propia: `{ version: 1, chars: [[carácter, oportunidades,
+  fallos 1.er intento, intentos, errores, corregidos]], confusions: [[esperado, escrito,
+  veces]] }`, ≤ `MAX_STORED_CHARS` (64) y ≤ `MAX_STORED_CONFUSIONS` (8). `unpackAnalysis`
+  valida forma, límites y coherencia; un análisis no válido se descarta sin perder la
+  sesión. Las sesiones de T7-T10 no lo tienen: «Diagnóstico no disponible para esta
+  sesión» (nunca cero errores). Privacidad: solo recuentos por carácter, en orden de
+  dificultad; nunca el texto ni secuencias (también en práctica libre).
 
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 
@@ -447,6 +481,18 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Mostrar los cambios relevantes antes de cada commit.
 - Realizar commits pequeños, coherentes y con mensajes descriptivos.
 - No descartar cambios existentes sin aprobación.
+
+## Cómo explicar el trabajo al usuario
+
+- El usuario aprende desarrollo de software con este proyecto. Los informes del chat
+  deben ser completos y DIDÁCTICOS, en español claro: qué se ha hecho, por qué (qué
+  problema resuelve), cómo funciona (con ejemplos de TypingQuest), decisiones técnicas
+  y alternativas descartadas, pruebas (distinguiendo lo comprobado en el navegador de lo
+  cubierto solo por tests), problemas pendientes con sus consecuencias prácticas y Git.
+- Explicar brevemente cada concepto técnico la primera vez (diff, estado, persistencia,
+  migración, serialización…). Sin jerga innecesaria ni listas de funciones sin contexto.
+- CLAUDE.md y ROADMAP.md son la referencia técnica; el informe ayuda a comprender, no
+  los repite.
 
 ## Uso eficiente de Claude Code
 

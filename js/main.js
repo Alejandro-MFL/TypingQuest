@@ -15,9 +15,14 @@ import {
   advanceCourse, skipCurrent, academyView, resolveRetiredPosition, restartCourse,
 } from './progress.js';
 import { evaluateObjectives } from './objectives.js';
+import { formatDateTime } from './history.js';
 import { parseRoute, routeHash } from './router.js';
 import * as ui from './ui.js';
 import * as courseUi from './course-ui.js';
+import * as analysisUi from './analysis-ui.js';
+import {
+  createTypingAnalysis, recordTransition, summarizeAnalysis, packAnalysis, unpackAnalysis, diagnose,
+} from './typing-analysis.js';
 import {
   getKey, resolveCharacter, resolveBackspace, describeResolution, guideTarget, isWrongInsertion,
   DEFAULT_HELP_MODES, helpContext, showsRestReminder,
@@ -45,6 +50,7 @@ const CATALOG_FILES = { exercises: 'data/exercises.json', course: 'data/course.j
 
 const els = ui.getElements();
 const ce = courseUi.getCourseElements();
+const de = analysisUi.getDiagnosisElements();
 const sound = createSoundPlayer({ enabled: CONFIG.soundEnabled });
 const storage = getLocalStorage();
 const historyStore = createHistoryStore(storage, { maxSessions: CONFIG.maxHistorySessions });
@@ -241,7 +247,7 @@ function startGame(text, { origin, exercise, courseStep = false }) {
   leaveGame();
   const chunks = splitIntoChunks(text, CONFIG.wordsPerChunk);
   const state = createGame(text, { segmentEnds: chunks.map((c) => c.end), mode: selectedMode });
-  session = { state, chunks, savedRecordId: null, origin, exercise, courseStep };
+  session = { state, chunks, savedRecordId: null, origin, exercise, courseStep, analysis: createTypingAnalysis(state.text) };
   enterPlay();
 }
 
@@ -323,6 +329,8 @@ function processInput() {
   const next = applyInput(previous, attempted, performance.now());
   if (next !== previous) {
     session.state = next;
+    // Diagnóstico (T11): solo transiciones aceptadas por el motor.
+    session.analysis = recordTransition(session.analysis, previous, next);
     guideErrorCode = isWrongInsertion(previous, next) ? errorKeyFor(next.typed.at(-1)) : null;
     if (previous.status === 'idle') {
       startStatsTimer();
@@ -397,13 +405,15 @@ function finishGame() {
   const evaluation = session.exercise ? evaluateObjectives(stats, session.exercise) : null;
   ui.renderResults(els, stats, session.state.mode);
   courseUi.renderObjectiveResults(ce, session.exercise, evaluation);
+  const analysis = summarizeAnalysis(session.analysis, session.state.typed);
+  analysisUi.renderDiagnosis(de.resultsBody, diagnose(analysis));
   courseUi.renderResultsActions(els, ce, {
     origin: session.origin, courseStep: session.courseStep, hasNext: hasNextCourseStep(),
   });
   // La pantalla se muestra antes de guardar: así el aviso de fallo se escribe en
   // una región visible y el lector de pantalla lo anuncia.
   showScreen('results');
-  saveFinishedSession(stats, evaluation);
+  saveFinishedSession(stats, evaluation, analysis);
   ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
   els.retryButton.focus();
 }
@@ -449,7 +459,7 @@ function createRecordId() {
 // contiene métricas, modo y el ID del ejercicio, nunca el texto practicado. Los
 // datos no válidos llegan como error controlado de storage.js ('invalid'), sin
 // try/catch aquí: cualquier otro fallo de programación no se oculta.
-function saveFinishedSession(stats, evaluation) {
+function saveFinishedSession(stats, evaluation, analysis) {
   if (session.savedRecordId !== null) return;
   session.savedRecordId = createRecordId();
   const record = createSessionRecord({
@@ -458,6 +468,7 @@ function saveFinishedSession(stats, evaluation) {
     stats,
     mode: session.state.mode,
     exercise: session.exercise ? session.exercise.id : EXERCISE_CUSTOM_TEXT,
+    analysis: packAnalysis(analysis),
   });
   const result = historyStore.add(record);
   const historyError = result.ok ? null : ui.saveErrorMessage(result.error);
@@ -476,6 +487,28 @@ function recordExerciseProgress(stats, evaluation) {
 
 function renderHistory({ cleared = false } = {}) {
   ui.renderHistory(els, historyStore.load(), { chartSessions: CONFIG.historyChartSessions, exerciseName, cleared });
+  de.history.panel.hidden = true;
+}
+
+// «Ver» en una fila del Historial (delegación): diagnóstico guardado de esa sesión.
+// Las sesiones anteriores a T11 no tienen análisis: diagnose(null) lo indica.
+function handleHistoryDiagnosis(event) {
+  const button = event.target.closest('.history-diagnosis-button');
+  if (!button) return;
+  const record = historyStore.load().sessions.find((s) => s.id === button.dataset.sessionId);
+  if (!record) return;
+  const h = de.history;
+  h.session.textContent = [
+    formatDateTime(record.finishedAt), exerciseName(record.exercise), ui.formatMode(record.mode),
+  ].join(' · ');
+  analysisUi.renderDiagnosis(h.body, diagnose(unpackAnalysis(record.analysis)));
+  h.panel.hidden = false;
+  h.title.focus();
+}
+
+function handleHistoryDiagnosisClose() {
+  de.history.panel.hidden = true;
+  els.history.title.focus();
 }
 
 function handleClearRequest() {
@@ -604,6 +637,7 @@ function restartSession() {
   ui.renderSaveError(els, null);
   syncSelectedMode(session.state.mode);
   session.state = restartGame(session.state);
+  session.analysis = createTypingAnalysis(session.state.text);
   session.savedRecordId = null;
   lastKeyCode = null;
   enterPlay();
@@ -683,6 +717,7 @@ function handleModeChange() {
   ui.renderSelectedMode(els, selectedMode);
   if (currentScreen === 'play' && session.state.status === 'idle') {
     session.state = restartGame(session.state, { mode: selectedMode });
+    session.analysis = createTypingAnalysis(session.state.text);
     ui.renderPlayMode(els, selectedMode);
     render();
   }
@@ -769,6 +804,8 @@ function bindEvents() {
   els.history.clearButton.addEventListener('click', handleClearRequest);
   els.history.cancelButton.addEventListener('click', handleClearCancel);
   els.history.confirmButton.addEventListener('click', handleClearConfirm);
+  els.history.rows.addEventListener('click', handleHistoryDiagnosis);
+  de.history.closeButton.addEventListener('click', handleHistoryDiagnosisClose);
   ce.courseReset.button.addEventListener('click', handleCourseResetRequest);
   ce.courseReset.cancelButton.addEventListener('click', handleCourseResetCancel);
   ce.courseReset.confirmButton.addEventListener('click', handleCourseResetConfirm);

@@ -12,13 +12,18 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T8 | Academia (recorrido con progreso y objetivos) y Biblioteca (prácticas base y ampliada, búsqueda y filtros). |
 | T9 | Teclado visual español (ISO) y manos SVG con guía de dedos y teclas muertas. |
 | T10 | Currículo progresivo de 67 lecciones y 134 ejercicios en cinco bloques (A–E), validación de teclas por lección, migración del progreso y del historial anteriores, «Repetir ejercicio», «Reiniciar ejercicio» durante la partida, «Reiniciar Academia» y servidor local sin caché heurística. |
+| T11 | Diagnóstico de escritura por carácter y tecla: oportunidades, fallos al primer intento, correcciones y confusiones; tecla y dedo recomendados; «Análisis de escritura» en Resultados y en el Historial; guardado opcional y versionado sin el texto practicado. |
 
 ## Propuestas para las siguientes fases
 
 Son propuestas pendientes de aprobación, no funcionalidades comprometidas.
 
-- **T11 · Análisis de errores:** errores por letra y por tecla (y, si procede, por dedo).
-- **T12 · Recomendaciones personalizadas:** sugerir prácticas a partir de ese análisis.
+- **T12 · Continuidad y evolución del diagnóstico (próxima prioridad):**
+  - Conservar la búsqueda, los filtros y la posición de desplazamiento de la Biblioteca
+    al abrir un ejercicio y volver.
+  - Analizar los errores acumulados de varias sesiones.
+  - Mostrar la evolución de las dificultades por carácter.
+  - Las recomendaciones automáticas de ejercicios quedan para una fase posterior.
 - **T13 · Interfaz, accesibilidad y experiencia de usuario:** mejoras generales.
 - **T14 · Revisión integral y publicación:** auditoría completa y preparación para publicar.
 
@@ -35,6 +40,10 @@ Son propuestas pendientes de aprobación, no funcionalidades comprometidas.
   reinician al recargar.
 - **Objetivos pedagógicos:** `LEVEL_GOALS` (precisión y WPM) son provisionales y deben
   revisarse con uso real.
-- **Estadísticas por dedo:** pendientes desde T9.
+- **Estadísticas por dedo:** no se pueden medir (el navegador no sabe qué dedo se usa);
+  T11 solo muestra el dedo recomendado.
+- **Diagnóstico (T11):** por sesión, sin agregado entre sesiones; la muestra mínima
+  (5 oportunidades) es provisional; en modo libre, un fallo en la última posición
+  termina la partida y queda sin corregir.
 - **Servidor de desarrollo:** usar `python tools/dev-server.py`; con `python -m http.server`
   el navegador puede mezclar módulos de versiones distintas.

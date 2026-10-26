@@ -7,6 +7,9 @@
 // modo y ejercicio), nunca el texto practicado: cualquier otra propiedad se
 // descarta al guardar y al recuperar. Añadir un campo (p. ej. el análisis de
 // teclas) exige ampliar RECORD_FIELDS y su validación, con sus tests.
+// `analysis` (T11) es OPCIONAL y con versión propia (typing-analysis.js): solo se
+// conserva si es válido; si falta o no lo es, la sesión se guarda igualmente sin
+// él («Diagnóstico no disponible»). Los registros de T7-T10 no lo tienen.
 // `exercise` es el ID estable del catálogo, o 'custom-text' en la práctica libre.
 //
 // Progreso (otra clave versionada): ver la sección final y js/progress.js.
@@ -15,6 +18,7 @@
 import { MODES } from './game.js';
 import { isValidExerciseId } from './catalog.js';
 import { EXERCISE_STATUS, createProgress } from './progress.js';
+import { packAnalysis, unpackAnalysis } from './typing-analysis.js';
 
 export const HISTORY_KEY = 'typingquest:history:v1';
 // Campos permitidos de una sesión guardada, en el orden en que se escriben.
@@ -39,10 +43,11 @@ function isValidTimestamp(value) {
 /**
  * Registro de una partida terminada. `finishedAt` es una marca de tiempo en ms
  * (Date.now()); `stats` es el resultado de getStats. El texto no se guarda.
+ * `analysis` (opcional): resumen ya empaquetado con packAnalysis (typing-analysis.js).
  * Devuelve null si la fecha no es válida o faltan las estadísticas: add(null)
  * responde { ok: false, error: 'invalid' } en lugar de lanzar.
  */
-export function createSessionRecord({ id, finishedAt, stats, mode, exercise = EXERCISE_CUSTOM_TEXT }) {
+export function createSessionRecord({ id, finishedAt, stats, mode, exercise = EXERCISE_CUSTOM_TEXT, analysis = null }) {
   if (!isValidTimestamp(finishedAt) || stats === null || typeof stats !== 'object') return null;
   return {
     id,
@@ -53,6 +58,7 @@ export function createSessionRecord({ id, finishedAt, stats, mode, exercise = EX
     errors: stats.errors,
     mode,
     exercise,
+    ...(analysis === null ? {} : { analysis }),
   };
 }
 
@@ -74,9 +80,12 @@ function isIsoDateTime(value) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 19) === value.slice(0, 19);
 }
 
-// Copia del registro con solo los campos permitidos.
+// Copia del registro con solo los campos permitidos y, si es válido, el análisis
+// normalizado (sin propiedades desconocidas).
 function pickRecordFields(record) {
-  return Object.fromEntries(RECORD_FIELDS.map((field) => [field, record[field]]));
+  const picked = Object.fromEntries(RECORD_FIELDS.map((field) => [field, record[field]]));
+  const analysis = unpackAnalysis(record.analysis);
+  return analysis === null ? picked : { ...picked, analysis: packAnalysis(analysis) };
 }
 
 // Valida los campos permitidos; las propiedades desconocidas no invalidan el

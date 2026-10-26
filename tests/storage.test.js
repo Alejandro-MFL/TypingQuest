@@ -548,3 +548,75 @@ describe('«Reiniciar Academia» persistido', () => {
     assert.equal(createHistoryStore(storage).load().sessions.length, 1);
   });
 });
+
+// --- T11: diagnóstico por carácter en las sesiones ---------------------------------
+
+describe('sesiones con diagnóstico (analysis, opcional y versionado)', () => {
+  const ANALYSIS = { version: 1, chars: [['ñ', 6, 2, 8, 2, 2], ['a', 10, 0, 10, 0, 0]], confusions: [['ñ', 'l', 2]] };
+  const withAnalysis = (overrides = {}) => record({ analysis: ANALYSIS, ...overrides });
+
+  it('createSessionRecord añade el análisis cuando se proporciona', () => {
+    assert.deepEqual(withAnalysis().analysis, ANALYSIS);
+    assert.equal('analysis' in record(), false, 'sin análisis no hay propiedad');
+  });
+
+  it('guarda y recupera el análisis junto al ejercicio y el modo', () => {
+    const storage = new FakeStorage();
+    createHistoryStore(storage).add(withAnalysis({ exercise: 'l2-asdf', mode: 'strict' }));
+    const [loaded] = createHistoryStore(storage).load().sessions;
+    assert.deepEqual(loaded.analysis, ANALYSIS);
+    assert.equal(loaded.exercise, 'l2-asdf');
+    assert.equal(loaded.mode, 'strict');
+  });
+
+  it('los registros antiguos (T7-T10) se conservan sin análisis, no con cero errores', () => {
+    const old = { id: 'viejo', finishedAt: '2026-09-01T10:00:00.000Z', wpm: 12.5, accuracy: 91.2,
+      elapsedMs: 30000, errors: 3, mode: 'free', exercise: 'l1-alternar-fj' };
+    const storage = new FakeStorage({ [HISTORY_KEY]: JSON.stringify({ version: 1, sessions: [old] }) });
+    const store = createHistoryStore(storage);
+    assert.deepEqual(store.load().sessions, [old]);
+    store.add(withAnalysis({ id: 'nuevo' }));
+    const [first, second] = store.load().sessions;
+    assert.deepEqual(first, old);
+    assert.equal('analysis' in first, false);
+    assert.deepEqual(second.analysis, ANALYSIS);
+  });
+
+  it('un análisis corrupto se descarta, pero la sesión se conserva', () => {
+    const corrupt = [
+      { ...ANALYSIS, version: 99 },
+      { ...ANALYSIS, chars: [['ñ', 1, 5, 1, 1, 0]] },
+      { ...ANALYSIS, text: 'mi texto' },
+      'texto', 42,
+    ];
+    for (const analysis of corrupt) {
+      const session = { ...record({ id: 'a' }), analysis };
+      const storage = new FakeStorage({ [HISTORY_KEY]: JSON.stringify({ version: 1, sessions: [session] }) });
+      const { sessions, discarded } = createHistoryStore(storage).load();
+      assert.equal(discarded, 0);
+      assert.deepEqual(sessions, [record({ id: 'a' })], JSON.stringify(analysis));
+    }
+  });
+
+  it('al guardar también se descarta un análisis no válido (sin rechazar la sesión)', () => {
+    const storage = new FakeStorage();
+    const result = createHistoryStore(storage).add({ ...record(), analysis: { version: 1, chars: 'x', confusions: [] } });
+    assert.deepEqual(result, { ok: true, saved: true });
+    assert.deepEqual(storedJson(storage).sessions, [record()]);
+  });
+
+  it('límite de tamaño: 500 sesiones con el análisis máximo caben holgadamente', () => {
+    const pool = [...'abcdefghijklmnñopqrstuvwxyzABCDEFGHIJKLMNÑOPQRSTUVWXYZáéíóú0123456'].slice(0, 64);
+    const big = {
+      version: 1,
+      chars: pool.map((c) => [c, 5000, 900, 9000, 1500, 800]),
+      confusions: pool.slice(0, 8).map((c, i) => [c, pool[i + 8], 100]),
+    };
+    const storage = new FakeStorage();
+    const store = createHistoryStore(storage);
+    for (let i = 0; i < 500; i++) store.add(record({ id: `s${i}`, analysis: big }));
+    const bytes = storage.data.get(HISTORY_KEY).length;
+    assert.equal(store.load().sessions.length, 500);
+    assert.ok(bytes < 2_000_000, `${bytes} bytes`);
+  });
+});

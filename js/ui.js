@@ -496,7 +496,24 @@ function createHistoryRow(session, exerciseName) {
     cell.textContent = text;
     row.append(cell);
   }
+  row.append(createDiagnosisCell(session, `${cells[0]} (${cells[1]})`));
   return row;
+}
+
+// «Ver» abre el diagnóstico de la sesión (main.js delega el clic en la tabla). El
+// texto oculto distingue cada botón para los lectores de pantalla.
+function createDiagnosisCell(session, sessionText) {
+  const cell = document.createElement('td');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'button-link history-diagnosis-button';
+  button.dataset.sessionId = session.id;
+  const hidden = document.createElement('span');
+  hidden.className = 'visually-hidden';
+  hidden.textContent = ` el diagnóstico de la sesión del ${sessionText}`;
+  button.append('Ver', hidden);
+  cell.append(button);
+  return cell;
 }
 
 function renderHistorySummary(h, sessions) {

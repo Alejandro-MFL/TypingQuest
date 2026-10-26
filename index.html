@@ -332,6 +332,12 @@
         <button class="button button-secondary" id="back-to-origin-button" type="button" hidden></button>
       </div>
 
+      <!-- Diagnóstico por carácter de esta partida (T11). Solo observación: sin recomendaciones. -->
+      <section class="diagnosis" id="results-diagnosis" aria-labelledby="results-diagnosis-title">
+        <h3 class="diagnosis-title" id="results-diagnosis-title">Análisis de escritura</h3>
+        <div class="diagnosis-body" id="results-diagnosis-body"></div>
+      </section>
+
       <section class="trends" id="results-trends" aria-labelledby="results-trends-title">
         <h3 class="trends-title" id="results-trends-title">Tu evolución</h3>
         <p class="trends-empty" id="results-trends-empty" hidden>
@@ -401,11 +407,21 @@
                 <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
                 <th scope="col">Precisión</th>
                 <th scope="col">Modo</th>
+                <th scope="col">Diagnóstico</th>
               </tr>
             </thead>
             <tbody id="history-rows"></tbody>
           </table>
         </div>
+
+        <!-- Diagnóstico de la sesión elegida en la tabla (T11). -->
+        <section class="diagnosis history-diagnosis" id="history-diagnosis"
+          aria-labelledby="history-diagnosis-title" hidden>
+          <h3 class="diagnosis-title" id="history-diagnosis-title" tabindex="-1">Análisis de escritura</h3>
+          <p class="diagnosis-session" id="history-diagnosis-session"></p>
+          <div class="diagnosis-body" id="history-diagnosis-body"></div>
+          <button class="button button-secondary" id="history-diagnosis-close" type="button">Cerrar diagnóstico</button>
+        </section>
       </div>
 
       <div class="history-confirm" id="history-confirm" role="group" aria-labelledby="history-confirm-text" hidden>
