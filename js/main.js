@@ -25,6 +25,7 @@ import {
   createLibraryReturn, nextLibraryReturn, restoreTarget, sanitizeLibraryFilters,
 } from './library-memory.js';
 import { parseRoute, routeHash } from './router.js';
+import { checklistSummary } from './ergonomics.js';
 import * as ui from './ui.js';
 import * as courseUi from './course-ui.js';
 import * as analysisUi from './analysis-ui.js';
@@ -56,7 +57,9 @@ const NAVIGATION_KEYS = new Set([
 // Atajos con Ctrl/Cmd: seleccionar todo, deshacer y rehacer.
 const BLOCKED_SHORTCUTS = new Set(['a', 'z', 'y']);
 // Pantalla de cada ruta de la navegación principal.
-const ROUTE_SCREENS = { home: 'home', academy: 'academy', library: 'library', history: 'history', practice: 'setup' };
+const ROUTE_SCREENS = {
+  home: 'home', academy: 'academy', library: 'library', history: 'history', practice: 'setup', ergonomics: 'ergonomics',
+};
 const CATALOG_FILES = { exercises: 'data/exercises.json', course: 'data/course.json' };
 
 const els = ui.getElements();
@@ -1033,6 +1036,20 @@ function handleThemeChange(event) {
   applyTheme();
 }
 
+// Ergonomía (T16): lista de comprobación opcional; no se guarda ni toca ningún dato.
+function bindErgonomics() {
+  const list = document.getElementById('ergo-checklist');
+  const status = document.getElementById('ergo-check-status');
+  const boxes = [...list.querySelectorAll('input[type="checkbox"]')];
+  const update = () => { status.textContent = checklistSummary(boxes.filter((b) => b.checked).length, boxes.length); };
+  list.addEventListener('change', update);
+  document.getElementById('ergo-check-reset').addEventListener('click', () => {
+    for (const box of boxes) box.checked = false;
+    update();
+  });
+  update();
+}
+
 function bindTheme() {
   document.getElementById('theme-option').addEventListener('change', handleThemeChange);
   // En automático, el tema sigue los cambios del sistema sin recargar.
@@ -1050,6 +1067,7 @@ async function init() {
   if (history.state === LIBRARY_GAME_STATE) history.replaceState(null, '');
   bindEvents();
   bindTheme();
+  bindErgonomics();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderSoundToggle(els, sound.isEnabled());
   ui.renderSelectedMode(els, selectedMode);

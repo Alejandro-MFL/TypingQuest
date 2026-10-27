@@ -17,19 +17,17 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T13 | Entrenamiento personalizado: «Practicar mis dificultades» en «Mi evolución» recomienda hasta tres prácticas existentes del catálogo para las dificultades detectadas por T11 y T12, con reglas locales y explicables (sin IA); se abren como una práctica de la Biblioteca, sin mover el recorrido de la Academia. |
 | T14 | Experiencia pedagógica: introducción inicial, instrucciones por lección (tecla, dedo, movimiento desde la posición de reposo y objetivo), movimiento del dedo en la guía («J → U → J»), consejo «Siguiente paso» en Resultados y recorrido por bloques en la Academia. |
 | T15 | Rediseño visual: sistema de diseño con variables y temas claro, oscuro y automático (sin destello al cargar); componentes unificados; pantalla de escritura más compacta y legible, sin avisos de foco falsos; simplificación de Academia (ampliada desbloqueada al superar la base, «Tu recorrido» compacto), Biblioteca (una columna, lecciones numeradas A1…E8, detalles a demanda) y Resultados (análisis detallado plegado, «Práctica ampliada»); cabecera con logo y favicon y navegación centrada. Entregado como T15.1 y T15.2–T15.4. |
+| T16 | Ergonomía y hábitos saludables: sección «Ergonomía» en la navegación (postura, brazos y muñecas, pantalla y espacio de trabajo, descansos y fatiga) con consejos breves sin promesas médicas, lista de comprobación opcional que no se guarda, fuentes institucionales verificadas (INSST y CCOHS) y acceso discreto desde la introducción de la Academia. |
 
 ## Próximas fases (propuestas)
 
 Pendientes de aprobación, en este orden. No están implementadas.
 
-1. **T16 · Ergonomía educativa:** pulir el recorrido de aprendizaje con lo aprendido al
-   usarlo (redacción de las instrucciones, ritmo de las lecciones, preferencias guardadas).
-   Depende de: T14 y T15.
-2. **T17 · Calidad, accesibilidad y compatibilidad:** teclado físico español (teclas
+1. **T17 · Calidad, accesibilidad y compatibilidad:** teclado físico español (teclas
    muertas, AltGr, Mayús), Firefox, Safari y móviles reales; lector de pantalla; estudiar
    la solución de H2.
    Depende de: T15 (diseño definitivo).
-3. **T18 · README profesional y publicación:** README, licencia, aviso de privacidad y
+2. **T18 · README profesional y publicación:** README, licencia, aviso de privacidad y
    publicación como web estática.
    Depende de: T16 y T17.
 
@@ -39,6 +37,8 @@ Pendientes de aprobación, en este orden. No están implementadas.
   bloque («Bloque A completado» con sus marcas), racha de días de práctica sin
   penalizaciones, y mejor marca personal destacada en Resultados cuando se supera.
 - **Guardar preferencias** (sonido, modo y ayudas) entre sesiones; el tema ya se guarda (T15).
+- **Ergonomía:** revisión del contenido por una persona experta y, si aporta valor, un
+  esquema SVG sencillo de la postura.
 - **Copia de seguridad:** exportar e importar historial y progreso (JSON).
 - **Calibrar con datos reales** los umbrales de T11-T13 y `LEVEL_GOALS`.
 - **Errores de transición entre letras consecutivas:** necesitaría guardar datos nuevos

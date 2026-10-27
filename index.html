@@ -102,6 +102,7 @@
         <li><a class="main-nav-link" href="#/biblioteca" data-route="library">Biblioteca</a></li>
         <li><a class="main-nav-link" href="#/historial" data-route="history">Historial</a></li>
         <li><a class="main-nav-link" href="#/practica-libre" data-route="practice">Práctica libre</a></li>
+        <li><a class="main-nav-link" href="#/ergonomia" data-route="ergonomics">Ergonomía</a></li>
       </ul>
     </nav>
   </header>
@@ -159,12 +160,16 @@
             <li>Coloca los dedos en la fila central: A S D F con la mano izquierda y J K L Ñ con la derecha;
               los pulgares descansan sobre el espacio.</li>
             <li>Las teclas F y J tienen un pequeño relieve: tócalo con los índices para encontrar la posición sin mirar.</li>
-            <li>Siéntate recto y relajado, con los hombros sueltos y las muñecas sin apoyarlas con fuerza.</li>
+            <li>Siéntate cómodo y estable, con los hombros relajados y sin apoyar las muñecas con fuerza.</li>
             <li>Mira la pantalla en lugar del teclado siempre que puedas: la guía te indica la tecla y el dedo.</li>
             <li>Primero la precisión: escribe sin errores aunque vayas despacio; la velocidad llega con la práctica.</li>
             <li>Cada lección tiene una práctica base, breve, que te hace avanzar, y una práctica ampliada, más larga y
               opcional, que se desbloquea al superar el objetivo de la base.</li>
           </ul>
+          <!-- T16: acceso discreto a Ergonomía; nunca es un requisito para avanzar. -->
+          <p class="intro-ergonomics">
+            Para ajustar la silla, la pantalla y los descansos, consulta <a href="#/ergonomia">Ergonomía</a> cuando quieras.
+          </p>
           <div class="actions intro-actions">
             <button class="button" id="academy-intro-done" type="button">Entendido</button>
             <button class="button button-secondary" id="academy-intro-skip" type="button">Omitir</button>
@@ -444,6 +449,98 @@
           </div>
         </div>
       </section>
+      </details>
+    </section>
+
+    <!-- Ergonomía (T16): recomendaciones generales, breves y a la vista; lista opcional sin guardar. -->
+    <section class="screen ergonomics" id="ergonomics-screen" aria-labelledby="ergonomics-title" hidden>
+      <h2 class="screen-title" id="ergonomics-title" tabindex="-1">Ergonomía</h2>
+      <p class="screen-intro">
+        Escribir con comodidad te permite practicar más tiempo y con menos tensión. Estas son recomendaciones
+        generales: adáptalas a tu cuerpo y a tu equipo.
+      </p>
+      <div class="ergo-cards">
+        <section class="ergo-card" aria-labelledby="ergo-posture-title">
+          <h3 class="ergo-card-title" id="ergo-posture-title"><span class="ergo-letter" aria-hidden="true">A</span> Postura y posición del cuerpo</h3>
+          <p class="ergo-key">Cómoda y estable, no rígida: la mejor postura es la que puedes ir cambiando.</p>
+          <ul class="ergo-tips">
+            <li>Siéntate con la espalda apoyada en el respaldo, sobre todo la zona lumbar.</li>
+            <li>Mantén los hombros relajados, sin encogerlos.</li>
+            <li>Evita girar o inclinar el cuello y la espalda de forma forzada: lo que usas, delante de ti.</li>
+            <li>Apoya los pies en el suelo; si no llegas, usa un reposapiés.</li>
+            <li>Ajusta la silla y la mesa a tu cuerpo: no hay una medida que sirva para todo el mundo.</li>
+          </ul>
+        </section>
+        <section class="ergo-card" aria-labelledby="ergo-hands-title">
+          <h3 class="ergo-card-title" id="ergo-hands-title"><span class="ergo-letter" aria-hidden="true">B</span> Brazos, muñecas y manos</h3>
+          <p class="ergo-key">Muñecas rectas y manos ligeras: escribir no necesita fuerza.</p>
+          <ul class="ergo-tips">
+            <li>Codos cerca del cuerpo y antebrazos cómodos, más o menos paralelos al suelo.</li>
+            <li>Muñecas en línea con el antebrazo, sin doblarlas hacia arriba, abajo ni a los lados.</li>
+            <li>No presiones las muñecas contra el borde de la mesa ni otras superficies duras mientras escribes.</li>
+            <li>Pulsa las teclas con suavidad, sin golpearlas.</li>
+            <li>Entre pulsaciones, deja las manos relajadas sobre la fila guía.</li>
+          </ul>
+          <p class="ergo-note">
+            <strong>No es lo mismo:</strong> la posición de reposo (A S D F · J K L Ñ) indica dónde van los dedos;
+            la ergonomía, cómo está el resto del cuerpo. Puedes tener los dedos bien colocados y las muñecas forzadas.
+          </p>
+        </section>
+        <section class="ergo-card" aria-labelledby="ergo-screen-title">
+          <h3 class="ergo-card-title" id="ergo-screen-title"><span class="ergo-letter" aria-hidden="true">C</span> Pantalla y espacio de trabajo</h3>
+          <p class="ergo-key">Ajusta el equipo a ti, no tu cuerpo al equipo.</p>
+          <ul class="ergo-tips">
+            <li>Pantalla delante de ti, a un brazo de distancia como punto de partida; ajústala hasta leer sin esfuerzo.</li>
+            <li>Borde superior de la pantalla a la altura de los ojos o algo por debajo: mejor un poco baja que demasiado alta.</li>
+            <li>Si te cuesta leer, aumenta el tamaño del texto en lugar de acercarte.</li>
+            <li>Evita reflejos y deslumbramientos: pantalla de lado a las ventanas, luz suave y brillo ajustado.</li>
+            <li>Teclado justo delante de ti, sin quedar en el mismo borde de la mesa; el ratón, a su lado.</li>
+            <li>Deja libre la mesa delante del teclado y ten a mano lo que usas a menudo.</li>
+          </ul>
+        </section>
+        <section class="ergo-card" aria-labelledby="ergo-breaks-title">
+          <h3 class="ergo-card-title" id="ergo-breaks-title"><span class="ergo-letter" aria-hidden="true">D</span> Descansos y fatiga</h3>
+          <p class="ergo-key">El cansancio se acumula poco a poco: muévete y haz pausas breves.</p>
+          <ul class="ergo-tips">
+            <li>Cambia de postura de vez en cuando; no hace falta quedarse quieto.</li>
+            <li>En sesiones largas, haz pausas breves o alterna con otra actividad.</li>
+            <li>Descansa la vista: aparta la mirada de la pantalla, mira algo lejano unos segundos y parpadea.</li>
+            <li>Atiende a las señales: tensión en hombros o cuello, ojos cansados, hormigueo o molestias en manos y muñecas.</li>
+            <li>Si escribir te produce dolor, para. Si las molestias continúan, consúltalo con un profesional sanitario.</li>
+          </ul>
+          <p class="ergo-note">Las pausas ayudan a reducir la fatiga, pero no garantizan evitar lesiones.</p>
+        </section>
+        <section class="ergo-card ergo-checklist" aria-labelledby="ergo-check-title">
+          <h3 class="ergo-card-title" id="ergo-check-title"><span class="ergo-letter" aria-hidden="true">E</span> Lista de comprobación</h3>
+          <p class="ergo-key">Antes de empezar, si quieres, repasa estos puntos.</p>
+          <fieldset class="ergo-check-list" id="ergo-checklist">
+            <legend class="visually-hidden">Lista de comprobación opcional</legend>
+            <label class="ergo-check"><input type="checkbox"> ¿Estoy sentado o sentada con comodidad?</label>
+            <label class="ergo-check"><input type="checkbox"> ¿Tengo los hombros relajados?</label>
+            <label class="ergo-check"><input type="checkbox"> ¿Mis muñecas están en una posición cómoda?</label>
+            <label class="ergo-check"><input type="checkbox"> ¿Puedo ver la pantalla sin forzar el cuello?</label>
+            <label class="ergo-check"><input type="checkbox"> ¿Estoy escribiendo sin tensión innecesaria?</label>
+          </fieldset>
+          <p class="ergo-check-status" id="ergo-check-status" role="status" aria-live="polite"></p>
+          <button class="button button-secondary button-small" id="ergo-check-reset" type="button">Desmarcar todo</button>
+        </section>
+      </div>
+      <details class="collapsible ergo-sources">
+        <summary>Fuentes y aviso</summary>
+        <div class="ergo-sources-body">
+          <p>
+            Recomendaciones generales con fines educativos, basadas en guías de ergonomía laboral. No sustituyen la
+            valoración de un profesional sanitario.
+          </p>
+          <ul>
+            <li><a href="https://www.insst.es/documentacion/catalogo-de-publicaciones/guia-tecnica-para-la-evaluacion-y-prevencion-de-los-riesgos-relativos-a-la-utilizacion-de-equipos-con-pantallas-de-visualizacion" target="_blank" rel="noopener noreferrer">INSST: Guía técnica para la evaluación y prevención de los riesgos relativos a la utilización de equipos con pantallas de visualización (2.ª ed., 2021)</a></li>
+            <li><a href="https://www.insst.es/documentacion/colecciones-tecnicas/ntp-notas-tecnicas-de-prevencion/17-serie-ntp-numeros-576-a-610-ano-2003/ntp-602-el-diseno-ergonomico-del-puesto-de-trabajo-con-pantallas-de-visualizacion-el-equipo-de-trabajo." target="_blank" rel="noopener noreferrer">INSST: NTP 602. El diseño ergonómico del puesto de trabajo con pantallas de visualización: el equipo de trabajo</a></li>
+            <li><a href="https://www.ccohs.ca/oshanswers/ergonomics/office/keyboard.html" target="_blank" rel="noopener noreferrer">CCOHS (Canadá): Keyboard Selection and Use</a></li>
+            <li><a href="https://www.ccohs.ca/oshanswers/ergonomics/office/monitor_positioning.html" target="_blank" rel="noopener noreferrer">CCOHS (Canadá): Positioning the Monitor</a></li>
+            <li><a href="https://www.ccohs.ca/oshanswers/ergonomics/office/eye_discomfort.html" target="_blank" rel="noopener noreferrer">CCOHS (Canadá): Eye Discomfort in the Office</a></li>
+            <li><a href="https://www.ccohs.ca/oshanswers/ergonomics/office/chair_adjusting.html" target="_blank" rel="noopener noreferrer">CCOHS (Canadá): How to Adjust Office Chairs</a></li>
+          </ul>
+        </div>
       </details>
     </section>
 

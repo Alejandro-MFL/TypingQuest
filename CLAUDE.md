@@ -24,7 +24,7 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 
 ```
 index.html            # Navegación principal y pantallas: Inicio, Academia, Biblioteca,
-                      # Práctica libre (preparación), partida, resultados e Historial.
+                      # Práctica libre (preparación), partida, resultados, Historial y Ergonomía.
 assets/               # logo.webp (logo solo: favicon) y logo-wordmark.webp (logo con nombre: cabecera).
 css/styles.css        # Sistema de diseño (variables de los temas claro y oscuro) y todos los componentes.
 data/exercises.json   # Catálogo de ejercicios (contenido; sin código).
@@ -38,7 +38,8 @@ js/history.js         # PURO: resumen del historial, escala y puntos de las grá
 js/catalog.js         # PURO: validación del catálogo y del curso; lecciones y filtros de la Biblioteca.
 js/progress.js        # PURO: estados de los ejercicios, posición del recorrido y vista de la Academia.
 js/objectives.js      # PURO: objetivos de precisión y WPM (aplicabilidad y fiabilidad).
-js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre).
+js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre,
+                      # #/ergonomia).
 js/keyboard.js        # PURO: teclado español ISO, dedos, resolución carácter → teclas y ayudas.
 js/keyboard-ui.js     # Guía visual: teclado (HTML/CSS) y manos (SVG propio), solo presentación.
 js/typing-analysis.js # PURO: diagnóstico por carácter (transiciones aceptadas, resumen, formato guardado).
@@ -48,6 +49,7 @@ js/trends-ui.js       # «Mi evolución» en el Historial; helpers puros de text
 js/library-memory.js  # PURO: billete de vuelta a la Biblioteca (filtros, desplazamiento, práctica).
 js/recommendations.js # PURO: «Practicar mis dificultades» (dificultades de T12 → prácticas del catálogo).
 js/lesson-guide.js    # PURO: introducciones por lección, movimiento del dedo e instrucciones vistas (T14).
+js/ergonomics.js      # PURO: resumen de la lista de comprobación de Ergonomía (T16).
 js/theme.js           # PURO: preferencia de tema (claro, oscuro, automático) y tema resultante (T15).
 js/theme-boot.js      # Script CLÁSICO en el <head>: aplica el tema antes de pintar (sin destello).
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
@@ -59,7 +61,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, theme, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -72,7 +74,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Módulos puros (sin DOM, sin `Date.now()` ni `performance.now()` directos):
   `text-prep.js`, `chunks.js`, `game.js`, `metrics.js`, `history.js`, `catalog.js`,
   `progress.js`, `objectives.js`, `router.js`, `keyboard.js`, `typing-analysis.js`,
-  `typing-trends.js`, `library-memory.js`, `recommendations.js`, `lesson-guide.js`, `theme.js`. El instante actual se inyecta
+  `typing-trends.js`, `library-memory.js`, `recommendations.js`, `lesson-guide.js`, `theme.js`, `ergonomics.js`. El instante actual se inyecta
   como parámetro (`now`).
 - `storage.js` recibe el almacenamiento inyectado (`localStorage` o un doble en los
   tests) y la fecha ya calculada; no toca el DOM ni lee el reloj.
@@ -445,7 +447,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   `1fr auto 1fr`: marca a la izquierda, navegación en el centro exacto y herramientas a la
   derecha; `scrollbar-gutter: stable` evita que el centro se mueva entre páginas cortas y
   largas. El subtítulo, solo en Inicio (`renderNav` oculta #site-subtitle), cuelga bajo el
-  logo (posición absoluta) sin cambiar el alto. Por debajo de 66rem: logo y herramientas
+  logo (posición absoluta) sin cambiar el alto. Por debajo de 68rem: logo y herramientas
   arriba, navegación centrada debajo y el subtítulo bajo el logo. Biblioteca en UNA columna
   (máx. 58rem de `.game` en esa pantalla, `:has`); desde 56rem, texto a la izquierda y las
   dos prácticas a la derecha (cada una en una línea), con el desplegable debajo a todo el
@@ -455,6 +457,25 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   resumen del bloque en la tarjeta; «Tu recorrido» muestra el resumen y el bloque actual, y
   «Ver todos los bloques» guarda los demás y las definiciones. Biblioteca y Resultados: ver
   sus apartados.
+
+## Ergonomía (T16: `#/ergonomia`, `js/ergonomics.js`)
+
+- Página educativa estática en `index.html` (#ergonomics-screen), sin datos guardados: título,
+  introducción de dos frases y cinco tarjetas (`.ergo-card`, letra A-E decorativa): A postura,
+  B brazos, muñecas y manos (con la nota que separa la posición de reposo de los dedos de la
+  ergonomía), C pantalla y espacio de trabajo, D descansos y fatiga, E lista de comprobación.
+  Cada tarjeta: una idea clave en negrita y 5-6 consejos breves.
+- Lista de comprobación: cinco casillas OPCIONALES que no se guardan; `checklistSummary` da el
+  texto de #ergo-check-status (región viva) y «Desmarcar todo» la vacía (`bindErgonomics` en
+  `main.js`). No toca progreso, historial ni preferencias.
+- Contenido responsable: recomendaciones generales y adaptables (sin medidas ni tiempos
+  universales), sin promesas médicas («las pausas no garantizan evitar lesiones») y con aviso de
+  consultar a un profesional sanitario si las molestias continúan. «Fuentes y aviso» (plegado)
+  enlaza fuentes verificadas: guía técnica de pantallas de visualización y NTP 602 del INSST, y
+  fichas de CCOHS (teclado, monitor, molestias visuales, silla). No añadir fuentes sin verificarlas.
+- Acceso: «Ergonomía» en la navegación principal y un enlace discreto en la introducción inicial
+  de la Academia (nunca obligatorio; sin avisos durante los ejercicios). Con seis enlaces, la
+  cabecera pasa a filas por debajo de 68rem.
 
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 

@@ -9,6 +9,7 @@ describe('router', () => {
     assert.equal(parseRoute('#/biblioteca'), 'library');
     assert.equal(parseRoute('#/historial'), 'history');
     assert.equal(parseRoute('#/practica-libre'), 'practice');
+    assert.equal(parseRoute('#/ergonomia'), 'ergonomics');
   });
 
   it('sin hash o con uno desconocido va a Inicio', () => {

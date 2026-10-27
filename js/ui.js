@@ -200,6 +200,7 @@ export function getElements(doc = document) {
       play: byId('play-screen'),
       results: byId('results-screen'),
       history: byId('history-screen'),
+      ergonomics: byId('ergonomics-screen'),
     },
     setupForm: byId('setup-form'),
     sourceText: byId('source-text'),

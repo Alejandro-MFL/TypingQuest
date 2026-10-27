@@ -8,6 +8,7 @@ const ROUTE_HASHES = Object.freeze({
   library: '#/biblioteca',
   history: '#/historial',
   practice: '#/practica-libre',
+  ergonomics: '#/ergonomia',
 });
 
 export const ROUTES = Object.freeze(Object.keys(ROUTE_HASHES));
