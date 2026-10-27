@@ -434,16 +434,23 @@ export function kindLabel(id) {
  * ejercicio que no esté en ninguna lección aparece al final como lección propia.
  */
 export function libraryLessons(catalog) {
-  const lessons = catalog.levels.flatMap((level) => level.lessons.map((lesson) =>
-    toLibraryLesson(catalog.byId.get(lesson.exerciseId), catalog.byId.get(lesson.extendedId) ?? null)));
+  const lessons = catalog.levels.flatMap((level, levelIndex) => level.lessons.map((lesson, index) =>
+    toLibraryLesson(catalog.byId.get(lesson.exerciseId), catalog.byId.get(lesson.extendedId) ?? null,
+      lessonCode(levelIndex + 1, index + 1))));
   const placed = new Set(lessons.flatMap((l) => [l.base.id, l.extended?.id]));
-  const loose = catalog.exercises.filter((e) => !placed.has(e.id)).map((e) => toLibraryLesson(e, null));
+  const loose = catalog.exercises.filter((e) => !placed.has(e.id)).map((e) => toLibraryLesson(e, null, null));
   return [...lessons, ...loose];
 }
 
-function toLibraryLesson(base, extended) {
+/** Código de una lección (T15.3): letra del bloque (1 → A) y posición dentro de él. «A2». */
+export function lessonCode(blockNumber, position) {
+  return `${String.fromCharCode(64 + blockNumber)}${position}`;
+}
+
+function toLibraryLesson(base, extended, code) {
   return {
     id: base.id,
+    code,
     title: base.title,
     description: base.description,
     level: base.level,

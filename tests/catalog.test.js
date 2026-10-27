@@ -10,6 +10,7 @@ import {
   createCatalog,
   filterExercises,
   exerciseTitle,
+  lessonCode,
   libraryLessons,
   filterLessons,
 } from '../js/catalog.js';
@@ -660,5 +661,25 @@ describe('createCatalog: teclas introducidas en cada lección (T13)', () => {
     assert.deepEqual(lessons[0].introduces, ['KeyF', 'KeyJ', 'Space']);
     assert.deepEqual(lessons.find((l) => l.exerciseId === 'l2-jkl-enie').introduces, ['Semicolon']);
     assert.ok(lessons.every((l) => Array.isArray(l.introduces) && Object.isFrozen(l.introduces)));
+  });
+});
+
+describe('numeración de las lecciones por bloque (T15.3)', () => {
+  it('letra del bloque y posición dentro de él', () => {
+    assert.equal(lessonCode(1, 1), 'A1');
+    assert.equal(lessonCode(1, 17), 'A17');
+    assert.equal(lessonCode(2, 1), 'B1');
+    assert.equal(lessonCode(5, 8), 'E8');
+  });
+
+  it('libraryLessons numera el catálogo real: A1…A17, B1… y E8 al final', () => {
+    const { catalog } = createCatalog(REAL_EXERCISES, REAL_COURSE, { maxTextLength: MAX });
+    const codes = libraryLessons(catalog).map((l) => l.code);
+    assert.equal(codes.length, 67);
+    assert.deepEqual(codes.slice(0, 2), ['A1', 'A2']);
+    assert.equal(codes[16], 'A17');
+    assert.equal(codes[17], 'B1');
+    assert.equal(codes.at(-1), 'E8');
+    assert.equal(new Set(codes).size, 67, 'sin códigos repetidos');
   });
 });

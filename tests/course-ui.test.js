@@ -12,6 +12,13 @@ import {
   backToOriginLabel,
   overviewSummaryText,
   blockProgressText,
+  blockPercent,
+  blockShortText,
+  homeProgressText,
+  libraryLessonTitle,
+  bestMarksText,
+  resultsActions,
+  speedNote,
 } from '../js/course-ui.js';
 import { EXERCISE_STATUS } from '../js/progress.js';
 import { evaluateObjectives } from '../js/objectives.js';
@@ -178,5 +185,88 @@ describe('progreso del curso por bloques (T14)', () => {
       '8 de 17 recorridas · 6 terminadas · 4 superadas · bloque actual');
     assert.equal(blockProgressText({ total: 14, traveled: 0, finished: 0, passed: 0, current: false }),
       '0 de 14 recorridas · 0 terminadas · 0 superadas');
+  });
+});
+
+describe('recorrido compacto e Inicio (T15.2)', () => {
+  const block = (traveled, total = 17, extra = {}) => ({ title: 'Bloque A · Fila central', total, traveled, finished: 0, passed: 0, current: false, ...extra });
+
+  it('porcentaje recorrido del bloque, redondeado', () => {
+    assert.equal(blockPercent(block(8)), 47);
+    assert.equal(blockPercent(block(0)), 0);
+    assert.equal(blockPercent(block(17)), 100);
+    assert.equal(blockPercent(block(0, 0)), 0);
+  });
+
+  it('bloques que no son el actual: texto breve; completado con su marca', () => {
+    assert.equal(blockShortText(block(8)), '8 de 17 · 47 %');
+    assert.equal(blockShortText(block(0, 14)), '0 de 14 · 0 %');
+    assert.equal(blockShortText(block(17)), '✓ Completado · 17 de 17');
+  });
+
+  it('Inicio: bloque actual y lecciones recorridas, sin más estadísticas', () => {
+    const overview = {
+      blocks: [block(17), block(3, 14, { title: 'Bloque B · Fila superior', current: true })],
+      totals: { lessons: 67, traveled: 20, remaining: 47, finished: 18, passed: 12 },
+    };
+    assert.equal(homeProgressText(overview), 'Bloque B · Fila superior · 20 de 67 lecciones recorridas');
+    assert.equal(homeProgressText({ blocks: [block(0)], totals: { lessons: 67, traveled: 0 } }), '0 de 67 lecciones recorridas');
+  });
+});
+
+describe('Biblioteca simplificada (T15.3)', () => {
+  it('título numerado «A2. Mano derecha: J»; sin código, solo el título', () => {
+    assert.equal(libraryLessonTitle({ code: 'A2', title: 'Mano derecha: J' }), 'A2. Mano derecha: J');
+    assert.equal(libraryLessonTitle({ code: null, title: 'Suelto' }), 'Suelto');
+  });
+
+  it('mejores marcas a demanda, o un aviso si aún no hay resultados', () => {
+    assert.equal(bestMarksText({ bestAccuracy: 97.14, bestWpm: 29.6 }), 'Mejor resultado: 97,1 % de precisión · 29 WPM');
+    assert.equal(bestMarksText({ bestAccuracy: null, bestWpm: null }), 'Todavía sin resultados');
+  });
+});
+
+describe('acciones de Resultados (T15.3)', () => {
+  const base = { origin: 'academy', courseStep: true, hasNext: true, extendedAvailable: true };
+
+  it('base de la Academia superada: Repetir, Práctica ampliada y Siguiente', () => {
+    assert.deepEqual(resultsActions(base),
+      { retry: true, extended: true, next: true, courseEnd: false, back: true, newText: false });
+  });
+
+  it('ampliada bloqueada: no se ofrece; el avance sigue libre como hasta ahora', () => {
+    const actions = resultsActions({ ...base, extendedAvailable: false });
+    assert.equal(actions.extended, false);
+    assert.equal(actions.next, true);
+  });
+
+  it('última lección: ampliada sí, Siguiente no y aviso de final', () => {
+    const actions = resultsActions({ ...base, hasNext: false });
+    assert.deepEqual([actions.extended, actions.next, actions.courseEnd], [true, false, true]);
+  });
+
+  it('tras una ampliada (no es paso del recorrido) no se repite la oferta ni hay Siguiente', () => {
+    const actions = resultsActions({ ...base, courseStep: false });
+    assert.deepEqual([actions.extended, actions.next, actions.courseEnd], [false, false, false]);
+  });
+
+  it('Biblioteca y Mi evolución nunca ofrecen acciones del recorrido', () => {
+    for (const origin of ['library', 'evolution']) {
+      const actions = resultsActions({ origin, courseStep: false, hasNext: true, extendedAvailable: true });
+      assert.deepEqual([actions.extended, actions.next, actions.back], [false, false, true]);
+    }
+  });
+
+  it('práctica libre: Repetir y Nuevo texto, sin volver', () => {
+    const actions = resultsActions({ origin: 'free', courseStep: false, hasNext: false, extendedAvailable: false });
+    assert.deepEqual([actions.newText, actions.back, actions.extended], [true, false, false]);
+  });
+});
+
+describe('velocidad sin objetivo (T15.3)', () => {
+  it('se informa pero no se evalúa cuando el ejercicio no tiene objetivo de WPM', () => {
+    assert.equal(speedNote({ targetWpm: null }), 'La velocidad se informa, pero no se evalúa en esta práctica.');
+    assert.equal(speedNote({ targetWpm: 12 }), '');
+    assert.equal(speedNote(null), '');
   });
 });

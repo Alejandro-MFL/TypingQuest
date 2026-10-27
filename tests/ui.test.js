@@ -15,6 +15,8 @@ import {
   isModeLocked,
   formatSelectedMode,
   renderSaveError,
+  isRealFocusLoss,
+  keepsTypingFocus,
 } from '../js/ui.js';
 import { splitIntoChunks } from '../js/chunks.js';
 import { createGame, applyInput } from '../js/game.js';
@@ -397,5 +399,22 @@ describe('renderSaveError: región de estado sin anuncios repetidos', () => {
     renderSaveError(els, null);
     assert.equal(els.resultSaveError.textContent, '');
     assert.equal('hidden' in els.resultSaveError, false);
+  });
+});
+
+describe('foco durante la escritura (T15.2)', () => {
+  it('solo es pérdida real de foco si se juega y la ventana sigue activa', () => {
+    assert.equal(isRealFocusLoss({ playing: true, windowFocused: true }), true);
+    assert.equal(isRealFocusLoss({ playing: true, windowFocused: false }), false, 'cambiar de aplicación no es perder el foco');
+    assert.equal(isRealFocusLoss({ playing: false, windowFocused: true }), false);
+  });
+
+  it('un clic en una zona no interactiva conserva el foco; los controles lo reciben', () => {
+    const target = (match) => ({ closest: (selector) => (match && selector.includes(match) ? {} : null) });
+    assert.equal(keepsTypingFocus(target(null)), true, 'estadísticas, teclado, manos');
+    for (const control of ['button', 'a', 'input', 'select', 'textarea', 'label', 'summary']) {
+      assert.equal(keepsTypingFocus(target(control)), false, control);
+    }
+    assert.equal(keepsTypingFocus(null), false);
   });
 });

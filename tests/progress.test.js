@@ -11,6 +11,7 @@ import {
   advanceCourse,
   skipCurrent,
   academyView,
+  isExtendedUnlocked,
   resolveRetiredPosition,
   restartCourse,
   courseOverview,
@@ -210,6 +211,11 @@ describe('academyView', () => {
     assert.equal(view.canAdvance, false, 'sin terminar, se avanza saltando dentro del ejercicio');
   });
 
+  it('indica si la ampliada está disponible (T15.3)', () => {
+    assert.equal(academyView(catalog, complete(at('b'), 'b', false)).extended.unlocked, false);
+    assert.equal(academyView(catalog, complete(at('b'), 'b', true)).extended.unlocked, true);
+  });
+
   it('un ejercicio actual terminado (aunque sin objetivo) permite pasar al siguiente', () => {
     assert.equal(academyView(catalog, complete(at('b'), 'b', false)).canAdvance, true);
     assert.equal(academyView(catalog, complete(at('b'), 'b', true)).canAdvance, true);
@@ -223,6 +229,38 @@ describe('academyView', () => {
     const view = academyView(catalog, complete(at('f'), 'f', true));
     assert.equal(view.isLast, true);
     assert.equal(view.canAdvance, false);
+  });
+});
+
+describe('práctica ampliada de la Academia: desbloqueo (T15.3)', () => {
+  const unlocked = (progress) => isExtendedUnlocked(progress, 'b', 'b-plus');
+
+  it('base sin realizar o saltada: la ampliada sigue bloqueada', () => {
+    assert.equal(unlocked(createProgress()), false);
+    assert.equal(unlocked(recordSkip(createProgress(), 'b')), false);
+  });
+
+  it('base terminada sin alcanzar el objetivo: sigue bloqueada', () => {
+    assert.equal(unlocked(complete(createProgress(), 'b', false)), false);
+  });
+
+  it('base superada: la ampliada queda desbloqueada', () => {
+    assert.equal(unlocked(complete(createProgress(), 'b', true)), true);
+  });
+
+  it('logros antiguos: una ampliada ya terminada o superada no se vuelve a bloquear', () => {
+    assert.equal(unlocked(complete(createProgress(), 'b-plus', false)), true);
+    assert.equal(unlocked(complete(createProgress(), 'b-plus', true)), true);
+    assert.equal(unlocked(recordSkip(createProgress(), 'b-plus')), false, 'saltar la ampliada no es un logro');
+  });
+
+  it('Reiniciar Academia conserva el desbloqueo (se deriva de los estados guardados)', () => {
+    const passed = complete(at('c'), 'b', true);
+    assert.equal(unlocked(restartCourse(passed, ORDER)), true);
+  });
+
+  it('sin ampliada no hay nada que desbloquear', () => {
+    assert.equal(isExtendedUnlocked(complete(createProgress(), 'b', true), 'b', null), false);
   });
 });
 

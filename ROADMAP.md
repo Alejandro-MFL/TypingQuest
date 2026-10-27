@@ -16,13 +16,7 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T12 | Memoria de la Biblioteca (búsqueda, filtros, desplazamiento y práctica abierta, también con «Atrás») y «Mi evolución» en el Historial: tasa de fallo acumulada y ponderada, dificultades recurrentes, mejora o empeoramiento por carácter y confusiones frecuentes. |
 | T13 | Entrenamiento personalizado: «Practicar mis dificultades» en «Mi evolución» recomienda hasta tres prácticas existentes del catálogo para las dificultades detectadas por T11 y T12, con reglas locales y explicables (sin IA); se abren como una práctica de la Biblioteca, sin mover el recorrido de la Academia. |
 | T14 | Experiencia pedagógica: introducción inicial, instrucciones por lección (tecla, dedo, movimiento desde la posición de reposo y objetivo), movimiento del dedo en la guía («J → U → J»), consejo «Siguiente paso» en Resultados y recorrido por bloques en la Academia. |
-
-## En revisión
-
-- **T15 · Rediseño visual y temas:** sistema de diseño con variables, temas claro, oscuro y
-  automático (sin destello al cargar), componentes unificados (botones, campos, tarjetas,
-  estados, foco), cabecera compacta, Inicio con acción principal y microinteracciones
-  discretas. Primera entrega guardada como T15.1; pendiente de la revisión visual.
+| T15 | Rediseño visual: sistema de diseño con variables y temas claro, oscuro y automático (sin destello al cargar); componentes unificados; pantalla de escritura más compacta y legible, sin avisos de foco falsos; simplificación de Academia (ampliada desbloqueada al superar la base, «Tu recorrido» compacto), Biblioteca (una columna, lecciones numeradas A1…E8, detalles a demanda) y Resultados (análisis detallado plegado, «Práctica ampliada»); cabecera con logo y favicon y navegación centrada. Entregado como T15.1 y T15.2–T15.4. |
 
 ## Próximas fases (propuestas)
 
@@ -41,6 +35,9 @@ Pendientes de aprobación, en este orden. No están implementadas.
 
 ## Mejoras futuras (sin fase asignada)
 
+- **Gamificación sutil (propuestas de T15.2, sin implementar):** resumen al completar un
+  bloque («Bloque A completado» con sus marcas), racha de días de práctica sin
+  penalizaciones, y mejor marca personal destacada en Resultados cuando se supera.
 - **Guardar preferencias** (sonido, modo y ayudas) entre sesiones; el tema ya se guarda (T15).
 - **Copia de seguridad:** exportar e importar historial y progreso (JSON).
 - **Calibrar con datos reales** los umbrales de T11-T13 y `LEVEL_GOALS`.
@@ -80,7 +77,10 @@ Pendientes de aprobación, en este orden. No están implementadas.
   persona revise su redacción. El movimiento del dedo es una recomendación: no se puede
   comprobar qué dedo se usa.
 - **Diseño (T15):** probado en Chromium (anchos 375, 768 y 1280 px y texto al 150 %); falta
-  revisarlo en Firefox y Safari. Usa `:has()` para detalles de presentación (sin él solo se
-  pierde el subtítulo oculto durante la partida y el estilo secundario de «Repetir»).
+  revisarlo en Firefox y Safari. Usa `:has()` para detalles de presentación (sin él se
+  pierden el subtítulo oculto durante la partida, el estilo secundario de «Repetir» y el
+  ancho mayor de la Biblioteca) y `mask` para el texto del logo en el tema claro. En
+  pantallas estrechas el subtítulo de Inicio ocupa dos líneas y la cabecera cambia de alto
+  al salir de Inicio.
 - **Servidor de desarrollo:** usar `python tools/dev-server.py`; con `python -m http.server`
   el navegador puede mezclar módulos de versiones distintas.

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
   <title>TypingQuest</title>
+  <!-- Icono de la pestaña: el logo solo (assets/logo.webp). -->
+  <link rel="icon" type="image/webp" href="assets/logo.webp">
   <!-- Tema (T15): script clásico y síncrono antes de los estilos para que no haya destello. -->
   <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="css/styles.css">
@@ -12,8 +14,19 @@
 </head>
 <body>
   <header class="header">
-    <h1 class="title">TypingQuest</h1>
-    <p class="subtitle">Entrena tu velocidad y precisión al teclado</p>
+    <!-- Marca: logo con nombre (recortado con CSS); el texto alternativo da el nombre. -->
+    <div class="brand-block">
+    <h1 class="title">
+      <a class="brand" href="#/inicio">
+        <span class="brand-crop">
+          <img class="brand-img" src="assets/logo-wordmark.webp" alt="TypingQuest" width="2000" height="667"
+            decoding="async">
+        </span>
+      </a>
+    </h1>
+    <!-- Solo en Inicio (T15.4); en el resto de secciones, solo el nombre. -->
+    <p class="subtitle" id="site-subtitle">Entrena tu velocidad y precisión al teclado</p>
+    </div>
     <div class="header-tools">
     <div class="options">
       <button
@@ -105,6 +118,10 @@
             <span class="home-card-title">Continuar la Academia</span>
             <span class="home-card-text">El curso paso a paso, de las teclas guía a los textos completos.</span>
             <span class="home-card-extra" id="home-continue"></span>
+            <span class="home-progress" id="home-progress" hidden>
+              <span class="home-progress-text" id="home-progress-text"></span>
+              <span class="home-progress-track" aria-hidden="true"><span class="home-progress-fill" id="home-progress-fill"></span></span>
+            </span>
             <span class="home-card-cta" aria-hidden="true">Continuar</span>
           </a>
         </li>
@@ -146,7 +163,7 @@
             <li>Mira la pantalla en lugar del teclado siempre que puedas: la guía te indica la tecla y el dedo.</li>
             <li>Primero la precisión: escribe sin errores aunque vayas despacio; la velocidad llega con la práctica.</li>
             <li>Cada lección tiene una práctica base, breve, que te hace avanzar, y una práctica ampliada, más larga y
-              opcional, para afianzarla.</li>
+              opcional, que se desbloquea al superar el objetivo de la base.</li>
           </ul>
           <div class="actions intro-actions">
             <button class="button" id="academy-intro-done" type="button">Entendido</button>
@@ -158,18 +175,20 @@
         </p>
         <article class="lesson-card" aria-labelledby="lesson-title">
           <p class="lesson-position" id="lesson-position"></p>
-          <p class="lesson-level-summary" id="lesson-level-summary"></p>
-          <h3 class="lesson-title" id="lesson-title"></h3>
+          <div class="lesson-heading">
+            <h3 class="lesson-title" id="lesson-title"></h3>
+            <span class="lesson-new" id="lesson-new" hidden>Nueva lección</span>
+          </div>
+          <p class="lesson-skill" id="lesson-skill" hidden></p>
           <p class="lesson-description" id="lesson-description"></p>
           <!-- Instrucciones de la lección (T14): desplegadas la primera vez; después, a demanda. -->
           <button class="button-link lesson-intro-toggle" id="lesson-intro-toggle" type="button"
             aria-expanded="false" aria-controls="lesson-intro">Ver instrucciones</button>
           <div class="lesson-intro" id="lesson-intro" hidden>
-            <p class="lesson-intro-skill" id="lesson-intro-skill"></p>
             <div class="lesson-intro-text" id="lesson-intro-text"></div>
           </div>
-          <!-- Una sola tarjeta: estado y objetivos de cada práctica y dos botones. Solo la
-               base forma el recorrido; la ampliada es opcional y está disponible desde el principio. -->
+          <!-- Una sola tarjeta: estado y objetivos de cada práctica y sus botones. Solo la
+               base forma el recorrido; la ampliada es opcional y se desbloquea al superar la base (T15.3). -->
           <dl class="lesson-practices">
             <div class="lesson-practice" id="lesson-base-info">
               <dt>Práctica base</dt>
@@ -201,11 +220,16 @@
         <section class="course-overview" id="course-overview" aria-labelledby="course-overview-title">
           <h3 class="course-overview-title" id="course-overview-title">Tu recorrido</h3>
           <p class="course-overview-summary" id="course-overview-summary"></p>
-          <ol class="course-overview-blocks" id="course-overview-blocks"></ol>
-          <p class="course-overview-note">
-            Recorridas: hasta dónde has llegado en el curso. Terminadas: prácticas base completadas. Superadas: con
-            el objetivo cumplido. Las prácticas ampliadas son opcionales y no cuentan aquí.
-          </p>
+          <!-- El bloque actual, siempre visible; los demás y las definiciones, a demanda (T15.3). -->
+          <ul class="course-overview-blocks" id="course-overview-current"></ul>
+          <details class="collapsible course-overview-more">
+            <summary>Ver todos los bloques</summary>
+            <ol class="course-overview-blocks" id="course-overview-blocks"></ol>
+            <p class="course-overview-note">
+              Recorridas: hasta dónde has llegado en el curso. Terminadas: prácticas base completadas. Superadas: con
+              el objetivo cumplido. Las prácticas ampliadas son opcionales y no cuentan aquí.
+            </p>
+          </details>
         </section>
         <p class="academy-hint">
           ¿Quieres repasar otro ejercicio? Todos están en la <a href="#/biblioteca">Biblioteca</a>
@@ -354,7 +378,6 @@
       <!-- Objetivos del ejercicio: terminar no es lo mismo que superarlo. -->
       <div class="target-result" id="target-result" hidden>
         <p class="target-result-title" id="target-result-title"></p>
-        <ul class="objective-list" id="objective-list"></ul>
         <!-- Qué conviene hacer a continuación (T14), según los objetivos de esta partida. -->
         <p class="result-advice" id="result-advice"></p>
       </div>
@@ -365,26 +388,33 @@
         <div class="result-item">
           <dt>Tiempo</dt><dd id="result-time">0:00</dd>
         </div>
-        <div class="result-item">
-          <dt>Errores</dt><dd id="result-errors">0</dd>
-        </div>
       </dl>
       <div class="result-main">
         <p class="result-main-value" id="result-wpm">0</p>
         <p class="result-main-label"><abbr title="Palabras por minuto">WPM</abbr></p>
         <p class="result-main-description">Palabras por minuto</p>
       </div>
-      <p class="result-mode" id="result-mode">Modo libre</p>
+      <p class="result-speed-note" id="result-speed-note" hidden></p>
+      <!-- Datos secundarios: modo y errores (T15.3). -->
+      <p class="result-mode"><span id="result-mode">Modo libre</span> · Errores: <span id="result-errors">0</span></p>
       <!-- Aviso de fallo al guardar: región de estado siempre presente (vacía si no hay error). -->
       <p class="result-save-error" id="result-save-error" role="status" aria-live="polite"></p>
       <p class="course-end" id="course-end" hidden>Has llegado al final del recorrido de la Academia.</p>
       <div class="actions">
         <button class="button" id="retry-button" type="button">Reintentar</button>
+        <button class="button button-secondary" id="extended-results-button" type="button" hidden>Práctica ampliada</button>
         <button class="button" id="next-exercise-button" type="button" hidden>Siguiente ejercicio</button>
         <button class="button button-secondary" id="new-text-button" type="button">Nuevo texto</button>
         <button class="button button-secondary" id="back-to-origin-button" type="button" hidden></button>
       </div>
 
+      <!-- Análisis detallado (T15.3): plegado por defecto. Objetivos, diagnóstico y evolución. -->
+      <details class="collapsible results-details" id="results-details">
+      <summary>Ver análisis detallado</summary>
+      <section class="results-objectives" id="results-objectives" aria-labelledby="results-objectives-title" hidden>
+        <h3 class="diagnosis-title" id="results-objectives-title">Objetivos</h3>
+        <ul class="objective-list" id="objective-list"></ul>
+      </section>
       <!-- Diagnóstico por carácter de esta partida (T11). Solo observación: sin recomendaciones. -->
       <section class="diagnosis" id="results-diagnosis" aria-labelledby="results-diagnosis-title">
         <h3 class="diagnosis-title" id="results-diagnosis-title">Análisis de escritura</h3>
@@ -414,6 +444,7 @@
           </div>
         </div>
       </section>
+      </details>
     </section>
 
     <!-- Historial de sesiones completadas -->

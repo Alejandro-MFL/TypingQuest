@@ -51,8 +51,14 @@
   --radius-md: 0.625rem;
   --radius-lg: 0.875rem;
   --transition-fast: 140ms ease;
-  --chunk-line-height: 1.6;
-  --chunk-lines: 3;
+  --chunk-line-height: 1.5;
+  /* Líneas reservadas del fragmento activo: 2 en pantallas anchas, 3 en estrechas. */
+  --chunk-lines: 2;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
 }
 
 :root[data-theme="light"] {
@@ -117,18 +123,31 @@ a {
   outline-offset: 2px;
 }
 
-/* Cabecera compacta: marca, navegación y herramientas en una fila (dos en móvil). */
+/* Cabecera: marca a la izquierda, navegación en el centro EXACTO (las dos columnas
+   laterales miden lo mismo) y herramientas a la derecha. En pantallas medianas y
+   estrechas, en filas (ver el final del archivo). */
 .header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "title nav tools"
-    "subtitle nav tools";
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "title nav tools";
   align-items: center;
   gap: 0 1.5rem;
-  max-width: 64rem;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: 1rem 1.25rem;
+  /* Abajo queda sitio para el subtítulo de Inicio, que cuelga bajo el logo sin mover nada. */
+  padding: 1rem 1.25rem 1.75rem;
+}
+
+/* Reserva el hueco de la barra de desplazamiento: el centro no se mueve entre páginas
+   cortas y largas. */
+html {
+  scrollbar-gutter: stable;
+}
+
+.brand-block {
+  position: relative;
+  grid-area: title;
+  justify-self: start;
 }
 
 /* Durante la partida, el texto es el protagonista: sin subtítulo. */
@@ -153,6 +172,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .header-tools {
   position: relative;
   grid-area: tools;
+  justify-self: end;
   z-index: 10;
   display: flex;
   gap: 0.5rem;
@@ -200,17 +220,59 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 .title {
-  grid-area: title;
   margin: 0;
-  color: var(--color-text);
-  font-size: 1.375rem;
-  font-weight: 750;
-  letter-spacing: -0.01em;
+  line-height: 0;
+}
+
+/* El logo lleva a Inicio, con foco visible. */
+.brand {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+/* Recorte del logo con nombre: la imagen (2000 × 667) tiene márgenes transparentes;
+   solo se ve la zona dibujada (1788 × 354 desde x = 106, y = 158). --logo-h = alto visible. */
+.brand-crop {
+  --logo-h: 2.25rem;
+  position: relative;
+  display: block;
+  width: calc(var(--logo-h) * 1788 / 354);
+  height: var(--logo-h);
+  overflow: hidden;
+}
+
+.brand-img,
+.brand-crop::after {
+  position: absolute;
+  top: calc(var(--logo-h) * -158 / 354);
+  left: calc(var(--logo-h) * -106 / 354);
+  width: calc(var(--logo-h) * 2000 / 354);
+  max-width: none;
+  height: calc(var(--logo-h) * 667 / 354);
+}
+
+/* Tema claro: el nombre del logo (lavanda claro) apenas se lee sobre fondo claro. Se
+   repinta con el acento usando el propio logo como máscara, solo en la zona del texto;
+   la tecla conserva sus colores. */
+:root[data-theme="light"] .brand-crop::after {
+  content: "";
+  background: var(--color-accent);
+  -webkit-mask: url("../assets/logo-wordmark.webp") 0 0 / 100% 100% no-repeat;
+  mask: url("../assets/logo-wordmark.webp") 0 0 / 100% 100% no-repeat;
+  clip-path: inset(0 0 0 27%);
 }
 
 .subtitle {
-  grid-area: subtitle;
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
   margin: 0;
+  white-space: nowrap;
   color: var(--color-muted);
   font-size: 0.8125rem;
 }
@@ -295,8 +357,8 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .stats {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  margin-bottom: 1rem;
+  gap: 2.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .stat {
@@ -307,7 +369,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -315,15 +377,15 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 .stat-label {
   color: var(--color-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-xs);
 }
 
 .progress {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .progress-track {
-  height: 0.375rem;
+  height: 0.25rem;
   border-radius: 999px;
   background: var(--color-raised);
   overflow: hidden;
@@ -338,9 +400,9 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 .progress-label {
-  margin: 0.375rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--color-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-xs);
   text-align: center;
 }
 
@@ -350,7 +412,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
   position: relative;
   /* Recorta el fragmento saliente para que no invada otros elementos. */
   overflow: clip;
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.5rem 0.25rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -372,16 +434,21 @@ body:has(#play-screen:not([hidden])) .subtitle {
   overflow-wrap: break-word;
 }
 
+/* Vista previa: una línea fija (recortada con «…»), para que el activo no se mueva. */
 .chunk-next {
-  min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1.125rem);
-  margin-bottom: 0.75rem;
+  display: -webkit-box;
+  height: calc(var(--chunk-line-height) * 1rem);
+  margin-bottom: 0.625rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
   color: var(--color-preview);
-  font-size: 1.125rem;
+  font-size: 1rem;
 }
 
 .chunk-active {
-  min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1.5rem);
-  font-size: 1.5rem;
+  min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1.625rem);
+  font-size: 1.625rem;
 }
 
 .char-pending {
@@ -392,33 +459,33 @@ body:has(#play-screen:not([hidden])) .subtitle {
   color: var(--color-correct);
 }
 
+/* Error: color, subrayado y fondo (los espacios no tienen glifo; el fondo los marca). */
 .char-incorrect {
+  border-radius: 2px;
+  background: var(--color-incorrect-bg);
   color: var(--color-incorrect);
   text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
-/* Un espacio erróneo no tiene glifo: se marca con fondo. */
-.char-incorrect.char-space {
-  background: var(--color-incorrect-bg);
-}
-
+/* Cursor: fondo de acento y barra inferior, visible también sobre un espacio. */
 .char-current {
-  color: var(--color-text);
+  border-radius: 2px;
   background: var(--color-accent-soft);
-  box-shadow: inset 2px 0 0 var(--color-accent);
+  box-shadow: inset 0 -3px 0 var(--color-accent);
+  color: var(--color-text);
 }
 
 /* Zona única de avisos bajo el fragmento activo. Su altura está reservada
    aunque esté vacía, así que mostrar u ocultar un aviso no desplaza nada. */
 .lane-notice {
   /* Alto fijo (no min-height): el texto o la tecla no pueden agrandarla. */
-  height: 2.25rem;
+  height: 2rem;
   overflow: hidden;
-  margin: 0.75rem 0 0;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--color-border);
+  margin: 0.25rem 0 0;
+  padding-top: 0.25rem;
   color: var(--color-muted);
-  font-size: 0.9375rem;
+  font-size: var(--text-sm);
   line-height: 1.5rem;
   text-align: center;
 }
@@ -509,9 +576,9 @@ body:has(#play-screen:not([hidden])) .subtitle {
 /* Métricas secundarias: tamaño base de los valores = 1.5rem. */
 .results-secondary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  max-width: 28rem;
+  max-width: 20rem;
   margin: 0 auto 1.5rem;
 }
 
@@ -616,6 +683,10 @@ body:has(#play-screen:not([hidden])) .subtitle {
     padding: 0.75rem 1rem 0.5rem;
   }
 
+  .brand-crop {
+    --logo-h: 1.875rem;
+  }
+
   .stats {
     gap: 1rem;
   }
@@ -625,17 +696,19 @@ body:has(#play-screen:not([hidden])) .subtitle {
   }
 
   .lane {
-    padding: 0.75rem 1rem;
+    --chunk-lines: 3;
+    padding: 0.75rem 1rem 0.25rem;
   }
 
   .chunk-active {
-    min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1.25rem);
-    font-size: 1.25rem;
+    min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1.3125rem);
+    font-size: 1.3125rem;
   }
 
   .chunk-next {
-    font-size: 1rem;
-    min-height: calc(var(--chunk-lines) * var(--chunk-line-height) * 1rem);
+    height: calc(2 * var(--chunk-line-height) * 0.9375rem);
+    -webkit-line-clamp: 2;
+    font-size: 0.9375rem;
   }
 
 
@@ -663,7 +736,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .play-actions {
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 /* Botón con icono decorativo (aria-hidden) delante del texto. */
@@ -1054,6 +1127,39 @@ body:has(#play-screen:not([hidden])) .subtitle {
   margin-bottom: 1.5rem;
 }
 
+.result-speed-note {
+  margin: -0.75rem 0 1rem;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* «Ver análisis detallado» (T15.3): plegado; dentro, cada sección con su separador. */
+.results-details {
+  margin: 1.5rem 0 0;
+  text-align: left;
+}
+
+.results-details > summary {
+  text-align: center;
+}
+
+.results-details > .results-objectives,
+.results-details > .diagnosis,
+.results-details > .trends {
+  margin: 0 1rem;
+  padding: 1rem 0;
+}
+
+.results-details > .results-objectives + .diagnosis,
+.results-details > .diagnosis + .trends {
+  border-top: 1px solid var(--color-border);
+}
+
+.results-details > .results-objectives[hidden] + .diagnosis,
+.results-details > .diagnosis:first-of-type {
+  border-top: 0;
+}
+
 .result-save-error {
   margin: 0 0 1.5rem;
   color: var(--color-incorrect);
@@ -1299,6 +1405,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 .main-nav {
   grid-area: nav;
+  justify-self: center;
 }
 
 .main-nav-list {
@@ -1414,8 +1521,54 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 .home-card-extra {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: bold;
+}
+
+/* Progreso discreto del recorrido en «Continuar la Academia». */
+.home-progress {
+  display: grid;
+  gap: 0.375rem;
+  max-width: 28rem;
+  margin-top: 0.25rem;
+}
+
+.home-progress[hidden] {
+  display: none;
+}
+
+.home-progress-text {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.home-progress-track {
+  height: 0.375rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+}
+
+.home-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: width 300ms ease;
+}
+
+/* Tarjetas secundarias compactas. */
+.home-card:not(.home-card-primary) .home-card-link {
+  padding: 1rem 1.125rem;
+}
+
+.home-card:not(.home-card-primary) .home-card-title {
+  font-size: var(--text-md);
+}
+
+.home-card:not(.home-card-primary) .home-card-text {
+  font-size: var(--text-sm);
 }
 
 /* --- Catálogo: Academia y Biblioteca --- */
@@ -1518,7 +1671,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
 /* --- Ejercicio en partida y resultados --- */
 
 .play-exercise {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   text-align: center;
 }
 
@@ -1553,6 +1706,13 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 .target-result.target-met {
   border-color: var(--color-status-passed);
+  animation: goal-met 600ms ease-out;
+}
+
+/* Sin movimiento: solo un halo que se apaga (prefers-reduced-motion lo anula). */
+@keyframes goal-met {
+  from { box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-status-passed) 30%, transparent); }
+  to { box-shadow: 0 0 0 0 transparent; }
 }
 
 .target-result-title {
@@ -1608,10 +1768,37 @@ body:has(#play-screen:not([hidden])) .subtitle {
   letter-spacing: 0.02em;
 }
 
-.lesson-level-summary,
 .lesson-goals {
   color: var(--color-muted);
-  font-size: 0.9375rem;
+  font-size: var(--text-sm);
+}
+
+/* Ampliada bloqueada en la Academia (T15.3): candado y texto, en tono neutro. */
+.status-locked {
+  --status-color: var(--color-muted);
+}
+
+.lesson-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+/* Lección aún no realizada: distintivo discreto con texto (no solo color). */
+.lesson-new {
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+.lesson-skill {
+  color: var(--color-text);
+  font-size: var(--text-lg);
+  font-weight: 600;
 }
 
 .lesson-title {
@@ -1630,20 +1817,20 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 /* Una tarjeta por lección: estado y objetivos de cada práctica, y dos botones. */
+/* Filas separadas por una línea, sin tarjetas anidadas. */
 .lesson-practices {
   display: grid;
-  gap: 0.5rem;
   margin: 0.5rem 0 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .lesson-practice {
   display: grid;
-  grid-template-columns: 13rem 1fr;
+  grid-template-columns: 11rem 1fr;
   align-items: baseline;
   gap: 0.25rem 0.75rem;
-  padding: 0.625rem 0.875rem;
-  border-radius: var(--radius-md);
-  background: var(--color-raised);
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .lesson-practice dt {
@@ -1657,6 +1844,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
   align-items: center;
   gap: 0.25rem 0.75rem;
   margin: 0;
+  font-size: var(--text-sm);
 }
 
 .lesson-actions {
@@ -1710,8 +1898,13 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 /* --- Biblioteca: una tarjeta por lección con sus dos prácticas --- */
 
+/* T15.4: una sola columna, también en escritorio; la Biblioteca usa algo más de ancho. */
 #library-list .exercise-list {
-  grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body:has(#library-screen:not([hidden])) .game {
+  max-width: 58rem;
 }
 
 /* Lecciones agrupadas por bloque del temario: un encabezado por bloque. */
@@ -1728,28 +1921,101 @@ body:has(#play-screen:not([hidden])) .subtitle {
   font-weight: 700;
 }
 
-.library-lesson .exercise-card-meta {
+/* Título (A2. Mano derecha: J) claramente por encima de la descripción. */
+.library-lesson .exercise-card-title {
   margin: 0;
+  font-size: 1.3125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.library-lesson .exercise-card-description {
+  font-size: var(--text-sm);
+}
+
+/* En pantallas anchas, texto a la izquierda y las dos prácticas a la derecha;
+   el desplegable, debajo y a todo el ancho. En tableta y móvil, todo apilado. */
+@media (min-width: 56rem) {
+  .library-lesson {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 25rem;
+    grid-template-areas:
+      "title practices"
+      "description practices"
+      "details details";
+    align-content: start;
+    gap: 0.25rem 1.5rem;
+  }
+
+  .library-lesson .exercise-card-title { grid-area: title; }
+  .library-lesson .exercise-card-description { grid-area: description; }
+  .library-lesson .lesson-details { grid-area: details; }
+
+  .library-lesson .lesson-practices {
+    grid-area: practices;
+    align-self: center;
+    margin-top: 0;
+  }
+}
+
+/* Cada práctica en una línea: tipo, estado y «Empezar». */
+.library-lesson .lesson-practice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.library-lesson .lesson-practice dt {
+  min-width: 8rem;
 }
 
 .library-lesson .lesson-practices {
-  gap: 0.375rem;
-  margin-top: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+/* «Ver objetivos y resultados»: detalle a demanda de cada tarjeta (T15.3). */
+.lesson-details > summary {
+  width: fit-content;
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.lesson-details > summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.lesson-details-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.125rem;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.lesson-details-list strong {
+  color: var(--color-text);
 }
 
 .library-lesson .lesson-practice {
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0 0.5rem 0.75rem;
+}
+
+.library-lesson .lesson-practice:last-child {
+  border-bottom: 0;
 }
 
 .library-lesson .exercise-card-description {
   color: var(--color-muted);
-  font-size: 0.9375rem;
 }
 
 /* Cada práctica con su estado: color en el borde, además de icono y texto. */
 .library-lesson .lesson-practice {
   grid-template-columns: minmax(0, 1fr);
-  border-left: 4px solid var(--status-color);
+  border-left: 3px solid var(--status-color);
 }
 
 /* T12: tarjeta desde la que se volvió (borde + texto «Última práctica abierta»). */
@@ -1763,15 +2029,24 @@ body:has(#play-screen:not([hidden])) .subtitle {
   font-weight: normal;
 }
 
+/* «Empezar» a la derecha del tipo de práctica: la fila no crece por el botón. */
+.library-lesson .lesson-practice {
+  position: relative;
+  padding-right: 6.5rem;
+}
+
 .library-lesson .lesson-practice .button {
-  margin-left: auto;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
 }
 
 /* --- Guía de teclado y manos (T9) --- */
 
 .guide {
-  margin-top: 1rem;
-  padding: 0.875rem;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -1780,8 +2055,8 @@ body:has(#play-screen:not([hidden])) .subtitle {
 /* Alto reservado: el texto cambia con cada tecla sin mover el teclado. */
 .guide-hint {
   min-height: 1.5em;
-  margin: 0 0 0.5rem;
-  font-size: 0.9375rem;
+  margin: 0 0 0.375rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
   text-align: center;
 }
@@ -1796,8 +2071,10 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .keyboard {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: clamp(0.5625rem, 2.2vw, 0.8125rem);
+  gap: 0.2rem;
+  max-width: 38rem;
+  margin: 0 auto;
+  font-size: clamp(0.5625rem, 1.9vw, 0.75rem);
 }
 
 .kb-row {
@@ -1904,12 +2181,12 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .hands {
   display: flex;
   justify-content: center;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .hands-svg {
   width: 100%;
-  max-width: 26rem;
+  max-width: 19rem;
   height: auto;
 }
 
@@ -1980,7 +2257,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
   }
 
   .hands-svg {
-    max-width: 18rem;
+    max-width: 15rem;
   }
 }
 
@@ -2037,12 +2314,6 @@ body:has(#play-screen:not([hidden])) .subtitle {
   text-align: left;
 }
 
-.lesson-intro-skill {
-  margin: 0 0 0.35rem;
-  color: var(--color-accent);
-  font-weight: bold;
-}
-
 .lesson-intro-text p {
   margin: 0 0 0.35rem;
 }
@@ -2073,23 +2344,53 @@ body:has(#play-screen:not([hidden])) .subtitle {
   list-style: none;
 }
 
+/* Título y texto en una fila; la barra debajo. El bloque actual, destacado. */
 .course-block {
   display: grid;
-  gap: 0.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
 }
 
 .course-block-title {
-  font-weight: bold;
-}
-
-.course-block.is-current .course-block-title {
-  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 .course-block-track {
-  height: 0.5rem;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 0.375rem;
   border-radius: 999px;
   background: var(--color-raised);
+}
+
+.course-block.is-current {
+  margin: 0.25rem -0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.course-block.is-current .course-block-title {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.course-block.is-current .course-block-text {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  color: var(--color-text);
+}
+
+.course-block.is-current .course-block-track {
+  height: 0.5rem;
+  background: var(--color-border-strong);
+}
+
+.course-block.is-complete .course-block-text {
+  color: var(--color-status-passed);
 }
 
 .course-block-fill {
@@ -2102,11 +2403,28 @@ body:has(#play-screen:not([hidden])) .subtitle {
 .course-block-text,
 .course-overview-note {
   color: var(--color-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .course-overview-note {
   margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+/* «Ver todos los bloques» (T15.3): los bloques y las definiciones, a demanda. */
+.course-overview-more {
+  margin: 0;
+}
+
+.course-overview-more .course-overview-blocks {
+  margin: 0;
+  padding: 0.75rem 1rem;
+}
+
+.collapsible > summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .result-advice {
@@ -2130,8 +2448,9 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 .guide-movement {
   min-height: 1.4em;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.375rem;
   color: var(--color-muted);
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -2149,16 +2468,25 @@ body:has(#play-screen:not([hidden])) .subtitle {
   border-top: 1px solid var(--color-border);
 }
 
-/* --- Pantallas medianas y estrechas: cabecera en dos filas (T15) --- */
+/* --- Pantallas medianas y estrechas: cabecera en filas (T15) ---
+   Por debajo de 66rem no caben marca, navegación y herramientas en una fila con la
+   navegación centrada: marca y herramientas arriba, y la navegación centrada debajo. */
 
-@media (max-width: 48rem) {
+@media (max-width: 66rem) {
   .header {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "title tools"
-      "subtitle tools"
       "nav nav";
     gap: 0 1rem;
+    padding-bottom: 1rem;
+  }
+
+  /* Aquí el subtítulo ocupa su propio espacio bajo el logo (solo en Inicio). */
+  .subtitle {
+    position: static;
+    margin-top: 0.25rem;
+    white-space: normal;
   }
 
   .main-nav {
@@ -2176,5 +2504,9 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
   .home-card-link:hover {
     transform: none;
+  }
+
+  .target-result.target-met {
+    animation: none;
   }
 }

@@ -140,6 +140,22 @@ export function resolveNotice({ focusLost, errorsBlocking, spaceReady }) {
 }
 
 /**
+ * T15.2: el campo pierde el foco «de verdad» solo si se está jugando y la
+ * ventana sigue activa. Cambiar de aplicación (o hacer una captura) dispara
+ * blur, pero al volver el foco regresa al mismo campo: no merece el aviso.
+ */
+export function isRealFocusLoss({ playing, windowFocused }) {
+  return playing && windowFocused;
+}
+
+const FOCUSABLE_CONTROLS = 'button, a, input, select, textarea, label, summary, [tabindex]';
+
+/** true si un clic en `target` (zona no interactiva de la partida) debe conservar el foco. */
+export function keepsTypingFocus(target) {
+  return Boolean(target?.closest) && !target.closest(FOCUSABLE_CONTROLS);
+}
+
+/**
  * Mensaje de estado de la pantalla de historial, o '' si no hace falta.
  * @param {{ status: string, count: number, discarded: number, cleared?: boolean }} info
  */

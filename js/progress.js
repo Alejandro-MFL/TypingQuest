@@ -137,6 +137,18 @@ function findLesson(catalog, exerciseId) {
  * nivel, posición, estado y práctica ampliada opcional. `canAdvance` permite
  * pasar al siguiente sin repetir un ejercicio ya terminado.
  */
+/**
+ * Práctica ampliada de la Academia (T15.3): disponible cuando la base tiene el
+ * objetivo superado. Se deriva de los estados guardados (no se guarda nada nuevo),
+ * así que «Reiniciar Academia» la conserva; una ampliada ya terminada o superada
+ * (logro anterior) tampoco se vuelve a bloquear. La Biblioteca no aplica esta regla.
+ */
+export function isExtendedUnlocked(progress, baseId, extendedId) {
+  if (!extendedId) return false;
+  if (getExerciseProgress(progress, baseId).status === EXERCISE_STATUS.PASSED) return true;
+  return FINISHED_STATUSES.has(getExerciseProgress(progress, extendedId).status);
+}
+
 export function academyView(catalog, progress) {
   const id = getCurrentExerciseId(progress, catalog.courseOrder);
   const found = id === null ? null : findLesson(catalog, id);
@@ -154,7 +166,11 @@ export function academyView(catalog, progress) {
     isLast,
     canAdvance: FINISHED_STATUSES.has(status) && !isLast,
     extended: extendedId
-      ? { exercise: catalog.byId.get(extendedId), status: getExerciseProgress(progress, extendedId).status }
+      ? {
+        exercise: catalog.byId.get(extendedId),
+        status: getExerciseProgress(progress, extendedId).status,
+        unlocked: isExtendedUnlocked(progress, id, extendedId),
+      }
       : null,
   };
 }

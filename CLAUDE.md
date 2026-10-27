@@ -25,6 +25,7 @@ Videojuego web educativo para entrenar velocidad y precisión de mecanografía.
 ```
 index.html            # Navegación principal y pantallas: Inicio, Academia, Biblioteca,
                       # Práctica libre (preparación), partida, resultados e Historial.
+assets/               # logo.webp (logo solo: favicon) y logo-wordmark.webp (logo con nombre: cabecera).
 css/styles.css        # Sistema de diseño (variables de los temas claro y oscuro) y todos los componentes.
 data/exercises.json   # Catálogo de ejercicios (contenido; sin código).
 data/course.json      # Organización del curso: bloques, lecciones, teclas introducidas y retirados.
@@ -196,19 +197,31 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 
 ## Interfaz de juego
 
-- Carril: vista previa del siguiente fragmento arriba y fragmento activo en una
-  posición estable debajo (altura reservada de 3 líneas por posición).
-- Colores: correcto en verde, incorrecto en rojo (espacios erróneos con fondo rojo),
-  cursor en el siguiente carácter, pendientes y vista previa con contraste ≥ 4,5:1.
+- Carril (T15.2): vista previa del siguiente fragmento arriba, en UNA línea fija recortada
+  con «…» (dos en móvil), y fragmento activo (1,625rem; 1,3125rem en móvil) en una posición
+  estable debajo, con altura reservada (`--chunk-lines`: 2 líneas en pantallas anchas, 3
+  por debajo de 30rem). El fragmento más largo del catálogo cabe en lo reservado.
+- Colores: correcto en verde; incorrecto en rojo con subrayado y fondo (también los
+  espacios); cursor con fondo de acento y barra inferior; pendientes y vista previa con
+  contraste ≥ 4,5:1.
 - Zona única de avisos (`#lane-notice`, `role="status"`, alto fijo), por prioridad:
-  1. «Haz clic aquí para seguir escribiendo» si el campo pierde el foco.
+  1. «Haz clic aquí para seguir escribiendo» si el campo pierde el foco DENTRO de la página
+     (`isRealFocusLoss`: cambiar de ventana o aplicación no lo muestra y, al volver, el foco
+     vuelve solo al campo). Un clic en zonas no interactivas de la partida (estadísticas,
+     guía) no quita el foco (`keepsTypingFocus`); botones, enlaces y campos sí lo reciben.
+     Recuperación: clic en el carril. Sin captura global de teclas.
   2. «Corrige los errores en rojo» al intentar avanzar con el fragmento lleno de errores
      (solo en estricto: en libre nunca se bloquea).
   3. «Pulsa espacio» tras `spaceHintDelayMs` en el espacio final de un fragmento correcto
      (en libre, aunque tenga errores, porque el espacio también avanza).
   Se actualiza solo al cambiar el aviso, para no anunciarlo en cada tecla.
 - El modo de la partida se muestra sobre las estadísticas y en los resultados.
-- Resultados: bajo el resumen y las acciones, «Tu evolución» permanente con las gráficas
+- Resultados (T15.3): arriba solo lo esencial: estado del objetivo con «Siguiente paso»,
+  precisión y tiempo, WPM destacado (con «La velocidad se informa, pero no se evalúa en
+  esta práctica» si no hay objetivo de WPM, `speedNote`), modo y errores en una línea
+  secundaria, y las acciones. «Ver análisis detallado» (`<details>` #results-details,
+  plegado en cada partida) agrupa el desglose de objetivos, el diagnóstico y la evolución.
+- Dentro del análisis detallado, «Tu evolución» con las gráficas
   de WPM y precisión de las últimas `historyChartSessions` sesiones guardadas (incluida
   la recién terminada). El SVG es decorativo (`aria-hidden`); su descripción textual
   visible (`describeSeries`: tendencia, mínimo y máximo) da los datos. El listado de
@@ -234,6 +247,10 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   - Academia: «Repetir ejercicio» y «Volver a la Academia». Solo en la lección actual
     (`session.courseStep`), además «Siguiente ejercicio» (oculto en el último) y, en la
     partida, «Saltar ejercicio». La práctica ampliada nunca los ofrece.
+  - T15.3 (`resultsActions`): en la lección actual, si la ampliada está desbloqueada
+    (`unlockedExtendedId`, calculado DESPUÉS de guardar la partida), también «Práctica
+    ampliada»: abre la ampliada de la MISMA lección sin mover la posición. Tras una
+    ampliada, la Biblioteca o Mi evolución no se ofrece ni ampliada ni Siguiente.
   «Repetir» (Resultados, `handleRetry`) y «Reiniciar ejercicio» (partida, con icono de
   flecha circular, `handleRestart`) comparten `restartSession`: la MISMA sesión (texto,
   ejercicio, origen, paso del recorrido y modo; sonido y ayudas no cambian) vuelve a
@@ -379,7 +396,7 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Academia: «Tu recorrido» (`courseOverview` en `progress.js`): por bloque, lecciones
   recorridas (posición), prácticas base terminadas y superadas, por separado; las
   ampliadas no cuentan. Tras «Reiniciar Academia» el recorrido vuelve a 0 y los logros se
-  conservan. Componentes sencillos con los colores actuales (se rediseñarán en T15).
+  conservan. Su diseño definitivo es el de T15 (ver «Diseño visual y temas»).
 
 ## Diseño visual y temas (T15)
 
@@ -411,6 +428,33 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   foco ni los datos). En `auto`, `main.js` escucha `prefers-color-scheme` y cambia en vivo.
 - Microinteracciones discretas (hover, foco, progreso, estados, cambio de tema, 140-300 ms);
   `prefers-reduced-motion` las anula. Sin nuevas mecánicas de juego.
+- Refinamiento (T15.2): escala tipográfica `--text-xs/sm/md/lg/xl`. Partida compacta
+  (estadísticas 1,5rem, barra fina, guía con teclado ≤ 38rem y manos ≤ 19rem). Academia:
+  título, distintivo «Nueva lección» (práctica base sin realizar), «Qué aprenderás» siempre
+  visible (`#lesson-skill`; el panel de instrucciones ya no la repite), resumen del bloque
+  en dos líneas y prácticas en filas separadas por líneas. Biblioteca: filas sin tarjetas
+  anidadas y «Empezar» a la derecha. «Tu recorrido»: el bloque actual destacado con el
+  detalle completo (`blockProgressText`); los demás, `blockShortText` («X de T · P %» o
+  «✓ Completado»). Inicio: bloque actual y progreso en «Continuar la Academia»
+  (`homeProgressText`, `renderHomeProgress`). Objetivo superado: halo breve en Resultados.
+- Ajustes (T15.4): la marca es el logo con nombre (`assets/logo-wordmark.webp`, alt
+  «TypingQuest»), enlace a Inicio (`.brand`), recortado con CSS (`.brand-crop`, `--logo-h`:
+  2,25rem; 1,875rem en móvil) sin reprocesar la imagen. En el tema claro el texto del logo
+  (lavanda claro) se repinta con `--color-accent` usando el propio logo como máscara, solo en
+  la zona del texto. El logo solo (`assets/logo.webp`) es el favicon. Cabecera en rejilla
+  `1fr auto 1fr`: marca a la izquierda, navegación en el centro exacto y herramientas a la
+  derecha; `scrollbar-gutter: stable` evita que el centro se mueva entre páginas cortas y
+  largas. El subtítulo, solo en Inicio (`renderNav` oculta #site-subtitle), cuelga bajo el
+  logo (posición absoluta) sin cambiar el alto. Por debajo de 66rem: logo y herramientas
+  arriba, navegación centrada debajo y el subtítulo bajo el logo. Biblioteca en UNA columna
+  (máx. 58rem de `.game` en esa pantalla, `:has`); desde 56rem, texto a la izquierda y las
+  dos prácticas a la derecha (cada una en una línea), con el desplegable debajo a todo el
+  ancho; en tableta y móvil, apilado. Títulos de lección a 1,3125rem, seminegrita.
+- Simplificación (T15.3): información imprescindible a la vista y detalles a demanda con
+  `<details>` nativos (teclado, foco en el resumen, sin saltos de scroll). Academia sin el
+  resumen del bloque en la tarjeta; «Tu recorrido» muestra el resumen y el bloque actual, y
+  «Ver todos los bloques» guarda los demás y las definiciones. Biblioteca y Resultados: ver
+  sus apartados.
 
 ## Catálogo y curso (`data/*.json`, `js/catalog.js`)
 
@@ -507,15 +551,25 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   Terminar o salir no avanza; la Biblioteca y la práctica ampliada nunca la mueven.
 - La Academia muestra SOLO la lección actual (`academyView`) en UNA tarjeta: nivel,
   posición «Ejercicio N de M», título y descripción, el estado y los objetivos de cada
-  práctica, y dos botones sin requisitos previos: «Práctica base» (también para
-  repetirla) y «Práctica ampliada» (opcional; nunca ofrece Siguiente ni Saltar). Si la
+  práctica, y los botones «Práctica base» (también para repetirla) y «Práctica ampliada»
+  (opcional; nunca ofrece Siguiente ni Saltar). Si la
   base ya está terminada aparece «Siguiente ejercicio»: avanza uno y abre la siguiente
   base (T14: si sus instrucciones no se han visto, abre la Academia con ellas desplegadas
   en lugar de empezar; igual con «Saltar» y con «Siguiente» desde Resultados).
+- Ampliada bloqueada en la Academia (T15.3, `isExtendedUnlocked`): disponible solo cuando
+  la base tiene el objetivo SUPERADO (terminada sin objetivo o saltada no basta). Hasta
+  entonces la fila muestra «🔒 Bloqueada» con texto y no hay botón. Se deriva de los estados
+  guardados (sin datos nuevos): «Reiniciar Academia» conserva los desbloqueos y una ampliada
+  ya terminada o superada (logros anteriores) nunca se vuelve a bloquear. Avance, salto y
+  reinicio NO cambian: «Siguiente» y «Saltar» siguen sin exigir el objetivo; avanzar sin
+  superar la base deja su ampliada bloqueada en la Academia, pero se puede abrir desde la
+  Biblioteca, que nunca aplica esta regla.
 - La Biblioteca muestra UNA tarjeta por lección (`libraryLessons`, 67), agrupadas por
-  bloque con un encabezado por bloque (`groupLessonsByLevel`, `blockLabel`): título,
-  descripción, bloque y categoría de la lección, y sus dos prácticas, cada una con su
-  propio estado, dificultad, objetivos y botón «Empezar» (abre esa práctica; nunca
+  bloque con un encabezado por bloque (`groupLessonsByLevel`, `blockLabel`). T15.3: título
+  numerado por bloque («A2. Mano derecha: J»: `lessonCode`, `libraryLessonTitle`),
+  descripción breve y dos filas (base y ampliada, sin «Opcional») con su estado y botón
+  «Empezar»; dificultad, objetivos y mejor resultado (`bestMarksText`) solo en «Ver
+  objetivos y resultados» (un `<details>` por tarjeta). Botón «Empezar» (abre esa práctica; nunca
   mueve el recorrido ni ofrece Saltar/Siguiente). Búsqueda y filtros (`filterLessons`)
   muestran la lección si CUALQUIERA de sus prácticas coincide. Los objetos son los del
   catálogo: no se duplican ejercicios. Todo se hace sin bloqueos.

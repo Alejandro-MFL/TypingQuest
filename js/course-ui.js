@@ -2,7 +2,7 @@
 // en la partida y los resultados. Solo pinta: no decide progreso ni recorrido.
 // Los helpers del principio son puros y se prueban con Node.
 import { EXERCISE_STATUS } from './progress.js';
-import { DIFFICULTIES, CATEGORIES, difficultyLabel, categoryLabel, kindLabel } from './catalog.js';
+import { DIFFICULTIES, CATEGORIES, difficultyLabel, kindLabel } from './catalog.js';
 
 const STATUS_INFO = Object.freeze({
   [EXERCISE_STATUS.NOT_STARTED]: { label: 'No realizado', icon: '○' },
@@ -95,12 +95,12 @@ export function getCourseElements(doc = document) {
   const byId = (id) => doc.getElementById(id);
   return {
     nav: byId('main-nav'),
+    subtitle: byId('site-subtitle'),
     homeContinue: byId('home-continue'),
     academy: {
       error: byId('academy-error'),
       content: byId('academy-content'),
       position: byId('lesson-position'),
-      levelSummary: byId('lesson-level-summary'),
       title: byId('lesson-title'),
       description: byId('lesson-description'),
       goals: byId('lesson-goals'),
@@ -119,10 +119,12 @@ export function getCourseElements(doc = document) {
       introOpen: byId('academy-intro-open'),
       lessonIntroToggle: byId('lesson-intro-toggle'),
       lessonIntro: byId('lesson-intro'),
-      lessonIntroSkill: byId('lesson-intro-skill'),
       lessonIntroText: byId('lesson-intro-text'),
       overviewSummary: byId('course-overview-summary'),
+      skill: byId('lesson-skill'),
+      newLesson: byId('lesson-new'),
       overviewBlocks: byId('course-overview-blocks'),
+      overviewCurrent: byId('course-overview-current'),
     },
     library: {
       error: byId('library-error'),
@@ -143,7 +145,14 @@ export function getCourseElements(doc = document) {
     targetResult: byId('target-result'),
     targetResultTitle: byId('target-result-title'),
     resultAdvice: byId('result-advice'),
+    homeProgress: byId('home-progress'),
+    homeProgressText: byId('home-progress-text'),
+    homeProgressFill: byId('home-progress-fill'),
     objectiveList: byId('objective-list'),
+    resultsObjectives: byId('results-objectives'),
+    resultsDetails: byId('results-details'),
+    speedNote: byId('result-speed-note'),
+    extendedResultsButton: byId('extended-results-button'),
     courseEnd: byId('course-end'),
     nextExerciseButton: byId('next-exercise-button'),
     backToOriginButton: byId('back-to-origin-button'),
@@ -166,8 +175,9 @@ function element(tag, className, text) {
   return node;
 }
 
-/** Marca el enlace de la sección actual con aria-current="page". */
+/** Marca el enlace de la sección actual con aria-current="page"; el subtítulo, solo en Inicio. */
 export function renderNav(ce, route) {
+  ce.subtitle.hidden = route !== 'home';
   for (const link of ce.nav.querySelectorAll('[data-route]')) {
     if (link.dataset.route === route) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
@@ -200,13 +210,24 @@ function hasFinished(status) {
   return status === EXERCISE_STATUS.COMPLETED || status === EXERCISE_STATUS.PASSED;
 }
 
-// Estado y objetivos de la práctica ampliada opcional, y su botón.
+// Bloqueo de la ampliada en la Academia: icono decorativo y texto (no solo color).
+function lockedBadge() {
+  const badge = element('span', 'status-badge status-locked');
+  const icon = element('span', null, '🔒');
+  icon.setAttribute('aria-hidden', 'true');
+  badge.append(icon, ' Bloqueada');
+  return badge;
+}
+
+// Estado y objetivos de la práctica ampliada opcional, y su botón (T15.3: solo
+// cuando la base tiene el objetivo superado; si no, se explica cómo desbloquearla).
 function renderExtended(a, extended) {
   a.extended.hidden = !extended;
-  a.extendedButton.hidden = !extended;
+  a.extendedButton.hidden = !extended?.unlocked;
   if (!extended) return;
-  a.extendedGoals.textContent = formatGoals(extended.exercise);
-  a.extendedStatus.replaceChildren(statusBadge(extended.status));
+  a.extendedGoals.textContent = extended.unlocked
+    ? formatGoals(extended.exercise) : 'Supera el objetivo de la práctica base para desbloquearla.';
+  a.extendedStatus.replaceChildren(extended.unlocked ? statusBadge(extended.status) : lockedBadge());
   a.extendedButton.dataset.exerciseId = extended.exercise.id;
 }
 
@@ -220,8 +241,8 @@ export function renderAcademy(ce, view) {
   const a = ce.academy;
   const { exercise, level } = view;
   a.position.textContent = `${level.title} — Ejercicio ${view.position} de ${view.total}`;
-  a.levelSummary.textContent = level.summary;
   a.title.textContent = exercise.title;
+  a.newLesson.hidden = view.status !== EXERCISE_STATUS.NOT_STARTED;
   a.description.textContent = exercise.description;
   a.goals.textContent = formatGoals(exercise);
   a.status.replaceChildren(statusBadge(view.status));
@@ -245,22 +266,52 @@ export function blockProgressText({ total, traveled, finished, passed, current }
   return current ? `${text} · bloque actual` : text;
 }
 
+/** Porcentaje recorrido de un bloque (entero). */
+export function blockPercent({ traveled, total }) {
+  return total ? Math.round((traveled / total) * 100) : 0;
+}
+
+/** Texto breve de los bloques que no son el actual (T15.2). */
+export function blockShortText(block) {
+  if (block.total > 0 && block.traveled === block.total) return `✓ Completado · ${block.traveled} de ${block.total}`;
+  return `${block.traveled} de ${block.total} · ${blockPercent(block)} %`;
+}
+
+/** Línea discreta de progreso en la tarjeta «Continuar la Academia» de Inicio. */
+export function homeProgressText({ blocks, totals }) {
+  const current = blocks.find((b) => b.current);
+  const traveled = `${totals.traveled} de ${totals.lessons} lecciones recorridas`;
+  return current ? `${current.title} · ${traveled}` : traveled;
+}
+
 // Una fila por bloque: título, barra discreta del recorrido (decorativa) y su texto.
+// El bloque actual muestra el detalle completo; los demás, un resumen breve.
 function createBlockRow(block) {
-  const item = element('li', `course-block${block.current ? ' is-current' : ''}`);
+  const complete = block.total > 0 && block.traveled === block.total;
+  const item = element('li', `course-block${block.current ? ' is-current' : ''}${complete ? ' is-complete' : ''}`);
   const track = element('div', 'course-block-track');
   track.setAttribute('aria-hidden', 'true');
   const fill = element('div', 'course-block-fill');
-  fill.style.width = `${block.total ? (block.traveled / block.total) * 100 : 0}%`;
+  fill.style.width = `${blockPercent(block)}%`;
   track.append(fill);
-  item.append(element('span', 'course-block-title', block.title), track,
-    element('span', 'course-block-text', blockProgressText(block)));
+  const text = block.current ? blockProgressText(block) : blockShortText(block);
+  item.append(element('span', 'course-block-title', block.title), track, element('span', 'course-block-text', text));
   return item;
 }
 
+/** Inicio: bloque actual y progreso del recorrido en la tarjeta principal. */
+export function renderHomeProgress(ce, overview) {
+  ce.homeProgress.hidden = !overview;
+  if (!overview) return;
+  ce.homeProgressText.textContent = homeProgressText(overview);
+  ce.homeProgressFill.style.width = `${overview.totals.lessons ? (overview.totals.traveled / overview.totals.lessons) * 100 : 0}%`;
+}
+
+// T15.3: el bloque actual siempre visible; todos los bloques, en «Ver todos los bloques».
 export function renderCourseOverview(ce, overview) {
   ce.academy.overviewSummary.textContent = overviewSummaryText(overview.totals);
-  ce.academy.overviewBlocks.replaceChildren(...overview.blocks.map(createBlockRow));
+  ce.academy.overviewCurrent.replaceChildren(...overview.blocks.filter((b) => b.current).map(createBlockRow));
+  ce.academy.overviewBlocks.replaceChildren(...overview.blocks.map((b) => createBlockRow({ ...b, current: false })));
 }
 
 /** Instrucciones de la lección actual; `expanded` decide si se ven ya. */
@@ -268,10 +319,12 @@ export function renderLessonIntro(ce, intro, expanded) {
   const a = ce.academy;
   a.lessonIntroToggle.hidden = !intro;
   a.lessonIntro.hidden = !intro || !expanded;
+  // La habilidad se ve siempre bajo el título, aunque las instrucciones estén plegadas.
+  a.skill.hidden = !intro;
+  a.skill.textContent = intro ? `Qué aprenderás: ${intro.skill}` : '';
   if (!intro) return;
   a.lessonIntroToggle.setAttribute('aria-expanded', String(expanded));
   a.lessonIntroToggle.textContent = expanded ? 'Ocultar instrucciones' : 'Ver instrucciones';
-  a.lessonIntroSkill.textContent = `Qué aprenderás: ${intro.skill}`;
   a.lessonIntroText.replaceChildren(...intro.sentences.map((text) => element('p', null, text)));
 }
 
@@ -286,8 +339,8 @@ export function renderAdvice(ce, advice) {
   ce.resultAdvice.replaceChildren(...(advice ? [element('strong', null, 'Siguiente paso: '), advice.text] : []));
 }
 
-// Una práctica (base o ampliada) dentro de la tarjeta de su lección: tipo,
-// estado, dificultad, objetivos y botón «Empezar». El botón lleva
+// Una práctica (base o ampliada) dentro de la tarjeta de su lección: tipo, estado
+// y botón «Empezar» (T15.3: objetivos y marcas, a demanda). El botón lleva
 // data-exercise-id; main.js escucha los clics por delegación.
 function createPracticeRow(exercise, status, lessonTitle) {
   const kind = kindLabel(exercise.kind);
@@ -297,27 +350,38 @@ function createPracticeRow(exercise, status, lessonTitle) {
   button.type = 'button';
   button.dataset.exerciseId = exercise.id;
   button.setAttribute('aria-label', `Empezar ${kind.toLowerCase()} de «${lessonTitle}»`);
-  details.append(
-    statusBadge(status),
-    element('span', 'lesson-goals', `${difficultyLabel(exercise.difficulty)} · ${formatGoals(exercise)}`),
-    button
-  );
-  row.append(element('dt', null, exercise.kind === 'extended' ? `${kind} · Opcional` : kind), details);
+  details.append(statusBadge(status), button);
+  row.append(element('dt', null, kind), details);
   return row;
 }
 
+// «Ver objetivos y resultados»: dificultad, objetivos y mejor marca de cada práctica.
+function createLessonDetails(exercises, progressOf) {
+  const details = element('details', 'lesson-details');
+  const list = element('ul', 'lesson-details-list');
+  list.append(...exercises.map((exercise) => {
+    const item = element('li');
+    item.append(element('strong', null, `${kindLabel(exercise.kind)}: `),
+      `${difficultyLabel(exercise.difficulty)} · ${formatGoals(exercise)}. ${bestMarksText(progressOf(exercise.id))}.`);
+    return item;
+  }));
+  details.append(element('summary', null, 'Ver objetivos y resultados'), list);
+  return details;
+}
+
 /** Tarjeta de una lección (libraryLessons): sus dos prácticas, cada una con su estado. */
-function createLessonCard(lesson, statusOf) {
+function createLessonCard(lesson, progressOf) {
   const card = element('li', 'exercise-card library-lesson');
   const practices = element('dl', 'lesson-practices');
-  for (const exercise of [lesson.base, lesson.extended].filter(Boolean)) {
-    practices.append(createPracticeRow(exercise, statusOf(exercise.id), lesson.title));
+  const exercises = [lesson.base, lesson.extended].filter(Boolean);
+  for (const exercise of exercises) {
+    practices.append(createPracticeRow(exercise, progressOf(exercise.id).status, lesson.title));
   }
   card.append(
-    element('h4', 'exercise-card-title', lesson.title),
-    element('p', 'exercise-card-meta', `${blockLabel(lesson.level)} · ${categoryLabel(lesson.category)}`),
+    element('h4', 'exercise-card-title', libraryLessonTitle(lesson)),
     element('p', 'exercise-card-description', lesson.description),
-    practices
+    practices,
+    createLessonDetails(exercises, progressOf)
   );
   return card;
 }
@@ -379,25 +443,25 @@ export function readLibraryFilters(ce) {
 }
 
 // Un bloque del temario en la Biblioteca: encabezado y sus tarjetas.
-function createLibraryGroup({ level, lessons }, levelTitles, statusOf) {
+function createLibraryGroup({ level, lessons }, levelTitles, progressOf) {
   const group = element('section', 'library-group');
   const headingId = `library-group-${level}`;
   group.setAttribute('aria-labelledby', headingId);
   const heading = element('h3', 'library-group-title', levelTitles.get(level) ?? blockLabel(level));
   heading.id = headingId;
   const list = element('ul', 'exercise-list');
-  list.append(...lessons.map((lesson) => createLessonCard(lesson, statusOf)));
+  list.append(...lessons.map((lesson) => createLessonCard(lesson, progressOf)));
   group.append(heading, list);
   return group;
 }
 
 /**
  * Biblioteca: una tarjeta por lección (filterLessons), agrupadas por bloque del
- * temario; `statusOf(id)` da el estado individual de cada práctica.
+ * temario; `progressOf(id)` da el progreso de cada práctica (estado y mejores marcas).
  */
-export function renderLibrary(ce, lessons, statusOf, levelTitles = new Map()) {
+export function renderLibrary(ce, lessons, progressOf, levelTitles = new Map()) {
   ce.library.list.replaceChildren(...groupLessonsByLevel(lessons)
-    .map((group) => createLibraryGroup(group, levelTitles, statusOf)));
+    .map((group) => createLibraryGroup(group, levelTitles, progressOf)));
   const count = formatLessonCount(lessons.length);
   if (ce.library.count.textContent !== count) ce.library.count.textContent = count;
 }
@@ -414,6 +478,9 @@ export function renderPlayExercise(ce, exercise, { canSkip }) {
 export function renderObjectiveResults(ce, exercise, evaluation) {
   ce.resultExercise.hidden = !exercise;
   ce.targetResult.hidden = !exercise;
+  ce.resultsObjectives.hidden = !exercise;
+  ce.speedNote.textContent = speedNote(exercise);
+  ce.speedNote.hidden = !ce.speedNote.textContent;
   if (!exercise) return;
   const result = formatObjectiveResults(evaluation);
   ce.resultExercise.textContent = `${kindLabel(exercise.kind)}: ${exercise.title}`;
@@ -450,6 +517,40 @@ export function renderCourseReset(ce, { available, confirming = false, message =
   if (r.status.textContent !== message) r.status.textContent = message;
 }
 
+/** Título numerado de una lección en la Biblioteca: «A2. Mano derecha: J». */
+export function libraryLessonTitle({ code, title }) {
+  return code ? `${code}. ${title}` : title;
+}
+
+/** Mejores marcas de una práctica, solo a demanda en la Biblioteca. */
+export function bestMarksText({ bestAccuracy, bestWpm }) {
+  if (bestAccuracy === null || bestWpm === null) return 'Todavía sin resultados';
+  return `Mejor resultado: ${formatAccuracyFloor(bestAccuracy)} de precisión · ${Math.floor(bestWpm)} WPM`;
+}
+
+/** Aviso en Resultados cuando la velocidad se mide pero no forma parte del objetivo. */
+export function speedNote(exercise) {
+  return exercise && exercise.targetWpm === null ? 'La velocidad se informa, pero no se evalúa en esta práctica.' : '';
+}
+
+/**
+ * Qué acciones ofrece Resultados (T15.3). Solo el paso actual de la Academia ofrece
+ * el recorrido: «Siguiente ejercicio» (avance libre, como siempre) y «Práctica
+ * ampliada» si está desbloqueada. Tras una ampliada, la Biblioteca o Mi evolución, no.
+ */
+export function resultsActions({ origin, courseStep, hasNext, extendedAvailable }) {
+  const isExercise = origin !== 'free';
+  const step = origin === 'academy' && courseStep;
+  return {
+    retry: true,
+    extended: step && extendedAvailable,
+    next: step && hasNext,
+    courseEnd: step && !hasNext,
+    back: isExercise,
+    newText: !isExercise,
+  };
+}
+
 /** Rótulo del botón que repite la partida terminada desde Resultados. */
 export function retryLabel(origin) {
   return origin === 'free' ? 'Repetir texto' : 'Repetir ejercicio';
@@ -460,12 +561,15 @@ export function retryLabel(origin) {
  * texto), Biblioteca (Repetir ejercicio, volver) o Academia (Repetir ejercicio,
  * volver y, solo en el paso actual del recorrido, Siguiente ejercicio).
  */
-export function renderResultsActions(els, ce, { origin, courseStep, hasNext }) {
-  const isExercise = origin !== 'free';
+export function renderResultsActions(els, ce, { origin, courseStep, hasNext, extendedId = null }) {
+  const actions = resultsActions({ origin, courseStep, hasNext, extendedAvailable: Boolean(extendedId) });
   els.retryButton.textContent = retryLabel(origin);
-  els.newTextButton.hidden = isExercise;
-  ce.nextExerciseButton.hidden = !(courseStep && hasNext);
-  ce.courseEnd.hidden = !(courseStep && !hasNext);
-  ce.backToOriginButton.hidden = !isExercise;
+  els.newTextButton.hidden = !actions.newText;
+  ce.extendedResultsButton.hidden = !actions.extended;
+  ce.extendedResultsButton.dataset.exerciseId = actions.extended ? extendedId : '';
+  ce.nextExerciseButton.hidden = !actions.next;
+  ce.courseEnd.hidden = !actions.courseEnd;
+  ce.backToOriginButton.hidden = !actions.back;
   ce.backToOriginButton.textContent = backToOriginLabel(origin);
+  ce.resultsDetails.open = false;
 }

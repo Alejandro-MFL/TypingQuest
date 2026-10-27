@@ -179,7 +179,10 @@ function handlePopState() {
 }
 
 function renderRoute(route) {
-  if (route === 'home') courseUi.renderHome(ce, currentCourseExercise());
+  if (route === 'home') {
+    courseUi.renderHome(ce, currentCourseExercise());
+    courseUi.renderHomeProgress(ce, catalog ? courseOverview(catalog, progress) : null);
+  }
   else if (route === 'academy') renderAcademy();
   else if (route === 'library') renderLibrary();
   else if (route === 'history') {
@@ -296,7 +299,7 @@ function renderLibrary() {
   if (!catalog) return;
   const lessons = filterLessons(libraryLessons(catalog), courseUi.readLibraryFilters(ce));
   const levelTitles = new Map(catalog.levels.map((l) => [l.level, l.title]));
-  courseUi.renderLibrary(ce, lessons, (id) => getExerciseProgress(progress, id).status, levelTitles);
+  courseUi.renderLibrary(ce, lessons, (id) => getExerciseProgress(progress, id), levelTitles);
 }
 
 // Una posición guardada en una lección retirada pasa a su continuación y se guarda.
@@ -331,10 +334,10 @@ function handleLessonStart() {
   startExercise(currentCourseId(), 'academy', { courseStep: true });
 }
 
-// Práctica ampliada: opcional y nunca hace avanzar el recorrido.
+// Práctica ampliada: opcional, desbloqueada al superar la base y nunca hace avanzar el recorrido.
 function handleExtendedStart() {
   const id = ce.academy.extendedButton.dataset.exerciseId;
-  if (!id) return;
+  if (!id || ce.academy.extendedButton.hidden) return;
   markCurrentLessonSeen();
   startExercise(id, 'academy');
 }
@@ -552,15 +555,24 @@ function finishGame() {
   courseUi.renderAdvice(ce, evaluation ? practiceAdvice(evaluation) : null);
   const analysis = summarizeAnalysis(session.analysis, session.state.typed);
   analysisUi.renderDiagnosis(de.resultsBody, diagnose(analysis));
-  courseUi.renderResultsActions(els, ce, {
-    origin: session.origin, courseStep: session.courseStep, hasNext: hasNextCourseStep(),
-  });
   // La pantalla se muestra antes de guardar: así el aviso de fallo se escribe en
   // una región visible y el lector de pantalla lo anuncia.
   showScreen('results');
   saveFinishedSession(stats, evaluation, analysis);
+  // Después de guardar: la ampliada se ofrece si esta partida (u otra) la desbloqueó.
+  courseUi.renderResultsActions(els, ce, {
+    origin: session.origin, courseStep: session.courseStep, hasNext: hasNextCourseStep(),
+    extendedId: unlockedExtendedId(),
+  });
   ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
   els.retryButton.focus();
+}
+
+// Ampliada desbloqueada de la lección actual (solo en courseStep), o null (T15.3).
+function unlockedExtendedId() {
+  if (!catalog || !session?.courseStep) return null;
+  const extended = academyView(catalog, progress)?.extended;
+  return extended?.unlocked ? extended.exercise.id : null;
 }
 
 // true si el paso actual del recorrido tiene un siguiente (solo en courseStep).
@@ -768,12 +780,22 @@ function bindTypingInput() {
     updateNotice();
   });
   input.addEventListener('blur', () => {
-    if (!isPlaying()) return;
+    // T15.2: cambiar de ventana o aplicación no muestra el aviso (el foco vuelve solo).
+    if (!ui.isRealFocusLoss({ playing: isPlaying(), windowFocused: document.hasFocus() })) return;
     notices.focusLost = true;
     updateNotice();
   });
+  // Al volver a la ventana, si el foco quedó fuera de todo control, se devuelve al campo.
+  window.addEventListener('focus', () => {
+    if (isPlaying() && document.activeElement === document.body) input.focus();
+  });
   els.lane.addEventListener('click', () => {
     if (isPlaying()) input.focus();
+  });
+  // Un clic en una zona no interactiva de la partida (estadísticas, guía, manos) no
+  // quita el foco del campo: se evita el blur en lugar de pedir otro clic.
+  els.screens.play.addEventListener('mousedown', (event) => {
+    if (isPlaying() && ui.keepsTypingFocus(event.target)) event.preventDefault();
   });
 }
 
@@ -822,6 +844,14 @@ function handleNextExercise() {
   if (!hasNextCourseStep()) return;
   saveProgress(advanceCourse(progress, catalog.courseOrder));
   openCurrentLesson();
+}
+
+// «Práctica ampliada» desde Resultados (base de la lección actual): abre la ampliada
+// de la MISMA lección sin mover la posición del recorrido (T15.3).
+function handleResultsExtended() {
+  const id = ce.extendedResultsButton.dataset.exerciseId;
+  if (!id || !session?.courseStep) return;
+  startExercise(id, 'academy');
 }
 
 // «Saltar ejercicio» (paso actual de la Academia): lo marca como saltado si no
@@ -949,6 +979,7 @@ function bindEvents() {
   els.exitButton.addEventListener('click', handleExit);
   ce.skipButton.addEventListener('click', handleSkip);
   ce.nextExerciseButton.addEventListener('click', handleNextExercise);
+  ce.extendedResultsButton.addEventListener('click', handleResultsExtended);
   ce.backToOriginButton.addEventListener('click', handleBackToOrigin);
   ce.academy.startButton.addEventListener('click', handleLessonStart);
   ce.academy.nextButton.addEventListener('click', handleLessonNext);
