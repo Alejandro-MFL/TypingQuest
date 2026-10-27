@@ -7,6 +7,7 @@ import {
   nextLibraryReturn,
   restoreTarget,
   sanitizeLibraryFilters,
+  nextLibraryExercise,
 } from '../js/library-memory.js';
 
 const FILTERS = { query: 'ñ', level: 2, difficulty: 'basic', category: 'fila-central' };
@@ -90,5 +91,27 @@ describe('sanitizeLibraryFilters', () => {
 
   it('entradas no válidas no lanzan', () => {
     assert.deepEqual(sanitizeLibraryFilters(null, available), { query: '', level: null, difficulty: '', category: '' });
+  });
+});
+
+describe('nextLibraryExercise (T17): siguiente práctica visible de la Biblioteca', () => {
+  const lesson = (id, withExtended = true) => ({ base: { id }, extended: withExtended ? { id: `${id}-ampliada` } : null });
+  const lessons = [lesson('a1'), lesson('a2', false), lesson('a3')];
+
+  it('orden base → ampliada → siguiente lección', () => {
+    assert.equal(nextLibraryExercise(lessons, 'a1'), 'a1-ampliada');
+    assert.equal(nextLibraryExercise(lessons, 'a1-ampliada'), 'a2');
+    assert.equal(nextLibraryExercise(lessons, 'a2'), 'a3');
+  });
+
+  it('cruza de bloque sin quedarse atrapado (la lista es la de todos los bloques visibles)', () => {
+    const blocks = [lesson('a17', false), lesson('b1')];
+    assert.equal(nextLibraryExercise(blocks, 'a17'), 'b1');
+  });
+
+  it('al final de lo visible, o si la práctica ya no está visible: null', () => {
+    assert.equal(nextLibraryExercise(lessons, 'a3-ampliada'), null);
+    assert.equal(nextLibraryExercise(lessons, 'z9'), null);
+    assert.equal(nextLibraryExercise([], 'a1'), null);
   });
 });

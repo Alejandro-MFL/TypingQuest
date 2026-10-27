@@ -533,21 +533,32 @@ export function speedNote(exercise) {
   return exercise && exercise.targetWpm === null ? 'La velocidad se informa, pero no se evalúa en esta práctica.' : '';
 }
 
+// Rótulo de «Siguiente» según el origen: el alumno sabe adónde le lleva (T17).
+const NEXT_LABEL = Object.freeze({
+  academy: 'Siguiente ejercicio',
+  library: 'Siguiente ejercicio de la Biblioteca',
+  evolution: 'Siguiente recomendación',
+});
+
 /**
- * Qué acciones ofrece Resultados (T15.3). Solo el paso actual de la Academia ofrece
- * el recorrido: «Siguiente ejercicio» (avance libre, como siempre) y «Práctica
- * ampliada» si está desbloqueada. Tras una ampliada, la Biblioteca o Mi evolución, no.
+ * Qué acciones ofrece Resultados (T15.3 y T17). `courseLesson`: práctica (base o
+ * ampliada) de la lección ACTUAL abierta desde la Academia; solo ella ofrece el
+ * recorrido: «Siguiente ejercicio» (avance libre) y, tras la base, «Práctica ampliada»
+ * si está desbloqueada. Biblioteca y Mi evolución: «Siguiente» si hay `nextId`.
  */
-export function resultsActions({ origin, courseStep, hasNext, extendedAvailable }) {
-  const isExercise = origin !== 'free';
-  const step = origin === 'academy' && courseStep;
+export function resultsActions({
+  origin, courseLesson = false, isExtended = false, hasNext = false, extendedAvailable = false, nextId = null,
+}) {
+  const step = origin === 'academy' && courseLesson;
+  const listNext = (origin === 'library' || origin === 'evolution') && nextId !== null;
   return {
     retry: true,
-    extended: step && extendedAvailable,
-    next: step && hasNext,
+    extended: step && !isExtended && extendedAvailable,
+    next: step ? hasNext : listNext,
+    nextLabel: NEXT_LABEL[origin] ?? '',
     courseEnd: step && !hasNext,
-    back: isExercise,
-    newText: !isExercise,
+    back: origin !== 'free',
+    newText: origin === 'free',
   };
 }
 
@@ -557,17 +568,19 @@ export function retryLabel(origin) {
 }
 
 /**
- * Acciones de Resultados según el origen: práctica libre (Repetir texto, Nuevo
- * texto), Biblioteca (Repetir ejercicio, volver) o Academia (Repetir ejercicio,
- * volver y, solo en el paso actual del recorrido, Siguiente ejercicio).
+ * Acciones de Resultados según el origen (ver `resultsActions`). `nextId`: práctica
+ * siguiente de la Biblioteca o de Mi evolución; queda en el botón para abrirla.
  */
-export function renderResultsActions(els, ce, { origin, courseStep, hasNext, extendedId = null }) {
-  const actions = resultsActions({ origin, courseStep, hasNext, extendedAvailable: Boolean(extendedId) });
+export function renderResultsActions(els, ce, { extendedId = null, nextId = null, ...context }) {
+  const actions = resultsActions({ ...context, extendedAvailable: Boolean(extendedId), nextId });
+  const { origin } = context;
   els.retryButton.textContent = retryLabel(origin);
   els.newTextButton.hidden = !actions.newText;
   ce.extendedResultsButton.hidden = !actions.extended;
   ce.extendedResultsButton.dataset.exerciseId = actions.extended ? extendedId : '';
   ce.nextExerciseButton.hidden = !actions.next;
+  ce.nextExerciseButton.textContent = actions.nextLabel || 'Siguiente ejercicio';
+  ce.nextExerciseButton.dataset.exerciseId = actions.next && nextId ? nextId : '';
   ce.courseEnd.hidden = !actions.courseEnd;
   ce.backToOriginButton.hidden = !actions.back;
   ce.backToOriginButton.textContent = backToOriginLabel(origin);

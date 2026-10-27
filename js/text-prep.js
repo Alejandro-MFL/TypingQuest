@@ -16,6 +16,9 @@ const REPLACEMENTS = [
   [/\u0085/g, ' '],
   // Invisibles: guion blando, ancho cero, unión de palabras y BOM.
   [/[­​-‍⁠﻿]/g, ''],
+  // Controles de dirección del texto (bidi): invisibles, imposibles de teclear y capaces
+  // de reordenar lo que se ve (T17.2).
+  [/[\u200E\u200F\u202A-\u202E\u2066-\u2069\u061C]/g, ''],
   // Controles C0/C1 que no son espacios en blanco.
   [/[\u0000-\u0008\u000E-\u001F\u007F-\u009F]/g, ''],
   // Saltos de línea, tabulaciones y espacios Unicode → un único espacio.

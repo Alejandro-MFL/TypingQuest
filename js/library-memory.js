@@ -49,3 +49,15 @@ export function sanitizeLibraryFilters(filters, { levels, difficulties, categori
     category: categories.includes(f.category) ? f.category : '',
   };
 }
+
+/**
+ * «Siguiente ejercicio de la Biblioteca» (T17): la práctica que sigue a `currentId` en
+ * las lecciones visibles (con la búsqueda y los filtros del billete), en orden base →
+ * ampliada → siguiente lección, también de un bloque al siguiente. null al final o si
+ * la práctica ya no está visible.
+ */
+export function nextLibraryExercise(lessons, currentId) {
+  const ids = lessons.flatMap((lesson) => [lesson.base.id, lesson.extended?.id].filter(Boolean));
+  const index = ids.indexOf(currentId);
+  return index === -1 ? null : ids[index + 1] ?? null;
+}

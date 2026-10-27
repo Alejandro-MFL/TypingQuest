@@ -22,7 +22,7 @@ import {
 } from './lesson-guide.js';
 import { formatDateTime } from './history.js';
 import {
-  createLibraryReturn, nextLibraryReturn, restoreTarget, sanitizeLibraryFilters,
+  createLibraryReturn, nextLibraryReturn, restoreTarget, sanitizeLibraryFilters, nextLibraryExercise,
 } from './library-memory.js';
 import { parseRoute, routeHash } from './router.js';
 import { checklistSummary } from './ergonomics.js';
@@ -31,7 +31,7 @@ import * as courseUi from './course-ui.js';
 import * as analysisUi from './analysis-ui.js';
 import * as trendsUi from './trends-ui.js';
 import { analyzeTrends } from './typing-trends.js';
-import { recommendPractice } from './recommendations.js';
+import { recommendPractice, nextRecommendation } from './recommendations.js';
 import {
   createTypingAnalysis, recordTransition, summarizeAnalysis, packAnalysis, unpackAnalysis, diagnose,
 } from './typing-analysis.js';
@@ -81,8 +81,10 @@ let themePreference = themeStore.load();
 let guideState = guideStore.load();
 // Lección cuyas instrucciones muestra la Academia y si están desplegadas.
 let lessonIntroView = { lessonId: null, expanded: false };
-// Partida en curso: { state, chunks, savedRecordId, origin, exercise }.
-// origin: 'free' (práctica libre), 'academy' o 'library'; exercise: null en libre.
+// Partida en curso: { state, chunks, savedRecordId, origin, exercise, courseStep, courseLessonId }.
+// origin: 'free' (práctica libre), 'academy', 'library' o 'evolution'; exercise: null en libre.
+// courseLessonId: base de la lección ACTUAL de la Academia de la que procede la práctica
+// (base o ampliada), o null; solo ella ofrece «Siguiente ejercicio» en Resultados (T17).
 // savedRecordId evita guardar dos veces la misma finalización.
 let session = null;
 let currentScreen = 'home';
@@ -323,7 +325,13 @@ function handleLibraryClick(event) {
   const button = event.target.closest('[data-exercise-id]');
   const id = button?.dataset.exerciseId;
   if (!id) return;
-  const ticket = createLibraryReturn({ filters: courseUi.readLibraryFilters(ce), scrollY: window.scrollY, exerciseId: id });
+  openLibraryExercise(id, { filters: courseUi.readLibraryFilters(ce), scrollY: window.scrollY });
+}
+
+// Abre una práctica de la Biblioteca con su billete de vuelta. La entrada del historial
+// del navegador se añade solo una vez: «Siguiente ejercicio de la Biblioteca» la reutiliza.
+function openLibraryExercise(id, { filters, scrollY }) {
+  const ticket = createLibraryReturn({ filters, scrollY, exerciseId: id });
   startExercise(id, 'library');
   if (session?.exercise?.id !== id) return;
   libraryReturn = nextLibraryReturn(libraryReturn, { type: 'open-library-exercise', ticket });
@@ -342,7 +350,7 @@ function handleExtendedStart() {
   const id = ce.academy.extendedButton.dataset.exerciseId;
   if (!id || ce.academy.extendedButton.hidden) return;
   markCurrentLessonSeen();
-  startExercise(id, 'academy');
+  startExercise(id, 'academy', { courseLessonId: currentCourseId() });
 }
 
 // «Siguiente ejercicio» desde la Academia (base ya terminada, sin repetirla):
@@ -384,17 +392,17 @@ function handleSetupSubmit(event) {
 // Los textos del catálogo ya están validados con prepareText (catalog.js).
 // courseStep: true solo para la lección actual abierta desde la Academia; es lo
 // único que ofrece «Saltar» y «Siguiente ejercicio».
-function startExercise(id, origin, { courseStep = false } = {}) {
+function startExercise(id, origin, { courseStep = false, courseLessonId = null } = {}) {
   const exercise = catalog?.byId.get(id);
-  if (exercise) startGame(exercise.text, { origin, exercise, courseStep });
+  if (exercise) startGame(exercise.text, { origin, exercise, courseStep, courseLessonId: courseStep ? id : courseLessonId });
 }
 
-function startGame(text, { origin, exercise, courseStep = false }) {
+function startGame(text, { origin, exercise, courseStep = false, courseLessonId = null }) {
   leaveGame();
   if (origin !== 'library') libraryReturn = nextLibraryReturn(libraryReturn, { type: 'open-other-exercise' });
   const chunks = splitIntoChunks(text, CONFIG.wordsPerChunk);
   const state = createGame(text, { segmentEnds: chunks.map((c) => c.end), mode: selectedMode });
-  session = { state, chunks, savedRecordId: null, origin, exercise, courseStep, analysis: createTypingAnalysis(state.text) };
+  session = { state, chunks, savedRecordId: null, origin, exercise, courseStep, courseLessonId, analysis: createTypingAnalysis(state.text) };
   enterPlay();
 }
 
@@ -563,9 +571,10 @@ function finishGame() {
   showScreen('results');
   saveFinishedSession(stats, evaluation, analysis);
   // Después de guardar: la ampliada se ofrece si esta partida (u otra) la desbloqueó.
+  // También «Siguiente»: la Biblioteca y Mi evolución lo calculan con lo ya guardado.
   courseUi.renderResultsActions(els, ce, {
-    origin: session.origin, courseStep: session.courseStep, hasNext: hasNextCourseStep(),
-    extendedId: unlockedExtendedId(),
+    origin: session.origin, courseLesson: isCurrentLesson(), isExtended: session.exercise?.kind === 'extended',
+    hasNext: hasNextCourseStep(), extendedId: unlockedExtendedId(), nextId: nextListExercise(),
   });
   ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
   els.retryButton.focus();
@@ -578,10 +587,30 @@ function unlockedExtendedId() {
   return extended?.unlocked ? extended.exercise.id : null;
 }
 
-// true si el paso actual del recorrido tiene un siguiente (solo en courseStep).
+// true si la práctica procede de la lección ACTUAL de la Academia (base o ampliada).
+function isCurrentLesson() {
+  return Boolean(catalog && session?.origin === 'academy' && session.courseLessonId === currentCourseId());
+}
+
+// true si se puede avanzar uno desde Resultados: la base de la lección actual (avance
+// libre, como siempre) o su ampliada si la base está terminada, como en la Academia.
 function hasNextCourseStep() {
-  if (!catalog || !session?.courseStep) return false;
-  return nextInCourse(catalog.courseOrder, currentCourseId()) !== null;
+  if (!isCurrentLesson()) return false;
+  if (session.courseStep) return nextInCourse(catalog.courseOrder, currentCourseId()) !== null;
+  return Boolean(academyView(catalog, progress)?.canAdvance);
+}
+
+// Práctica siguiente de la Biblioteca (lecciones visibles con los filtros del billete)
+// o de Mi evolución (recomendaciones recalculadas tras guardar esta partida), o null.
+function nextListExercise() {
+  if (!catalog || !session?.exercise) return null;
+  if (session.origin === 'library') {
+    const filters = libraryReturn?.filters ?? courseUi.readLibraryFilters(ce);
+    return nextLibraryExercise(filterLessons(libraryLessons(catalog), filters), session.exercise.id);
+  }
+  if (session.origin !== 'evolution') return null;
+  const report = analyzeTrends(historyStore.load().sessions);
+  return nextRecommendation(recommendPractice({ report, catalog, progress }).items, session.exercise.id);
 }
 
 // Abandona la partida o los resultados en pantalla: detiene cronómetro, avisos
@@ -841,9 +870,21 @@ function syncSelectedMode(mode) {
   ui.renderSelectedMode(els, selectedMode);
 }
 
-// «Siguiente ejercicio» (paso actual de la Academia): avanza exactamente un
-// elemento aunque no se haya alcanzado el objetivo y abre el nuevo actual.
+// «Siguiente» de Resultados (T17), solo desde Resultados (un segundo clic ya no hace nada):
+// Academia (lección actual): avanza exactamente un elemento aunque no se haya alcanzado
+// el objetivo y abre el nuevo actual. Biblioteca y Mi evolución: abren la práctica
+// calculada al mostrar Resultados, sin mover el recorrido.
 function handleNextExercise() {
+  if (currentScreen !== 'results' || !session || ce.nextExerciseButton.hidden) return;
+  const id = ce.nextExerciseButton.dataset.exerciseId;
+  if (session.origin === 'academy') advanceFromResults();
+  else if (id && session.origin === 'library') {
+    openLibraryExercise(id, libraryReturn ?? { filters: courseUi.readLibraryFilters(ce), scrollY: 0 });
+  }
+  else if (id && session.origin === 'evolution') startExercise(id, 'evolution');
+}
+
+function advanceFromResults() {
   if (!hasNextCourseStep()) return;
   saveProgress(advanceCourse(progress, catalog.courseOrder));
   openCurrentLesson();
@@ -853,8 +894,8 @@ function handleNextExercise() {
 // de la MISMA lección sin mover la posición del recorrido (T15.3).
 function handleResultsExtended() {
   const id = ce.extendedResultsButton.dataset.exerciseId;
-  if (!id || !session?.courseStep) return;
-  startExercise(id, 'academy');
+  if (currentScreen !== 'results' || !id || !session?.courseStep) return;
+  startExercise(id, 'academy', { courseLessonId: session.courseLessonId });
 }
 
 // «Saltar ejercicio» (paso actual de la Academia): lo marca como saltado si no

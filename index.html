@@ -2,6 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <!-- Seguridad (T17.2): solo recursos propios; sin scripts ni estilos en línea, plugins,
+       <base> ni envío de formularios. Al publicar, enviarla también como cabecera HTTP
+       (allí se puede añadir frame-ancestors, que no funciona en <meta>). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
   <title>TypingQuest</title>

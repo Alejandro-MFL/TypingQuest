@@ -12,6 +12,7 @@ import {
   selectTargets,
   exerciseMatches,
   recommendPractice,
+  nextRecommendation,
 } from '../js/recommendations.js';
 
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -195,5 +196,32 @@ describe('upgraded: solo cuando la base ya está superada', () => {
     assert.equal(passed.upgraded, passed.exercise.kind === 'extended');
     const fresh = recommend(history({ á: 0.5 })).items[0];
     assert.equal(fresh.upgraded, false);
+  });
+});
+
+describe('nextRecommendation (T17): «Siguiente recomendación» con la lista recalculada', () => {
+  const item = (id, alternative = null) => ({ exercise: { id }, alternative: alternative ? { id: alternative } : null });
+  const items = [item('x', 'x2'), item('y'), item('z')];
+
+  it('la siguiente de la lista actual', () => {
+    assert.equal(nextRecommendation(items, 'x'), 'y');
+    assert.equal(nextRecommendation(items, 'y'), 'z');
+  });
+
+  it('desde la alternativa de una recomendación, también la siguiente', () => {
+    assert.equal(nextRecommendation(items, 'x2'), 'y');
+  });
+
+  it('la última no tiene siguiente', () => {
+    assert.equal(nextRecommendation(items, 'z'), null);
+  });
+
+  it('si la practicada ya no se recomienda (dificultad resuelta), la primera vigente', () => {
+    assert.equal(nextRecommendation(items, 'w'), 'x');
+    assert.equal(nextRecommendation([item('w')], 'w'), null);
+  });
+
+  it('sin recomendaciones válidas: null', () => {
+    assert.equal(nextRecommendation([], 'x'), null);
   });
 });

@@ -160,3 +160,14 @@ export function recommendPractice({ report, catalog, progress }) {
   }
   return { status: items.length > 0 ? 'ok' : 'none', items };
 }
+
+/**
+ * «Siguiente recomendación» (T17) con la lista YA recalculada tras guardar la partida:
+ * la que sigue a la practicada (como recomendación o como su alternativa). Si la
+ * practicada ya no se recomienda, la primera vigente distinta de ella. null si no hay.
+ */
+export function nextRecommendation(items, currentId) {
+  const index = items.findIndex((item) => item.exercise.id === currentId || item.alternative?.id === currentId);
+  if (index !== -1) return items[index + 1]?.exercise.id ?? null;
+  return items.find((item) => item.exercise.id !== currentId)?.exercise.id ?? null;
+}

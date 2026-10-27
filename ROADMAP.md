@@ -18,18 +18,22 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T14 | Experiencia pedagógica: introducción inicial, instrucciones por lección (tecla, dedo, movimiento desde la posición de reposo y objetivo), movimiento del dedo en la guía («J → U → J»), consejo «Siguiente paso» en Resultados y recorrido por bloques en la Academia. |
 | T15 | Rediseño visual: sistema de diseño con variables y temas claro, oscuro y automático (sin destello al cargar); componentes unificados; pantalla de escritura más compacta y legible, sin avisos de foco falsos; simplificación de Academia (ampliada desbloqueada al superar la base, «Tu recorrido» compacto), Biblioteca (una columna, lecciones numeradas A1…E8, detalles a demanda) y Resultados (análisis detallado plegado, «Práctica ampliada»); cabecera con logo y favicon y navegación centrada. Entregado como T15.1 y T15.2–T15.4. |
 | T16 | Ergonomía y hábitos saludables: sección «Ergonomía» en la navegación (postura, brazos y muñecas, pantalla y espacio de trabajo, descansos y fatiga) con consejos breves sin promesas médicas, lista de comprobación opcional que no se guarda, fuentes institucionales verificadas (INSST y CCOHS) y acceso discreto desde la introducción de la Academia. |
+| T17 | Calidad, navegación y seguridad. Navegación: botones de Resultados según el origen, «Siguiente ejercicio» también tras la ampliada de la lección actual de la Academia, «Siguiente ejercicio de la Biblioteca» (respeta búsqueda y filtros), «Siguiente recomendación» (lista recalculada) y protección frente a dobles clics, sin tocar el progreso académico ni el historial. Calidad y seguridad (revisión de alcance limitado, referencia OWASP): navegación y accesibilidad básica revisadas en Chromium, validación de datos locales, eliminación de controles bidi, CSP estricta y pruebas automatizadas de seguridad con entradas peligrosas. Entregado como T17 y T17.2. |
 
 ## Próximas fases (propuestas)
 
-Pendientes de aprobación, en este orden. No están implementadas.
+Pendientes de aprobación. No están implementadas.
 
-1. **T17 · Calidad, accesibilidad y compatibilidad:** teclado físico español (teclas
-   muertas, AltGr, Mayús), Firefox, Safari y móviles reales; lector de pantalla; estudiar
-   la solución de H2.
-   Depende de: T15 (diseño definitivo).
-2. **T18 · README profesional y publicación:** README, licencia, aviso de privacidad y
-   publicación como web estática.
-   Depende de: T16 y T17.
+1. **T18 · README profesional, preparación para publicación y verificación final:**
+   - README profesional para GitHub: funcionalidades, tecnologías, arquitectura, ejecución
+     local e instrucciones de uso, con capturas reales de la aplicación.
+   - Publicación estática segura: publicar solo los archivos de la aplicación (nunca `.git`,
+     tests ni documentación privada); HTTPS y cabeceras de seguridad (CSP con
+     `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`) configuradas o documentadas; CSP
+     comprobada en el entorno publicado (ver «Seguridad» en CLAUDE.md).
+   - Revisión de privacidad y almacenamiento local.
+   - Prueba final de navegación y funcionamiento, y limitaciones conocidas documentadas.
+   Depende de: T17.
 
 ## Mejoras futuras (sin fase asignada)
 
@@ -48,13 +52,32 @@ Pendientes de aprobación, en este orden. No están implementadas.
 
 ## Deuda técnica y limitaciones conocidas
 
+- **Pendiente tras T17 (no resuelto):** H2 (abajo), pruebas manuales en Firefox, Safari y
+  Brave, pruebas con lectores de pantalla reales, comprobación con un teclado español ISO
+  real y seguridad en producción (cabeceras HTTP, HTTPS, configuración del alojamiento y
+  exposición de archivos internos).
 - **TODO H2 (`tests/game.test.js`):** el motor solo compara el prefijo común; la escritura
   secuencial la impone la interfaz (cursor al final, sin selecciones ni borrado hacia delante).
+  Revisado en T17: desde la interfaz no se puede reproducir (`beforeinput` rechaza editar con
+  el cursor fuera del final y el cursor vuelve al final en `select` y `focus`); solo un
+  valor manipulado directamente lo provocaría, contando una pulsación de más. Corregirlo
+  exige que `applyInput` calcule la diferencia real entre el valor anterior y el nuevo
+  (posición de la edición) y redefinir qué es una pulsación en ese caso; cambia el núcleo
+  de las métricas, así que se deja para una fase propia con tests de regresión.
+- **Seguridad (riesgos que permanecen, T17.2):** los datos viven sin cifrar en el
+  localStorage del navegador (cualquiera con acceso al equipo o una extensión puede leerlos o
+  cambiarlos; la app solo valida su forma); `parseHistory` no recorta al cargar más de
+  `maxHistorySessions` registros (lo limita la cuota del navegador); el correo del autor
+  aparece en los commits públicos de GitHub; el servidor de desarrollo sirve toda la carpeta
+  (también `.git/`), pero solo en 127.0.0.1.
 - **Composición de varios caracteres:** IME (chino, japonés), algunos teclados Android y
   tecla muerta + letra no combinable se rechazan como pegado.
 - **Teclado físico:** falta verificar con un teclado español real las teclas muertas
   (´ ¨), AltGr y la guía; las pruebas automatizadas simulan la entrada.
-- **Compatibilidad entre navegadores:** probado en Chromium; Firefox y Safari sin verificar.
+- **Compatibilidad entre navegadores:** probado en Chromium (también en T17); Firefox,
+  Safari y Brave sin verificar (no disponibles en el entorno de desarrollo).
+- **Lectores de pantalla:** sin probar con lectores reales (NVDA, VoiceOver); la revisión de
+  T17 fue de nombres, foco, encabezados y regiones vivas.
 - **Preferencias sin persistencia:** sonido, modo de escritura y ayudas visuales se
   reinician al recargar.
 - **Objetivos pedagógicos:** `LEVEL_GOALS` (precisión y WPM) son provisionales y deben

@@ -226,40 +226,59 @@ describe('Biblioteca simplificada (T15.3)', () => {
   });
 });
 
-describe('acciones de Resultados (T15.3)', () => {
-  const base = { origin: 'academy', courseStep: true, hasNext: true, extendedAvailable: true };
+describe('acciones de Resultados (T15.3 y T17): matriz por origen', () => {
+  // courseLesson: práctica (base o ampliada) de la lección ACTUAL abierta desde la Academia.
+  const base = { origin: 'academy', courseLesson: true, isExtended: false, hasNext: true, extendedAvailable: true };
 
-  it('base de la Academia superada: Repetir, Práctica ampliada y Siguiente', () => {
-    assert.deepEqual(resultsActions(base),
-      { retry: true, extended: true, next: true, courseEnd: false, back: true, newText: false });
+  it('1-2. base de la Academia superada: Repetir, Práctica ampliada, Siguiente y volver', () => {
+    assert.deepEqual(resultsActions(base), {
+      retry: true, extended: true, next: true, nextLabel: 'Siguiente ejercicio',
+      courseEnd: false, back: true, newText: false,
+    });
   });
 
-  it('ampliada bloqueada: no se ofrece; el avance sigue libre como hasta ahora', () => {
+  it('1. base sin objetivo (ampliada bloqueada): no se ofrece; el avance sigue libre', () => {
     const actions = resultsActions({ ...base, extendedAvailable: false });
-    assert.equal(actions.extended, false);
-    assert.equal(actions.next, true);
+    assert.deepEqual([actions.extended, actions.next, actions.back], [false, true, true]);
   });
 
-  it('última lección: ampliada sí, Siguiente no y aviso de final', () => {
-    const actions = resultsActions({ ...base, hasNext: false });
-    assert.deepEqual([actions.extended, actions.next, actions.courseEnd], [true, false, true]);
+  it('3. ampliada de la lección actual: Siguiente sí (T17), nunca otra vez la ampliada', () => {
+    const actions = resultsActions({ ...base, isExtended: true });
+    assert.deepEqual([actions.extended, actions.next, actions.courseEnd, actions.back], [false, true, false, true]);
   });
 
-  it('tras una ampliada (no es paso del recorrido) no se repite la oferta ni hay Siguiente', () => {
-    const actions = resultsActions({ ...base, courseStep: false });
-    assert.deepEqual([actions.extended, actions.next, actions.courseEnd], [false, false, false]);
-  });
-
-  it('Biblioteca y Mi evolución nunca ofrecen acciones del recorrido', () => {
-    for (const origin of ['library', 'evolution']) {
-      const actions = resultsActions({ origin, courseStep: false, hasNext: true, extendedAvailable: true });
-      assert.deepEqual([actions.extended, actions.next, actions.back], [false, false, true]);
+  it('10. última lección: sin Siguiente y con aviso de final (base y ampliada)', () => {
+    for (const isExtended of [false, true]) {
+      const actions = resultsActions({ ...base, isExtended, hasNext: false });
+      assert.deepEqual([actions.next, actions.courseEnd, actions.back], [false, true, true]);
     }
   });
 
-  it('práctica libre: Repetir y Nuevo texto, sin volver', () => {
-    const actions = resultsActions({ origin: 'free', courseStep: false, hasNext: false, extendedAvailable: false });
-    assert.deepEqual([actions.newText, actions.back, actions.extended], [true, false, false]);
+  it('Academia fuera de la lección actual: sin acciones del recorrido', () => {
+    const actions = resultsActions({ ...base, courseLesson: false });
+    assert.deepEqual([actions.extended, actions.next, actions.courseEnd], [false, false, false]);
+  });
+
+  it('4-5. Biblioteca: Siguiente ejercicio de la Biblioteca si hay uno visible después', () => {
+    const actions = resultsActions({ origin: 'library', nextId: 'b', hasNext: true, extendedAvailable: true });
+    assert.deepEqual([actions.extended, actions.next, actions.courseEnd, actions.back], [false, true, false, true]);
+    assert.equal(actions.nextLabel, 'Siguiente ejercicio de la Biblioteca');
+  });
+
+  it('6. último ejercicio visible de la Biblioteca: sin Siguiente ni aviso de final', () => {
+    const actions = resultsActions({ origin: 'library', nextId: null });
+    assert.deepEqual([actions.next, actions.courseEnd, actions.back], [false, false, true]);
+  });
+
+  it('7-8. Mi evolución: Siguiente recomendación solo si hay una válida', () => {
+    const withNext = resultsActions({ origin: 'evolution', nextId: 'x' });
+    assert.deepEqual([withNext.next, withNext.nextLabel, withNext.back], [true, 'Siguiente recomendación', true]);
+    assert.equal(resultsActions({ origin: 'evolution', nextId: null }).next, false);
+  });
+
+  it('9. práctica libre: Repetir y Nuevo texto, sin acciones de ejercicios', () => {
+    const actions = resultsActions({ origin: 'free', nextId: 'x', hasNext: true, extendedAvailable: true });
+    assert.deepEqual([actions.newText, actions.back, actions.extended, actions.next], [true, false, false, false]);
   });
 });
 

@@ -61,7 +61,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, security, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 .claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
@@ -251,8 +251,26 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
     partida, «Saltar ejercicio». La práctica ampliada nunca los ofrece.
   - T15.3 (`resultsActions`): en la lección actual, si la ampliada está desbloqueada
     (`unlockedExtendedId`, calculado DESPUÉS de guardar la partida), también «Práctica
-    ampliada»: abre la ampliada de la MISMA lección sin mover la posición. Tras una
-    ampliada, la Biblioteca o Mi evolución no se ofrece ni ampliada ni Siguiente.
+    ampliada»: abre la ampliada de la MISMA lección sin mover la posición.
+  - T17: `session.courseLessonId` = base de la lección ACTUAL de la que procede la práctica
+    (base con `courseStep`, o su ampliada abierta desde la Academia o desde Resultados).
+    Tras esa ampliada: «Repetir», «Siguiente ejercicio» (si la base está terminada, como
+    `canAdvance`; nunca otra vez la ampliada) y volver. Si la posición ya no es esa lección,
+    solo Repetir y volver. Última lección: sin Siguiente y con el aviso de final.
+  - T17, Biblioteca: «Siguiente ejercicio de la Biblioteca» (`nextLibraryExercise` en
+    `library-memory.js`): la práctica siguiente entre las lecciones VISIBLES con la búsqueda
+    y los filtros del billete, en orden base → ampliada → siguiente lección (cruza bloques);
+    oculto al final. Reutiliza la entrada del historial del navegador y renueva el billete
+    (volver enfoca la última práctica abierta). Nunca mueve la Academia ni pide desbloqueos.
+  - T17, Mi evolución: «Siguiente recomendación» (`nextRecommendation` en
+    `recommendations.js`) con las recomendaciones RECALCULADAS tras guardar: la que sigue a la
+    practicada (o a la recomendación de la que es alternativa); si ya no se recomienda, la
+    primera vigente distinta. Sin siguiente válida, solo volver a Mi evolución.
+  - Un solo botón `#next-exercise-button` con el rótulo según el origen (`NEXT_LABEL`) y la
+    práctica en `data-exercise-id`; visible, es la acción principal y «Repetir» pasa a
+    secundario. Todos los botones de Resultados actúan solo con Resultados en pantalla
+    (`currentScreen`): los clics repetidos no avanzan dos veces. Práctica libre: sin
+    «Volver a Práctica libre» porque «Nuevo texto» ya vuelve a la preparación con el texto.
   «Repetir» (Resultados, `handleRetry`) y «Reiniciar ejercicio» (partida, con icono de
   flecha circular, `handleRestart`) comparten `restartSession`: la MISMA sesión (texto,
   ejercicio, origen, paso del recorrido y modo; sonido y ayudas no cambian) vuelve a
@@ -641,6 +659,25 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 - Móvil: el teclado se ajusta al ancho (sin scroll horizontal) y oculta los rótulos
   secundarios; las manos se reducen. `prefers-reduced-motion`: sin transiciones.
 - Pendiente (no T9): estadísticas por dedo.
+
+## Seguridad (T17.2: `tests/security.test.js`)
+
+- Sin sumideros de HTML ni evaluación de código: nada de `innerHTML`, `outerHTML`,
+  `insertAdjacentHTML`, `document.write`, `eval`, `new Function` ni temporizadores con
+  texto (un test recorre `js/*.js`). Todo texto del juego o del usuario va por `textContent`.
+- `index.html`: CSP en `<meta>` (`default-src 'self'`, sin `unsafe-inline`/`unsafe-eval`,
+  `object-src`, `base-uri` y `form-action` a `'none'`) y `referrer` `no-referrer`. Por eso: sin
+  scripts, estilos ni manejadores en línea (los estilos dinámicos, con CSSOM: `el.style.x`),
+  recursos solo locales y enlaces externos `https` con `rel="noopener noreferrer"`. Un recurso
+  nuevo de otro origen exige ampliar la CSP a propósito (el test lo detecta).
+- `prepareText` elimina también los controles de dirección (bidi: U+200E/F, U+202A-E,
+  U+2066-9, U+061C): invisibles, imposibles de teclear y capaces de reordenar lo que se ve.
+- localStorage se trata como entrada no fiable: cada lector valida forma, tipos e IDs
+  (`isValidExerciseId`) y descarta lo demás (tests con HTML, `__proto__` y JSON roto).
+- Publicación (T18): servir por HTTPS y repetir la CSP como cabecera HTTP, añadiendo
+  `frame-ancestors 'none'` (no funciona en `<meta>`), `X-Content-Type-Options: nosniff` y
+  `Referrer-Policy: no-referrer`. Publicar solo `index.html`, `css/`, `js/`, `data/` y
+  `assets/` (nunca `.git/`, `.claude/`, `tests/` ni `tools/`).
 
 ## Convenciones
 
