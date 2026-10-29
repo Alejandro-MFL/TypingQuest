@@ -4,8 +4,26 @@
     {
       "name": "typingquest",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["tools/dev-server.py", "8000"],
+      "runtimeArgs": [
+        "tools/dev-server.py",
+        "8000"
+      ],
       "port": 8000
+    },
+    {
+      "name": "typingquest-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8010",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        ".site-preview"
+      ],
+      "port": 8010,
+      "url": "http://localhost:8010"
     }
   ]
 }

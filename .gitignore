@@ -1,0 +1,3 @@
+# Artefactos de publicación (tools/build-site.mjs): se generan, no se versionan.
+_site/
+.site-preview/

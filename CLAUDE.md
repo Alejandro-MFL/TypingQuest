@@ -61,10 +61,18 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, security, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, security, build-site, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
-.claude/launch.json   # Servidor de vista previa para Claude Code (usa tools/dev-server.py).
+tools/build-site.mjs  # Artefacto de publicación (T18): copia y comprueba solo los archivos de la web.
+README.md             # Presentación del proyecto para GitHub (con capturas de docs/screenshots/).
+LICENSE               # MIT (texto oficial sin cambios) para el código.
+TRADEMARKS.md         # Nombre y logotipos fuera de la licencia MIT (no se autoriza su reutilización).
+docs/                 # publicacion.md (guía de despliegue) y screenshots/ (capturas reales, datos de prueba).
+.github/workflows/    # pages.yml: pruebas + artefacto; publica solo a mano y desde la rama predeterminada.
+.gitignore            # _site/ y .site-preview/ (artefactos generados).
+.claude/launch.json   # Vista previa: «typingquest» (tools/dev-server.py, :8000) y «typingquest-site»
+                      # (artefacto en .site-preview/, :8010, subruta /TypingQuest/).
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
 ```
@@ -678,6 +686,27 @@ tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
   `frame-ancestors 'none'` (no funciona en `<meta>`), `X-Content-Type-Options: nosniff` y
   `Referrer-Policy: no-referrer`. Publicar solo `index.html`, `css/`, `js/`, `data/` y
   `assets/` (nunca `.git/`, `.claude/`, `tests/` ni `tools/`).
+
+## Publicación (T18: `tools/build-site.mjs`, `.github/workflows/pages.yml`, `docs/publicacion.md`)
+
+- Web publicada = SOLO `PUBLIC_ENTRIES` (`index.html`, `css`, `js`, `data`, `assets`). `checkSite`
+  rechaza archivos ocultos, extensiones fuera de la lista y referencias locales absolutas
+  (`/…`) o rotas en `index.html` y en los `url()` del CSS: la web debe funcionar bajo una
+  subruta (`/TypingQuest/`). Un recurso nuevo exige que esté dentro de esas carpetas y, si
+  es de otro tipo, ampliar `ALLOWED_EXTENSIONS`.
+- Workflow: solo `workflow_dispatch`; ejecuta las dos suites y construye/comprueba el
+  artefacto; el job `deploy` exige la casilla `publicar` y la rama predeterminada. Acciones
+  oficiales fijadas por SHA (etiqueta en comentario); permisos mínimos (`contents: read`;
+  `pages`/`id-token` solo en `deploy`). Al actualizar una acción, resolver el SHA de su
+  etiqueta con `gh api`.
+- GitHub Pages no permite cabeceras: `frame-ancestors` y `nosniff` quedan sin aplicar (ver
+  docs/publicacion.md). La CSP y `referrer` siguen en `<meta>`.
+- Licencia: código MIT (`LICENSE`, texto oficial intacto para que GitHub la detecte); los
+  logotipos de `assets/` y la marca quedan fuera (`TRADEMARKS.md`, enlazado desde README). No
+  meter condiciones en `LICENSE` ni un `.md` dentro de `assets/` (se publicaría y `checkSite` lo
+  rechaza).
+- README: sin números de pruebas fijos; capturas reales con datos de prueba (perfil temporal
+  de Chrome sin interfaz sobre el artefacto), nunca datos del usuario.
 
 ## Convenciones
 

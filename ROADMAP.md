@@ -19,21 +19,20 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T15 | Rediseño visual: sistema de diseño con variables y temas claro, oscuro y automático (sin destello al cargar); componentes unificados; pantalla de escritura más compacta y legible, sin avisos de foco falsos; simplificación de Academia (ampliada desbloqueada al superar la base, «Tu recorrido» compacto), Biblioteca (una columna, lecciones numeradas A1…E8, detalles a demanda) y Resultados (análisis detallado plegado, «Práctica ampliada»); cabecera con logo y favicon y navegación centrada. Entregado como T15.1 y T15.2–T15.4. |
 | T16 | Ergonomía y hábitos saludables: sección «Ergonomía» en la navegación (postura, brazos y muñecas, pantalla y espacio de trabajo, descansos y fatiga) con consejos breves sin promesas médicas, lista de comprobación opcional que no se guarda, fuentes institucionales verificadas (INSST y CCOHS) y acceso discreto desde la introducción de la Academia. |
 | T17 | Calidad, navegación y seguridad. Navegación: botones de Resultados según el origen, «Siguiente ejercicio» también tras la ampliada de la lección actual de la Academia, «Siguiente ejercicio de la Biblioteca» (respeta búsqueda y filtros), «Siguiente recomendación» (lista recalculada) y protección frente a dobles clics, sin tocar el progreso académico ni el historial. Calidad y seguridad (revisión de alcance limitado, referencia OWASP): navegación y accesibilidad básica revisadas en Chromium, validación de datos locales, eliminación de controles bidi, CSP estricta y pruebas automatizadas de seguridad con entradas peligrosas. Entregado como T17 y T17.2. |
+| T18 | README profesional con capturas reales (datos de prueba), licencia MIT para el código con el nombre y los logotipos excluidos (`TRADEMARKS.md`), guía de publicación con auditoría de privacidad del historial, artefacto mínimo comprobado (`tools/build-site.mjs`, con tests) y workflow de GitHub Pages manual y sin publicar por defecto. Comprobado en local bajo `/TypingQuest/` (solo Chromium). Lanzamiento público pendiente. |
 
-## Próximas fases (propuestas)
+## Lanzamiento público (pendiente)
 
-Pendientes de aprobación. No están implementadas.
+La implementación de T18 está completada; la publicación aún no se ha hecho. Pasos y
+comprobaciones en `docs/publicacion.md`:
 
-1. **T18 · README profesional, preparación para publicación y verificación final:**
-   - README profesional para GitHub: funcionalidades, tecnologías, arquitectura, ejecución
-     local e instrucciones de uso, con capturas reales de la aplicación.
-   - Publicación estática segura: publicar solo los archivos de la aplicación (nunca `.git`,
-     tests ni documentación privada); HTTPS y cabeceras de seguridad (CSP con
-     `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`) configuradas o documentadas; CSP
-     comprobada en el entorno publicado (ver «Seguridad» en CLAUDE.md).
-   - Revisión de privacidad y almacenamiento local.
-   - Prueba final de navegación y funcionamiento, y limitaciones conocidas documentadas.
-   Depende de: T17.
+1. Hacer público el repositorio (decidido; revisar antes la auditoría de privacidad: el
+   correo de los commits y 15 líneas antiguas `Co-Authored-By` serán visibles).
+2. Activar GitHub Pages con origen «GitHub Actions» y ejecutar el workflow, primero sin
+   publicar y después con «publicar».
+3. Verificar en la web real: HTTPS («Enforce HTTPS»), CSP sin violaciones, 404 de los
+   archivos internos y navegación completa. GitHub Pages no permite cabeceras:
+   `frame-ancestors` y `nosniff` quedan sin aplicar (riesgo bajo, documentado).
 
 ## Mejoras futuras (sin fase asignada)
 
@@ -54,8 +53,8 @@ Pendientes de aprobación. No están implementadas.
 
 - **Pendiente tras T17 (no resuelto):** H2 (abajo), pruebas manuales en Firefox, Safari y
   Brave, pruebas con lectores de pantalla reales, comprobación con un teclado español ISO
-  real y seguridad en producción (cabeceras HTTP, HTTPS, configuración del alojamiento y
-  exposición de archivos internos).
+  real y seguridad en producción (HTTPS y CSP en la web real, cabeceras que GitHub Pages no
+  permite y 404 de los archivos internos tras publicar).
 - **TODO H2 (`tests/game.test.js`):** el motor solo compara el prefijo común; la escritura
   secuencial la impone la interfaz (cursor al final, sin selecciones ni borrado hacia delante).
   Revisado en T17: desde la interfaz no se puede reproducir (`beforeinput` rechaza editar con
