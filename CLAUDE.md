@@ -689,6 +689,8 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
 
 ## Publicación (T18: `tools/build-site.mjs`, `.github/workflows/pages.yml`, `docs/publicacion.md`)
 
+- Publicada en https://alejandro-mfl.github.io/TypingQuest/ (repositorio público; Pages con
+  origen «GitHub Actions»). Un push no publica: solo el workflow lanzado a mano.
 - Web publicada = SOLO `PUBLIC_ENTRIES` (`index.html`, `css`, `js`, `data`, `assets`). `checkSite`
   rechaza archivos ocultos, extensiones fuera de la lista y referencias locales absolutas
   (`/…`) o rotas en `index.html` y en los `url()` del CSS: la web debe funcionar bajo una

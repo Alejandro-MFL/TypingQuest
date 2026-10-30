@@ -1,24 +1,26 @@
 # Publicación de TypingQuest
 
-Guía para publicar TypingQuest como web estática en **GitHub Pages**. Cada paso requiere tu
-autorización expresa. **Hoy no hay ninguna versión publicada.**
+Guía para publicar TypingQuest como web estática en **GitHub Pages**. Cada publicación
+requiere tu autorización expresa.
+
+**Web publicada:** <https://alejandro-mfl.github.io/TypingQuest/>
 
 ## Estado
 
 | Estado | Qué |
 | --- | --- |
 | Implementado | `tools/build-site.mjs` construye el artefacto y lo comprueba: solo `index.html`, `css/`, `js/`, `data/` y `assets/`, sin archivos ocultos, de tipos no permitidos ni referencias absolutas o rotas. `.github/workflows/pages.yml` ejecuta las pruebas, construye el artefacto y solo publica si se lanza a mano con la casilla «publicar» marcada desde la rama predeterminada. |
-| Comprobado en local | El artefacto, servido en `http://localhost:8010/TypingQuest/` (la misma subruta que tendría en Pages), carga todos los módulos, los JSON, el logo y el favicon (todas las peticiones con 200), sin errores en consola ni violaciones de la CSP. Funcionan las rutas, una práctica completa con los botones de Resultados y Atrás/Adelante. CLAUDE.md, ROADMAP.md, `tests/`, `tools/`, `.git/` y `.claude/` devuelven 404. |
-| Pendiente | Hacer público el repositorio (decidido, sin aplicar), activar Pages, ejecutar el workflow, comprobar la web publicada (HTTPS, CSP, cabeceras) y probar en Firefox, Safari y Brave. |
+| Comprobado en local | El artefacto, servido en `http://localhost:8010/TypingQuest/` (la misma subruta que en Pages), carga todos los módulos, los JSON, el logo y el favicon, sin errores en consola ni violaciones de la CSP. Funcionan las rutas, una práctica completa con los botones de Resultados y Atrás/Adelante. |
+| Publicado | Repositorio público; Pages con origen «GitHub Actions» y «Enforce HTTPS» activo. El workflow se ejecutó a mano el 30-10-2026 (primero sin publicar y después con «publicar»), ambos con éxito. |
+| Comprobado en la web real | `https://` responde 200 (con `Strict-Transport-Security`) y `http://` redirige (301). Las seis pantallas cargan, la Biblioteca muestra las 67 lecciones, todos los módulos y JSON responden 200 y la consola no muestra errores ni avisos de CSP (Chromium). `CLAUDE.md`, `tests/`, `tools/dev-server.py` y `.claude/settings.json` devuelven 404. |
+| Pendiente | Probar la web publicada en Firefox, Safari y Brave. |
 
-## Antes de publicar: decisiones
+## Decisiones
 
-1. **Visibilidad del repositorio.** Hoy es **privado**; se ha decidido hacerlo público. GitHub Pages en repositorios privados
-   solo está disponible con los planes de pago (GitHub Pro, Team o Enterprise); con el plan
-   gratuito hay que hacerlo **público**. En cualquier caso, la web publicada es pública.
-   Al hacer público el repositorio, también serán visibles el historial completo y el correo
-   de los commits; si prefieres ocultarlo en adelante, usa el correo `noreply` de GitHub
-   (Settings → Emails). El historial anterior no se reescribe.
+1. **Visibilidad del repositorio.** El repositorio es **público** (GitHub Pages en repositorios
+   privados solo está disponible con planes de pago). Son visibles el historial completo y el
+   correo de los commits anteriores; los commits nuevos usan el correo `noreply` de GitHub.
+   El historial anterior no se reescribe.
 2. **Licencia.** Código bajo MIT ([LICENSE](../LICENSE)); los logotipos y la identidad de
    marca quedan fuera ([TRADEMARKS.md](../TRADEMARKS.md)). Los logotipos se publican con la web
    porque la aplicación los necesita.
@@ -28,16 +30,20 @@ autorización expresa. **Hoy no hay ninguna versión publicada.**
 
 ## Pasos para publicar
 
-1. Sube a GitHub el commit de T18 (con tu autorización).
-2. **Hacer público el repositorio:** **Settings → General → Danger Zone → Change repository
-   visibility → Make public**. Antes, revisa la auditoría de privacidad (abajo).
-3. En GitHub: **Settings → Pages → Build and deployment → Source: «GitHub Actions»**.
-4. **Prueba sin publicar:** pestaña **Actions → «Publicar en GitHub Pages» → Run workflow**,
+Configuración inicial (ya hecha): repositorio público (**Settings → General → Danger Zone**),
+**Settings → Pages → Source: «GitHub Actions»** y **«Enforce HTTPS»** marcado.
+
+Para publicar una versión nueva:
+
+1. Sube a GitHub los commits que quieras publicar (con tu autorización).
+2. **Prueba sin publicar:** pestaña **Actions → «Publicar en GitHub Pages» → Run workflow**,
    desde la rama predeterminada, con «publicar» **desmarcado**. Deben pasar las pruebas y el
    paso «Contenido del artefacto» debe listar solo `index.html`, `assets/`, `css/`, `data/` y `js/`.
-5. **Publicación:** repite con «publicar» **marcado**. Al terminar, el job `deploy` muestra la
-   URL, previsiblemente `https://alejandro-mfl.github.io/TypingQuest/`.
-6. En **Settings → Pages**, marca **«Enforce HTTPS»** si aparece disponible.
+3. **Publicación:** repite con «publicar» **marcado**. Al terminar, el job `deploy` muestra la
+   URL: `https://alejandro-mfl.github.io/TypingQuest/`.
+4. Repite las comprobaciones de abajo.
+
+Subir commits (push) **no** publica nada: la web solo cambia al lanzar el workflow a mano.
 
 ## Auditoría de privacidad del historial (T18)
 
@@ -45,15 +51,15 @@ Revisados los 21 commits de todas las ramas, sus autores y todos los archivos qu
 (ninguno se ha eliminado):
 
 - **Sin credenciales ni tokens**, sin archivos de entorno y sin rutas locales privadas.
-- **Será público:** el nombre `AlejandroMFL` y el correo personal de autor y committer de
-  todos los commits. No se reescribe el historial; para los commits futuros se puede usar el
-  correo `noreply` de GitHub (Settings → Emails y `git config user.email`).
+- **Público:** el nombre `AlejandroMFL` y el correo personal de autor y committer de esos
+  commits. No se reescribe el historial; los commits posteriores usan el correo `noreply` de
+  GitHub (`git config user.email` en este repositorio).
 - **También visible:** 15 commits antiguos llevan la línea `Co-Authored-By: Claude …`
   (anterior a la configuración que la desactiva). Los commits actuales ya no la incluyen.
 - Los correos que aparecen en los ejercicios (p. ej. `info@typingquest.es`) son textos de
   práctica inventados, no datos de nadie.
-- CLAUDE.md y ROADMAP.md (documentación de trabajo) quedarán visibles en el repositorio,
-  pero no en la web publicada.
+- CLAUDE.md y ROADMAP.md (documentación de trabajo) son visibles en el repositorio, pero no
+  en la web publicada.
 
 ## Comprobaciones tras publicar
 
@@ -71,12 +77,13 @@ curl -sI https://alejandro-mfl.github.io/TypingQuest/
 
 ## Seguridad en GitHub Pages: qué se cubre y qué no
 
-GitHub Pages **no permite configurar cabeceras HTTP**. En una web de `github.io` observada en
-T18 solo aparecían `Server`, `Access-Control-Allow-Origin: *` y `Cache-Control: max-age=600`.
+GitHub Pages **no permite configurar cabeceras HTTP**. En la web publicada aparecen, entre
+otras, `Access-Control-Allow-Origin: *`, `Strict-Transport-Security` y `Cache-Control: max-age=600`,
+pero ninguna de seguridad propia del proyecto.
 
 | Medida | En GitHub Pages |
 | --- | --- |
-| HTTPS | Sí, con el certificado de GitHub («Enforce HTTPS»). Pendiente de comprobar en la web real. |
+| HTTPS | Sí, con el certificado de GitHub («Enforce HTTPS» activo; `http://` redirige y se envía `Strict-Transport-Security`). |
 | CSP | Sí, mediante la `<meta>` de `index.html` (scripts, estilos, imágenes y conexiones solo del propio sitio; sin `unsafe-inline` ni `unsafe-eval`). |
 | `Referrer-Policy: no-referrer` | Sí, mediante `<meta name="referrer">`. Los enlaces externos llevan además `noreferrer`. |
 | `frame-ancestors 'none'` (evitar que otra web la incruste) | **No**: solo funciona como cabecera. Riesgo bajo, porque no hay cuentas ni datos de otros; como mucho, alguien podría incrustarla y engañar a un usuario para que pulse botones, que piden confirmación al borrar. |

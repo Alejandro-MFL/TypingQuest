@@ -6,6 +6,10 @@
   Academia interactiva de mecanografía para el teclado español, hecha con HTML, CSS y JavaScript sin dependencias.
 </p>
 
+<p align="center">
+  <a href="https://alejandro-mfl.github.io/TypingQuest/"><strong>▶ Probar TypingQuest en el navegador</strong></a>
+</p>
+
 ---
 
 **TypingQuest** enseña a escribir sin mirar el teclado con un curso progresivo: cada lección
@@ -17,8 +21,9 @@ explicables (sin inteligencia artificial).
 Está pensada para quien empieza desde cero con un teclado español (QWERTY ISO) y para quien
 ya escribe, pero quiere corregir malos hábitos y ganar velocidad sin perder precisión.
 
-> **Demo:** todavía no hay una versión publicada. Para probarla, consulta
-> [Ejecución local](#ejecución-local).
+> **Web pública:** <https://alejandro-mfl.github.io/TypingQuest/>. No hace falta instalar ni
+> registrarse: funciona en el navegador y guarda los datos solo en tu equipo. Para ejecutarla
+> en local, consulta [Ejecución local](#ejecución-local).
 
 ## Capturas
 
@@ -93,7 +98,7 @@ la demostración. Tema oscuro; al final, dos del tema claro.
 - **Web Storage** (`localStorage`) para el progreso y las preferencias.
 - **Node.js 22** (`node --test`) para las pruebas automatizadas, sin instalar paquetes.
 - **Python 3** (biblioteca estándar) para el servidor local de desarrollo.
-- **Git**, **GitHub** y **GitHub Actions** para el despliegue en GitHub Pages, que está preparado.
+- **Git**, **GitHub** y **GitHub Actions** para publicar en **GitHub Pages** (despliegue manual).
 
 No hay backend, base de datos remota, cuentas de usuario, analítica ni servicios de IA.
 
