@@ -55,13 +55,15 @@ js/theme-boot.js      # Script CLÁSICO en el <head>: aplica el tema antes de pi
 js/storage.js         # Persistencia del historial y del progreso (almacenamiento inyectado; nunca lanza).
 js/ui.js              # Renderizado y DOM de partida, resultados e historial; helpers puros testeables.
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
-js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías).
+js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías); volumen general (exp. 01).
+js/volume.js          # PURO (exp. 01): preferencia de volumen 0-100 %, curva de ganancia y textos.
+js/session-compare.js # PURO (exp. 01): comparación con el intento anterior del mismo ejercicio y modo.
 js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo, progreso y pantallas.
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, security, build-site, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, session-compare y volume (exp. 01), security, build-site, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 tools/build-site.mjs  # Artefacto de publicación (T18): copia y comprueba solo los archivos de la web.
@@ -71,7 +73,7 @@ TRADEMARKS.md         # Nombre y logotipos fuera de la licencia MIT (no se autor
 docs/                 # publicacion.md (guía de despliegue) y screenshots/ (capturas reales, datos de prueba).
 .github/workflows/    # pages.yml: pruebas + artefacto; publica solo a mano y desde la rama predeterminada.
 .gitignore            # _site/ y .site-preview/ (artefactos generados).
-.claude/launch.json   # Vista previa: «typingquest» (tools/dev-server.py, :8000) y «typingquest-site»
+.claude/launch.json   # Vista previa: «typingquest» (:8000), «typingquest-experimental» (exp. 01, :8001) y «typingquest-site»
                       # (artefacto en .site-preview/, :8010, subruta /TypingQuest/).
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
@@ -118,7 +120,7 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
 - `chunkAnimationMs: 350` — duración de la animación al completar un fragmento.
 - `blockOnErrorsDefault: false` — estado inicial de «Bloquear avance con errores» (modo libre).
 - `maxHistorySessions: 500` y `historyChartSessions: 20` — sesiones guardadas y graficadas.
-- `soundEnabled: true` — estado inicial del sonido (aún sin persistencia).
+- `soundEnabled: true` — estado inicial del sonido (exp. 01: solo si no hay volumen guardado).
 - `spaceHintDelayMs: 1500` — espera antes de mostrar «Pulsa espacio».
 - `statsRefreshMs: 250` y `minWpmElapsedMs: 1000` — refresco y umbral del WPM en vivo.
 
@@ -230,7 +232,8 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
   precisión y tiempo, WPM destacado (con «La velocidad se informa, pero no se evalúa en
   esta práctica» si no hay objetivo de WPM, `speedNote`), modo y errores en una línea
   secundaria, y las acciones. «Ver análisis detallado» (`<details>` #results-details,
-  plegado en cada partida) agrupa el desglose de objetivos, el diagnóstico y la evolución.
+  plegado en cada partida) agrupa el desglose de objetivos, el diagnóstico y la evolución
+  (exp. 01.2: «Tu evolución» sale del desplegable; ver «Experimento 01»).
 - Dentro del análisis detallado, «Tu evolución» con las gráficas
   de WPM y precisión de las últimas `historyChartSessions` sesiones guardadas (incluida
   la recién terminada). El SVG es decorativo (`aria-hidden`); su descripción textual
@@ -244,7 +247,7 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
   la distancia real entre posiciones del carril y se desvanece en `chunkAnimationMs`.
   El siguiente fragmento es escribible al instante. `prefers-reduced-motion`: solo fundido.
 - Sonido: un tono breve y suave por fragmento completado (y al terminar), nunca por tecla.
-  Botón de altavoz con `aria-pressed`. Sin `AudioContext` hasta interactuar y con el
+  Botón de altavoz (exp. 01: abre el panel de volumen, ver «Experimento 01»). Sin `AudioContext` hasta interactuar y con el
   sonido activado; si la Web Audio API falta o falla, el juego continúa sin errores.
 - Resultados: precisión, tiempo y errores; debajo, el WPM destacado (300 %) en dorado.
   `corrections` se mantiene en el motor pero no se muestra. Un anunciador `role="status"`
@@ -709,6 +712,77 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
   rechaza).
 - README: sin números de pruebas fijos; capturas reales con datos de prueba (perfil temporal
   de Chrome sin interfaz sobre el artefacto), nunca datos del usuario.
+
+## Experimento 01: métricas, evaluación y sonido (aprobado e integrado; AÚN NO publicado)
+
+Desarrollado en `feature/typingquest-experimental-01` (desde `3d33d74`), revisado y aprobado con
+las correcciones 01.1 y 01.2 e integrado en la rama estable `chore/claude-md`. La web pública
+(GitHub Pages) sigue con la versión anterior (`e9c9969`) hasta que se lance el workflow a mano.
+
+- El servidor en otro origen sigue disponible para pruebas con datos aparte:
+  `python tools/dev-server.py 8001` (preview «typingquest-experimental»). localStorage va por
+  origen. El experimento no cambia ningún formato guardado (solo añade `typingquest:sound:v1`):
+  los datos de la versión publicada siguen siendo válidos.
+- PPM (velocidad principal): `calcCpm(correctChars, elapsedMs)` = caracteres correctos PRESENTES
+  en lo escrito (`countMatches(typed, text)`, la misma base que el WPM) / minutos. Por tanto
+  PPM = WPM × 5 EXACTO (`CHARS_PER_WORD`). Cuenta: cada carácter correcto final, también espacios,
+  puntuación, repetidos, ñ y vocales con tilde (un carácter compuesto con tecla muerta es UNO, tras
+  NFC). No cuenta: modificadores (Mayús, AltGr, la tecla muerta sola), errores, retrocesos ni lo
+  borrado; un error corregido cuenta una vez (el carácter final). Es una medida neta (como el WPM),
+  no de pulsaciones físicas; la precisión (pulsaciones) no cambia. `getStats` da `wpm` y `cpm`.
+- Compatibilidad: historial (`wpm`), progreso (`bestWpm`) y catálogo (`targetWpm`, `LEVEL_GOALS`)
+  SIGUEN en WPM, sin migración ni cambio de esquema. La interfaz convierte con `wpmToCpm` (× 5;
+  null si el dato no es válido). Error máximo por el redondeo a 2 decimales de `wpm`: 0,025 PPM.
+  Gráficas, tablas y mejores marcas convierten TODOS los registros: nunca mezclan unidades. Cumplir
+  `targetWpm` equivale exactamente a cumplir `targetWpm × 5` PPM: logros y dificultad intactos.
+  WPM solo aparece como referencia secundaria en Resultados (`formatWordsReference`: «Equivale a N
+  palabras por minuto (PPM ÷ 5)»). Los ids del DOM (`wpm`, `result-wpm`, `chart-wpm`) no cambian.
+- Resultados (exp. 01.2): «Tu evolución» (#results-trends) va SIEMPRE visible, después de las
+  acciones y antes de «Ver análisis detallado», que conserva solo objetivos y análisis por
+  carácter. Dentro: primero la comparación breve (#result-compare, sin marco, texto pequeño) y
+  después las dos gráficas (misma fuente: últimas `historyChartSessions` sesiones), en dos
+  columnas (una por debajo de 40rem) y con ancho máximo de 46rem. Con menos de 2 sesiones
+  (`hasEnoughTrendSessions`), «Las gráficas aparecerán a partir de tu segunda sesión guardada.».
+  `tests/chart-scope.test.js` comprueba la posición, que no se duplican y el contenido del desplegable.
+- Comparación en Resultados (`compareWithReference`, `describeComparison`; #result-compare
+  al principio de «Tu evolución»): referencia = intento ANTERIOR más reciente del MISMO ejercicio
+  y MISMO modo (nunca otro ejercicio ni base frente a ampliada). Práctica libre: «Sin comparación»
+  (los textos cambian). Sin referencia: «Primera referencia disponible». Historial no disponible:
+  «Sin comparación». Umbrales PROVISIONALES de «sin cambios claros»: velocidad < máx(5 PPM, 5 % de
+  la referencia); precisión < 1 punto. Velocidad no comparable si alguna medición dura < 3 s
+  (`MIN_RELIABLE_WPM_MS`). Veredicto: mejora (alguna sube y ninguna baja), peor, mixto (una sube y
+  otra baja: la velocidad NUNCA compensa la precisión) o estable. Icono + palabra, no solo color.
+  Si el guardado falla, se compara igualmente con el historial que se pudo leer.
+- Escalas ajustadas (exp. 01.1 precisión, 01.2 velocidad): SOLO en las gráficas de Resultados
+  (`renderTrendCharts(…, { adaptiveScale: true })` solo en `renderResultsTrends`). El Historial
+  conserva las escalas estables (velocidad de 0 a `chartScaleMax`; precisión 0-100 %; sin nota)
+  y Mi evolución no cambia (`tests/chart-scope.test.js` lo vigila). `accuracyAxis` y `speedAxis`
+  (`history.js`, `{ adaptive }`) dan cada eje; sin ajuste, el original. Ambas usan `fitScale`
+  (datos válidos, margen del 15 % del rango, rango mínimo centrado, desplazada para no salir de
+  sus límites y redondeada): precisión (`accuracyScale`) margen mín. 1 punto, rango mín. 5 puntos,
+  0-100 %, enteros; velocidad (`speedScale`, PPM) margen mín. 5 PPM, rango mín. máx(20 PPM, 10 %
+  del máximo) para no exagerar mejoras, nunca < 0, múltiplos de 5; sin datos válidos, 0-10. Si
+  el mínimo no es 0: línea intermedia y «Escala ajustada a los datos: de X a Y PPM» (o «X % a Y %»)
+  en la descripción. Los valores reales no cambian. `chartPoints` admite `minValue`.
+- Volumen (`js/volume.js`, `createVolumeStore`): clave `typingquest:sound:v1` con `{ version: 1,
+  volume }` (entero 0-100; dato no válido → null). Sin preferencia: `initialVolume` usa
+  `CONFIG.soundEnabled` (true → 70 %, false → 0 %: nunca se activa por sorpresa). La estable no
+  guardaba el sonido: no hay nada que migrar. Ganancia general = (volumen/100)² (curva conservada
+  en 01.1: la auditoría no encontró defectos en la ruta del volumen). Un `GainNode` general por
+  AudioContext (creado en la primera interacción y nunca con 0 %), cambios suaves con
+  `setTargetAtTime`. Botón de la cabecera (`aria-expanded`, icono silencio/bajo/alto con
+  `data-level`) que abre #volume-panel con un `<input type="range">` (paso 5, `aria-valuetext`,
+  `<output>`). `input`: cambia al momento; `change`: guarda y suena el tono de prueba. Escape o clic
+  fuera lo cierran; abre/cierra en exclusiva con Opciones; durante la partida el foco vuelve al campo.
+- Sonidos (exp. 01.1, `SOUNDS` en `sound.js`, osciladores sin archivos, independientes del
+  volumen): fragmento intermedio = una nota breve (G6, 70 ms, seno); ejercicio terminado = arpegio
+  ascendente C6-E6-G6 (triangular); objetivo superado = C6-E6-G6-C7 con la última nota más larga
+  (≈ 0,6 s). Envolvente por nota: ataque lineal de 8 ms desde 0 y caída exponencial. Suma de picos
+  simultáneos ≤ `MAX_COMBINED_PEAK` (0,5; `peakSum`), así que ni solapados saturan. Al terminar suena
+  UN solo sonido (`finishGame` → `playFinish(finishSoundKind(evaluation))`; la práctica libre usa el
+  de ejercicio); el de fragmento solo en fragmentos intermedios. Vista previa del volumen = fragmento.
+- Riesgos: si se fusionara, el formato guardado no cambia (bajo riesgo); los umbrales de la
+  comparación son provisionales; la velocidad sigue siendo neta (no pulsaciones físicas).
 
 ## Convenciones
 

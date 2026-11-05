@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcWpm, calcAccuracy } from '../js/metrics.js';
+import { calcWpm, calcAccuracy, calcCpm, wpmToCpm, CHARS_PER_WORD } from '../js/metrics.js';
 
 const ONE_MINUTE_MS = 60_000;
 
@@ -80,5 +80,56 @@ describe('calcAccuracy', () => {
 
   it('no supera 100 si las correctas exceden las totales', () => {
     assert.equal(calcAccuracy(12, 10), 100);
+  });
+});
+
+// Experimento 01: pulsaciones por minuto (PPM). Misma base que el WPM (caracteres
+// correctos presentes en el texto escrito), sin dividir entre 5.
+describe('calcCpm', () => {
+  it('cuenta 300 PPM con 300 caracteres correctos en un minuto', () => {
+    assert.equal(calcCpm(300, ONE_MINUTE_MS), 300);
+  });
+
+  it('escala con duraciones cortas y largas', () => {
+    assert.equal(calcCpm(25, 5000), 300);
+    assert.equal(calcCpm(1500, 10 * ONE_MINUTE_MS), 150);
+    assertClose(calcCpm(10, 45_000), 13.333333333333334);
+  });
+
+  it('equivale siempre a WPM × 5', () => {
+    for (const [chars, ms] of [[37, 60_000], [123, 41_250], [1, 999], [4999, 3_600_000]]) {
+      assertClose(calcCpm(chars, ms), calcWpm(chars, ms) * CHARS_PER_WORD, 1e-9);
+    }
+  });
+
+  it('devuelve 0 con tiempo cero, cero caracteres o entradas no válidas', () => {
+    assert.equal(calcCpm(50, 0), 0);
+    assert.equal(calcCpm(0, ONE_MINUTE_MS), 0);
+    assert.equal(calcCpm(-5, ONE_MINUTE_MS), 0);
+    assert.equal(calcCpm(NaN, ONE_MINUTE_MS), 0);
+    assert.equal(calcCpm(50, Infinity), 0);
+  });
+});
+
+describe('wpmToCpm (compatibilidad con los registros guardados en WPM)', () => {
+  it('convierte multiplicando por los 5 caracteres de una palabra', () => {
+    assert.equal(CHARS_PER_WORD, 5);
+    assert.equal(wpmToCpm(18), 90);
+    assert.equal(wpmToCpm(0), 0);
+  });
+
+  it('recupera las PPM de un registro con WPM redondeadas a 2 decimales con un error ≤ 0,025', () => {
+    for (const [chars, ms] of [[37, 60_000], [123, 41_250], [211, 77_777], [99, 30_001]]) {
+      const stored = Math.round(calcWpm(chars, ms) * 100) / 100;
+      assert.ok(Math.abs(wpmToCpm(stored) - calcCpm(chars, ms)) <= 0.025 + 1e-9);
+    }
+  });
+
+  it('devuelve null con valores ausentes o no válidos, sin inventar datos', () => {
+    assert.equal(wpmToCpm(null), null);
+    assert.equal(wpmToCpm(undefined), null);
+    assert.equal(wpmToCpm(-1), null);
+    assert.equal(wpmToCpm(NaN), null);
+    assert.equal(wpmToCpm(Infinity), null);
   });
 });

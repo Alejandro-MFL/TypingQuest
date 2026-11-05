@@ -4,7 +4,9 @@ import {
   formatTime,
   formatValidationError,
   charStates,
-  formatLiveWpm,
+  formatLiveCpm,
+  formatWordsReference,
+  hasEnoughTrendSessions,
   spaceHintPosition,
   isFragmentBlocked,
   resolveNotice,
@@ -36,15 +38,26 @@ describe('formatTime', () => {
   });
 });
 
-describe('formatLiveWpm', () => {
-  it('oculta el WPM hasta alcanzar el tiempo mínimo (evita picos al empezar)', () => {
-    assert.equal(formatLiveWpm({ wpm: 120000, elapsedMs: 0.5 }, 1000), '—');
-    assert.equal(formatLiveWpm({ wpm: 0, elapsedMs: 0 }, 1000), '—');
+describe('formatLiveCpm', () => {
+  it('oculta las PPM hasta alcanzar el tiempo mínimo (evita picos al empezar)', () => {
+    assert.equal(formatLiveCpm({ cpm: 600000, elapsedMs: 0.5 }, 1000), '—');
+    assert.equal(formatLiveCpm({ cpm: 0, elapsedMs: 0 }, 1000), '—');
   });
 
-  it('muestra el WPM redondeado a partir del tiempo mínimo', () => {
-    assert.equal(formatLiveWpm({ wpm: 41.6, elapsedMs: 1000 }, 1000), '42');
-    assert.equal(formatLiveWpm({ wpm: 7.2, elapsedMs: 60_000 }, 1000), '7');
+  it('muestra las PPM redondeadas a partir del tiempo mínimo', () => {
+    assert.equal(formatLiveCpm({ cpm: 208.4, elapsedMs: 1000 }, 1000), '208');
+    assert.equal(formatLiveCpm({ cpm: 36, elapsedMs: 60_000 }, 1000), '36');
+  });
+});
+
+describe('formatWordsReference (WPM como referencia secundaria)', () => {
+  it('explica la equivalencia en palabras por minuto', () => {
+    assert.equal(formatWordsReference({ wpm: 19.4 }), 'Equivale a 19 palabras por minuto (PPM ÷ 5).');
+  });
+
+  it('con 1 palabra usa el singular y sin dato no muestra nada', () => {
+    assert.equal(formatWordsReference({ wpm: 1.2 }), 'Equivale a 1 palabra por minuto (PPM ÷ 5).');
+    assert.equal(formatWordsReference({ wpm: NaN }), '');
   });
 });
 
@@ -235,17 +248,17 @@ describe('formatValidationError: marcas combinantes aisladas (M2)', () => {
 describe('formatResultsSummary (B2)', () => {
   it('resume los resultados en una frase para lectores de pantalla', () => {
     assert.equal(
-      formatResultsSummary({ wpm: 19.4, accuracy: 97.6, elapsedMs: 26_000, errors: 2 }),
-      'Partida terminada. 19 palabras por minuto, 98 % de precisión, tiempo 0:26 y 2 errores.'
+      formatResultsSummary({ wpm: 19.48, cpm: 97.4, accuracy: 97.6, elapsedMs: 26_000, errors: 2 }),
+      'Partida terminada. 97 pulsaciones por minuto, 98 % de precisión, tiempo 0:26 y 2 errores.'
     );
   });
 
   it('usa el singular con un solo error', () => {
-    assert.match(formatResultsSummary({ wpm: 10, accuracy: 90, elapsedMs: 60_000, errors: 1 }), /y 1 error\.$/);
+    assert.match(formatResultsSummary({ wpm: 10, cpm: 50, accuracy: 90, elapsedMs: 60_000, errors: 1 }), /y 1 error\.$/);
   });
 
   it('indica cero errores en plural', () => {
-    assert.match(formatResultsSummary({ wpm: 10, accuracy: 100, elapsedMs: 60_000, errors: 0 }), /y 0 errores\.$/);
+    assert.match(formatResultsSummary({ wpm: 10, cpm: 50, accuracy: 100, elapsedMs: 60_000, errors: 0 }), /y 0 errores\.$/);
   });
 });
 
@@ -265,7 +278,7 @@ describe('formatMode', () => {
 describe('formatResultsSummary: modo', () => {
   it('añade el modo cuando se indica', () => {
     assert.match(
-      formatResultsSummary({ wpm: 10, accuracy: 90, elapsedMs: 60_000, errors: 1 }, 'free'),
+      formatResultsSummary({ wpm: 10, cpm: 50, accuracy: 90, elapsedMs: 60_000, errors: 1 }, 'free'),
       /y 1 error. Modo libre.$/
     );
   });
@@ -416,5 +429,15 @@ describe('foco durante la escritura (T15.2)', () => {
       assert.equal(keepsTypingFocus(target(control)), false, control);
     }
     assert.equal(keepsTypingFocus(null), false);
+  });
+});
+
+// Exp. 01.2: las gráficas de Resultados necesitan al menos dos sesiones (una línea).
+describe('hasEnoughTrendSessions', () => {
+  it('con 0 o 1 sesión muestra el estado vacío; desde 2, las gráficas', () => {
+    assert.equal(hasEnoughTrendSessions(0), false);
+    assert.equal(hasEnoughTrendSessions(1), false);
+    assert.equal(hasEnoughTrendSessions(2), true);
+    assert.equal(hasEnoughTrendSessions(20), true);
   });
 });

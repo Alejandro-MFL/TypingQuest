@@ -11,6 +11,15 @@
       "port": 8000
     },
     {
+      "name": "typingquest-experimental",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "tools/dev-server.py",
+        "8001"
+      ],
+      "port": 8001
+    },
+    {
       "name": "typingquest-site",
       "runtimeExecutable": "python",
       "runtimeArgs": [

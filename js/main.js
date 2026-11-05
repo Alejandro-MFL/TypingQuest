@@ -5,11 +5,14 @@ import { CONFIG } from './config.js';
 import { prepareText } from './text-prep.js';
 import { splitIntoChunks } from './chunks.js';
 import { createGame, applyInput, restartGame, getStats, getProgress } from './game.js';
-import { createSoundPlayer } from './sound.js';
+import { createSoundPlayer, finishSoundKind } from './sound.js';
+import { compareWithReference, describeComparison } from './session-compare.js';
 import {
   createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT, createGuideStore,
   createThemeStore,
+  createVolumeStore,
 } from './storage.js';
+import { initialVolume } from './volume.js';
 import { THEME_PREFERENCES, resolveTheme } from './theme.js';
 import { createCatalog, libraryLessons, filterLessons, exerciseTitle } from './catalog.js';
 import {
@@ -65,8 +68,12 @@ const CATALOG_FILES = { exercises: 'data/exercises.json', course: 'data/course.j
 const els = ui.getElements();
 const ce = courseUi.getCourseElements();
 const de = analysisUi.getDiagnosisElements();
-const sound = createSoundPlayer({ enabled: CONFIG.soundEnabled });
 const storage = getLocalStorage();
+// Volumen (experimento 01): guardado en su propia clave; sin dato, CONFIG.soundEnabled.
+const volumeStore = createVolumeStore(storage);
+const sound = createSoundPlayer({
+  volume: initialVolume({ stored: volumeStore.load(), legacyEnabled: CONFIG.soundEnabled }),
+});
 const historyStore = createHistoryStore(storage, { maxSessions: CONFIG.maxHistorySessions });
 const progressStore = createProgressStore(storage);
 // Catálogo validado (null si no se pudo cargar) y progreso académico en memoria.
@@ -126,6 +133,7 @@ function navigate(route) {
 function showRoute(route) {
   leaveGame();
   closeOptions();
+  closeVolume();
   courseUi.renderNav(ce, route);
   const ticket = route === 'library' && catalog ? libraryReturn : null;
   if (route === 'library') {
@@ -408,6 +416,7 @@ function startGame(text, { origin, exercise, courseStep = false, courseLessonId 
 
 function enterPlay() {
   ui.renderOptionsOpen(els, false);
+  ui.renderVolumeOpen(els, false);
   stopStatsTimer();
   resetNotices();
   composing = false;
@@ -506,7 +515,6 @@ function processInput() {
   render();
   if (session.state.segmentIndex > previous.segmentIndex) celebrateChunk(previous.segmentIndex);
   if (session.state.status === 'finished') {
-    sound.playChunkComplete();
     finishGame();
     return;
   }
@@ -561,6 +569,8 @@ function finishGame() {
   guideErrorCode = null;
   const stats = getStats(session.state, performance.now());
   const evaluation = session.exercise ? evaluateObjectives(stats, session.exercise) : null;
+  // Exp. 01.1: un solo sonido final (objetivo superado o ejercicio terminado).
+  sound.playFinish(finishSoundKind(evaluation));
   ui.renderResults(els, stats, session.state.mode);
   courseUi.renderObjectiveResults(ce, session.exercise, evaluation);
   courseUi.renderAdvice(ce, evaluation ? practiceAdvice(evaluation) : null);
@@ -569,14 +579,16 @@ function finishGame() {
   // La pantalla se muestra antes de guardar: así el aviso de fallo se escribe en
   // una región visible y el lector de pantalla lo anuncia.
   showScreen('results');
-  saveFinishedSession(stats, evaluation, analysis);
+  const record = saveFinishedSession(stats, evaluation, analysis);
+  const history = historyStore.load();
   // Después de guardar: la ampliada se ofrece si esta partida (u otra) la desbloqueó.
   // También «Siguiente»: la Biblioteca y Mi evolución lo calculan con lo ya guardado.
   courseUi.renderResultsActions(els, ce, {
     origin: session.origin, courseLesson: isCurrentLesson(), isExtended: session.exercise?.kind === 'extended',
     hasNext: hasNextCourseStep(), extendedId: unlockedExtendedId(), nextId: nextListExercise(),
   });
-  ui.renderResultsTrends(els, historyStore.load().sessions, CONFIG.historyChartSessions);
+  renderComparison(history, record);
+  ui.renderResultsTrends(els, history.sessions, CONFIG.historyChartSessions);
   els.retryButton.focus();
 }
 
@@ -648,8 +660,9 @@ function createRecordId() {
 // contiene métricas, modo y el ID del ejercicio, nunca el texto practicado. Los
 // datos no válidos llegan como error controlado de storage.js ('invalid'), sin
 // try/catch aquí: cualquier otro fallo de programación no se oculta.
+// Devuelve el registro (también si no se pudo guardar, para comparar), o null.
 function saveFinishedSession(stats, evaluation, analysis) {
-  if (session.savedRecordId !== null) return;
+  if (session.savedRecordId !== null) return null;
   session.savedRecordId = createRecordId();
   const record = createSessionRecord({
     id: session.savedRecordId,
@@ -662,6 +675,15 @@ function saveFinishedSession(stats, evaluation, analysis) {
   const result = historyStore.add(record);
   const historyError = result.ok ? null : ui.saveErrorMessage(result.error);
   ui.renderSaveError(els, historyError ?? recordExerciseProgress(stats, evaluation));
+  return record;
+}
+
+// Experimento 01: comparación visible con el intento anterior del mismo ejercicio y modo.
+function renderComparison(history, record) {
+  const result = record
+    ? compareWithReference({ sessions: history.sessions, current: record, historyAvailable: history.status !== 'unavailable' })
+    : { status: 'unavailable' };
+  ui.renderComparison(els, describeComparison(result, { formatDate: formatDateTime }));
 }
 
 // Estado individual del ejercicio (Academia y Biblioteca). No mueve el recorrido.
@@ -989,27 +1011,59 @@ function handleOptionsToggle() {
     closeOptions();
     return;
   }
+  closeVolume();
   renderHelpOption();
   ui.renderOptionsOpen(els, true);
   els.blockOnErrors.focus();
 }
 
 function handleDocumentKeyDown(event) {
-  if (event.key === 'Escape' && isOptionsOpen()) closeOptions({ restoreFocus: true });
+  if (event.key !== 'Escape') return;
+  if (isOptionsOpen()) closeOptions({ restoreFocus: true });
+  if (isVolumeOpen()) closeVolume({ restoreFocus: true });
 }
 
 function handleDocumentClick(event) {
   if (isOptionsOpen() && !event.target.closest('.options')) closeOptions();
+  if (isVolumeOpen() && !event.target.closest('.volume')) closeVolume();
 }
 
 // --- Sonido --------------------------------------------------------------------
 
-function handleSoundToggle() {
-  const enabled = sound.toggle();
-  if (enabled) sound.unlock();
-  ui.renderSoundToggle(els, enabled);
-  // Pulsar el botón no debe sacar al jugador de la partida.
+// Experimento 01: el botón abre un panel con el volumen (0-100 %), como Opciones.
+function isVolumeOpen() {
+  return !els.volume.panel.hidden;
+}
+
+function closeVolume({ restoreFocus = false } = {}) {
+  if (!isVolumeOpen()) return;
+  ui.renderVolumeOpen(els, false);
+  // Cerrar el panel no debe sacar al jugador de la partida.
   if (isPlaying()) els.input.focus();
+  else if (restoreFocus) els.soundToggle.focus();
+}
+
+function handleSoundToggle() {
+  if (isVolumeOpen()) {
+    closeVolume();
+    return;
+  }
+  closeOptions();
+  ui.renderVolumeOpen(els, true);
+  els.volume.range.focus();
+}
+
+// Mientras se arrastra: el volumen cambia al momento, sin guardar ni sonar.
+function handleVolumeInput() {
+  ui.renderVolume(els, sound.setVolume(els.volume.range.value));
+}
+
+// Al soltar (o con cada tecla): se guarda y suena el tono con el nivel elegido.
+function handleVolumeChange() {
+  const volume = sound.setVolume(els.volume.range.value);
+  ui.renderVolume(els, volume);
+  volumeStore.save(volume);
+  sound.playPreview();
 }
 
 // --- Inicio --------------------------------------------------------------------
@@ -1035,6 +1089,8 @@ function bindEvents() {
   window.addEventListener('hashchange', handleHashChange);
   window.addEventListener('popstate', handlePopState);
   els.soundToggle.addEventListener('click', handleSoundToggle);
+  els.volume.range.addEventListener('input', handleVolumeInput);
+  els.volume.range.addEventListener('change', handleVolumeChange);
   els.options.toggle.addEventListener('click', handleOptionsToggle);
   els.blockOnErrors.addEventListener('change', handleModeChange);
   els.helpOption.addEventListener('change', handleHelpChange);
@@ -1110,7 +1166,7 @@ async function init() {
   bindTheme();
   bindErgonomics();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
-  ui.renderSoundToggle(els, sound.isEnabled());
+  ui.renderVolume(els, sound.getVolume());
   ui.renderSelectedMode(els, selectedMode);
   updateSourceCount();
   await loadCatalog();

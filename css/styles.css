@@ -210,12 +210,15 @@ body:has(#play-screen:not([hidden])) .subtitle {
   fill: currentColor;
 }
 
-.sound-toggle[aria-pressed="true"] .sound-muted,
-.sound-toggle[aria-pressed="false"] .sound-waves {
+/* Experimento 01: icono según el volumen (silencio, bajo y alto). */
+.sound-toggle[data-level="muted"] .sound-wave-low,
+.sound-toggle[data-level="muted"] .sound-wave-high,
+.sound-toggle[data-level="low"] .sound-wave-high,
+.sound-toggle:not([data-level="muted"]) .sound-muted {
   display: none;
 }
 
-.sound-toggle[aria-pressed="false"] {
+.sound-toggle[data-level="muted"] {
   color: var(--color-muted);
 }
 
@@ -629,6 +632,13 @@ body:has(#play-screen:not([hidden])) .subtitle {
   font-size: 0.875rem;
 }
 
+/* Experimento 01: equivalencia en palabras por minuto, discreta y secundaria. */
+.result-main-reference {
+  margin-top: 0.125rem;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -822,8 +832,57 @@ body:has(#play-screen:not([hidden])) .subtitle {
 
 /* --- Menú Opciones --- */
 
-.options-toggle[aria-expanded="true"] {
+.options-toggle[aria-expanded="true"],
+.sound-toggle[aria-expanded="true"] {
   border-color: var(--color-accent);
+}
+
+/* Panel de volumen (experimento 01): mismo anclaje que Opciones, más estrecho. */
+.volume-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 10;
+  width: min(16rem, calc(100vw - 1.5rem));
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-popover);
+  text-align: left;
+}
+
+.volume-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.volume-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.volume-range {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.volume-value {
+  min-width: 3.25rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.volume-hint {
+  margin: 0.375rem 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
 }
 
 /* Anclado a .header-tools (no al botón): su borde derecho es el de la página,
@@ -885,6 +944,18 @@ body:has(#play-screen:not([hidden])) .subtitle {
   margin: 0;
   color: var(--color-muted);
   text-align: center;
+}
+
+/* Exp. 01.2: «Tu evolución» visible en Resultados, entre las acciones y el desplegable.
+   Ancho contenido para que las gráficas no dominen la pantalla. */
+.results-trends {
+  max-width: 46rem;
+  margin: 1.5rem auto 0;
+  padding-top: 1.25rem;
+}
+
+.results-trends .history-charts {
+  margin-bottom: 0;
 }
 
 /* --- Análisis de escritura (T11): discreto, entre las acciones y la evolución --- */
@@ -1133,7 +1204,64 @@ body:has(#play-screen:not([hidden])) .subtitle {
   font-size: var(--text-sm);
 }
 
-/* «Ver análisis detallado» (T15.3): plegado; dentro, cada sección con su separador. */
+/* Experimento 01: comparación con el intento anterior. Breve y visible; el icono y la
+   palabra («mejora», «empeora») dan el significado, el color solo acompaña. */
+/* Exp. 01.2: resumen breve y secundario al principio de «Tu evolución», sin marco. */
+.result-compare {
+  max-width: 34rem;
+  margin: 0 auto 1rem;
+  text-align: left;
+}
+
+.result-compare-title {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0 0 0.25rem;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.result-compare-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.result-compare-line {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.result-compare-icon,
+.result-compare-line-icon {
+  flex: 0 0 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.trend-up .result-compare-line-icon {
+  color: var(--color-correct);
+}
+
+.trend-down .result-compare-line-icon {
+  color: var(--color-incorrect);
+}
+
+.result-compare-advice {
+  margin: 0.375rem 0 0;
+  font-size: var(--text-sm);
+}
+
+.result-compare-note {
+  margin: 0.375rem 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+/* «Ver análisis detallado» (T15.3): plegado; objetivos y diagnóstico, con separador. */
 .results-details {
   margin: 1.5rem 0 0;
   text-align: left;
@@ -1144,14 +1272,12 @@ body:has(#play-screen:not([hidden])) .subtitle {
 }
 
 .results-details > .results-objectives,
-.results-details > .diagnosis,
-.results-details > .trends {
+.results-details > .diagnosis {
   margin: 0 1rem;
   padding: 1rem 0;
 }
 
-.results-details > .results-objectives + .diagnosis,
-.results-details > .diagnosis + .trends {
+.results-details > .results-objectives + .diagnosis {
   border-top: 1px solid var(--color-border);
 }
 

@@ -78,25 +78,37 @@
         </fieldset>
       </div>
     </div>
-    <button
-      class="tool-button sound-toggle"
-      id="sound-toggle"
-      type="button"
-      aria-label="Sonido"
-      aria-pressed="true"
-      title="Silenciar sonido">
-      <svg class="sound-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
-        <path class="sound-speaker" d="M4 9h4l5-4v14l-5-4H4z" />
-        <g class="sound-waves">
-          <path d="M16 9.5a3.5 3.5 0 0 1 0 5" />
-          <path d="M18.5 7a7 7 0 0 1 0 10" />
-        </g>
-        <g class="sound-muted">
-          <path d="M16.5 9.5l5 5" />
-          <path d="M21.5 9.5l-5 5" />
-        </g>
-      </svg>
-    </button>
+    <!-- Experimento 01: volumen continuo. El botón abre un panel con el control deslizante. -->
+    <div class="volume">
+      <button
+        class="tool-button sound-toggle"
+        id="sound-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="volume-panel"
+        aria-label="Volumen: 70 %"
+        data-level="high"
+        title="Volumen: 70 %">
+        <svg class="sound-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+          <path class="sound-speaker" d="M4 9h4l5-4v14l-5-4H4z" />
+          <path class="sound-wave-low" d="M16 9.5a3.5 3.5 0 0 1 0 5" />
+          <path class="sound-wave-high" d="M18.5 7a7 7 0 0 1 0 10" />
+          <g class="sound-muted">
+            <path d="M16.5 9.5l5 5" />
+            <path d="M21.5 9.5l-5 5" />
+          </g>
+        </svg>
+      </button>
+      <div class="volume-panel" id="volume-panel" role="group" aria-labelledby="volume-label" hidden>
+        <label class="volume-label" id="volume-label" for="volume-range">Volumen</label>
+        <div class="volume-row">
+          <input class="volume-range" id="volume-range" type="range" min="0" max="100" step="5" value="70"
+            aria-valuetext="70 %">
+          <output class="volume-value" id="volume-value" for="volume-range">70 %</output>
+        </div>
+        <p class="volume-hint">0 % silencia los sonidos. Se guarda en este navegador.</p>
+      </div>
+    </div>
     </div>
 
     <!-- Navegación principal por rutas hash. Ir a otra sección descarta la partida en curso. -->
@@ -306,7 +318,7 @@
       <div class="stats" role="group" aria-label="Estadísticas en vivo">
         <div class="stat">
           <span class="stat-value" id="wpm">0</span>
-          <span class="stat-label">WPM</span>
+          <span class="stat-label"><abbr title="Pulsaciones por minuto">PPM</abbr></span>
         </div>
         <div class="stat">
           <span class="stat-value" id="accuracy">0</span>
@@ -401,8 +413,10 @@
       </dl>
       <div class="result-main">
         <p class="result-main-value" id="result-wpm">0</p>
-        <p class="result-main-label"><abbr title="Palabras por minuto">WPM</abbr></p>
-        <p class="result-main-description">Palabras por minuto</p>
+        <p class="result-main-label"><abbr title="Pulsaciones por minuto">PPM</abbr></p>
+        <p class="result-main-description">Pulsaciones por minuto</p>
+        <!-- Experimento 01: WPM solo como referencia secundaria, con su conversión. -->
+        <p class="result-main-reference" id="result-words-reference"></p>
       </div>
       <p class="result-speed-note" id="result-speed-note" hidden></p>
       <!-- Datos secundarios: modo y errores (T15.3). -->
@@ -418,29 +432,27 @@
         <button class="button button-secondary" id="back-to-origin-button" type="button" hidden></button>
       </div>
 
-      <!-- Análisis detallado (T15.3): plegado por defecto. Objetivos, diagnóstico y evolución. -->
-      <details class="collapsible results-details" id="results-details">
-      <summary>Ver análisis detallado</summary>
-      <section class="results-objectives" id="results-objectives" aria-labelledby="results-objectives-title" hidden>
-        <h3 class="diagnosis-title" id="results-objectives-title">Objetivos</h3>
-        <ul class="objective-list" id="objective-list"></ul>
-      </section>
-      <!-- Diagnóstico por carácter de esta partida (T11). Solo observación: sin recomendaciones. -->
-      <section class="diagnosis" id="results-diagnosis" aria-labelledby="results-diagnosis-title">
-        <h3 class="diagnosis-title" id="results-diagnosis-title">Análisis de escritura</h3>
-        <div class="diagnosis-body" id="results-diagnosis-body"></div>
-      </section>
-
-      <section class="trends" id="results-trends" aria-labelledby="results-trends-title">
+      <!-- Exp. 01.2: «Tu evolución» siempre visible (fuera de «Ver análisis detallado»). -->
+      <section class="trends results-trends" id="results-trends" aria-labelledby="results-trends-title">
         <h3 class="trends-title" id="results-trends-title">Tu evolución</h3>
+        <!-- Comparación breve con el intento anterior del mismo ejercicio y modo (exp. 01). -->
+        <div class="result-compare" id="result-compare">
+          <h4 class="result-compare-title">
+            <span class="result-compare-icon" id="result-compare-icon" aria-hidden="true"></span>
+            <span id="result-compare-title"></span>
+          </h4>
+          <ul class="result-compare-lines" id="result-compare-lines"></ul>
+          <p class="result-compare-advice" id="result-compare-advice" hidden></p>
+          <p class="result-compare-note" id="result-compare-note"></p>
+        </div>
         <p class="trends-empty" id="results-trends-empty" hidden>
-          Todavía no hay sesiones guardadas para mostrar tu evolución.
+          Las gráficas aparecerán a partir de tu segunda sesión guardada.
         </p>
         <div class="trends-body" id="results-trends-body">
           <div class="history-charts">
             <!-- La gráfica es decorativa; su descripción textual visible da los datos. -->
             <figure class="chart">
-              <figcaption class="chart-title">Evolución de WPM</figcaption>
+              <figcaption class="chart-title">Evolución de la velocidad (PPM)</figcaption>
               <svg class="chart-svg chart-wpm" id="results-chart-wpm" aria-hidden="true" focusable="false"
                 viewBox="0 0 320 140"></svg>
               <p class="chart-description" id="results-chart-wpm-description"></p>
@@ -453,6 +465,19 @@
             </figure>
           </div>
         </div>
+      </section>
+
+      <!-- Análisis detallado (T15.3): plegado por defecto. Objetivos y diagnóstico por carácter. -->
+      <details class="collapsible results-details" id="results-details">
+      <summary>Ver análisis detallado</summary>
+      <section class="results-objectives" id="results-objectives" aria-labelledby="results-objectives-title" hidden>
+        <h3 class="diagnosis-title" id="results-objectives-title">Objetivos</h3>
+        <ul class="objective-list" id="objective-list"></ul>
+      </section>
+      <!-- Diagnóstico por carácter de esta partida (T11). Solo observación: sin recomendaciones. -->
+      <section class="diagnosis" id="results-diagnosis" aria-labelledby="results-diagnosis-title">
+        <h3 class="diagnosis-title" id="results-diagnosis-title">Análisis de escritura</h3>
+        <div class="diagnosis-body" id="results-diagnosis-body"></div>
       </section>
       </details>
     </section>
@@ -561,7 +586,7 @@
             <dt>Sesiones</dt><dd id="history-count">0</dd>
           </div>
           <div class="result-item">
-            <dt>Mejor WPM</dt><dd id="history-best-wpm">—</dd>
+            <dt>Mejor velocidad (PPM)</dt><dd id="history-best-wpm">—</dd>
           </div>
           <div class="result-item">
             <dt>Precisión media</dt><dd id="history-average-accuracy">—</dd>
@@ -570,7 +595,7 @@
 
         <div class="history-charts">
           <figure class="chart">
-            <figcaption class="chart-title">Evolución de WPM</figcaption>
+            <figcaption class="chart-title">Evolución de la velocidad (PPM)</figcaption>
             <svg class="chart-svg chart-wpm" id="history-chart-wpm" aria-hidden="true" focusable="false"
               viewBox="0 0 320 140"></svg>
             <p class="chart-description" id="history-chart-wpm-description"></p>
@@ -599,7 +624,7 @@
               <tr>
                 <th scope="col">Fecha</th>
                 <th scope="col">Ejercicio</th>
-                <th scope="col"><abbr title="Palabras por minuto">WPM</abbr></th>
+                <th scope="col"><abbr title="Pulsaciones por minuto">PPM</abbr></th>
                 <th scope="col">Precisión</th>
                 <th scope="col">Modo</th>
                 <th scope="col">Diagnóstico</th>

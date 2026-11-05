@@ -22,6 +22,23 @@ Estado del proyecto y siguientes pasos. Las decisiones técnicas detalladas est�
 | T18 | README profesional con capturas reales (datos de prueba), licencia MIT para el código con el nombre y los logotipos excluidos (`TRADEMARKS.md`), guía de publicación con auditoría de privacidad del historial, artefacto mínimo comprobado (`tools/build-site.mjs`, con tests) y workflow de GitHub Pages manual y sin publicar por defecto. Comprobado en local bajo `/TypingQuest/` (solo Chromium). |
 | Lanzamiento | Repositorio público y web publicada en <https://alejandro-mfl.github.io/TypingQuest/> (30-10-2026) con el workflow manual. Comprobado en la web real (Chromium): HTTPS forzado, pantallas y datos cargados, sin errores ni avisos de CSP y archivos internos con 404. GitHub Pages no permite cabeceras: `frame-ancestors` y `nosniff` quedan sin aplicar (riesgo bajo, documentado en `docs/publicacion.md`). |
 
+## Experimento 01 (aprobado e integrado en `chore/claude-md`; pendiente de publicar)
+
+Mejoras desarrolladas en `feature/typingquest-experimental-01`, revisadas (con las correcciones
+01.1 y 01.2) e integradas en la rama estable. La web pública aún muestra la versión anterior.
+Detalles técnicos en `CLAUDE.md` («Experimento 01»).
+
+| Mejora | Estado |
+|---|---|
+| Velocidad en pulsaciones por minuto (PPM = WPM × 5, misma base de caracteres correctos) en partida, Resultados, Historial, gráficas, objetivos y mejores marcas; WPM solo como referencia secundaria. Sin cambiar formatos guardados. | Aprobado e integrado |
+| Comparación breve en Resultados con el intento anterior del mismo ejercicio y modo (mejora, peor, mixto, estable, primera referencia, sin comparación). | Aprobado e integrado |
+| «Tu evolución» (gráficas de velocidad y precisión) siempre visible en Resultados, fuera de «Ver análisis detallado», con la comparación como resumen (01.2). | Aprobado e integrado |
+| Escalas ajustadas a los datos en las gráficas de Resultados: precisión (01.1) y velocidad en PPM (01.2); Historial y Mi evolución con las escalas estables. | Aprobado e integrado |
+| Volumen continuo (0-100 %) en un panel de la cabecera, guardado en `typingquest:sound:v1`. Sonidos propios por evento (01.1): fragmento, ejercicio terminado y objetivo superado, sin saturar. | Aprobado e integrado (sonidos revisados por el usuario) |
+
+Pendiente: publicar la nueva versión (workflow manual, con autorización expresa) y comprobarla
+en la web real; calibrar con uso real los umbrales de la comparación.
+
 ## Mejoras futuras (sin fase asignada)
 
 - **Gamificación sutil (propuestas de T15.2, sin implementar):** resumen al completar un

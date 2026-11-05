@@ -9,7 +9,8 @@ export const CONFIG = Object.freeze({
   // Sesiones que se conservan en el historial y que se muestran en las gráficas.
   maxHistorySessions: 500,
   historyChartSessions: 20,
-  // Estado inicial del sonido (aún no se guarda la preferencia).
+  // Estado inicial del sonido sin preferencia de volumen guardada (experimento 01:
+  // true → volumen por defecto; false → 0 %, nunca se activa por sorpresa).
   soundEnabled: true,
   // Espera en el espacio final antes de mostrar la tecla de espacio.
   spaceHintDelayMs: 1500,

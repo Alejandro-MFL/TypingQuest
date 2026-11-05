@@ -25,7 +25,7 @@
 // Precondición: los límites deben caer en fronteras de carácter. Con texto de
 // prepareText + splitIntoChunks se cumple; createGame no lo comprueba para
 // límites arbitrarios (p. ej. en mitad de un par sustituto UTF-16).
-import { calcWpm, calcAccuracy } from './metrics.js';
+import { calcWpm, calcCpm, calcAccuracy } from './metrics.js';
 
 export const MODES = Object.freeze(['free', 'strict']);
 
@@ -193,8 +193,12 @@ export function getProgress(state) {
 
 export function getStats(state, now) {
   const elapsedMs = getElapsedMs(state, now);
+  const correctChars = countMatches(state.typed, state.text);
   return {
-    wpm: calcWpm(countMatches(state.typed, state.text), elapsedMs),
+    // `wpm` se sigue guardando en el historial (formato sin cambios); `cpm` (PPM)
+    // es la velocidad que se muestra en el experimento 01.
+    wpm: calcWpm(correctChars, elapsedMs),
+    cpm: calcCpm(correctChars, elapsedMs),
     accuracy: calcAccuracy(state.keystrokes.correct, state.keystrokes.total),
     elapsedMs,
     errors: state.keystrokes.incorrect,

@@ -7,6 +7,7 @@
 //   siguiente carácter («J → U → J»). Es una recomendación: el navegador no sabe
 //   qué dedo se usa realmente. Las teclas de reposo y el espacio no se mueven.
 // - Estado de las instrucciones vistas (introducción inicial y por lección).
+import { CHARS_PER_WORD } from './metrics.js';
 import { FINGERS, HOME_KEYS, KEYBOARD_ROWS, getKey, keyLegend, resolveCharacter } from './keyboard.js';
 
 const FINGER_NAMES = new Map(FINGERS.map((f) => [f.id, f.name]));
@@ -169,7 +170,8 @@ function skillLabel(skill, tokens, text) {
 }
 
 function goalSentence(exercise) {
-  const wpm = exercise.targetWpm === null ? '' : ` y ${exercise.targetWpm} WPM`;
+  // Objetivo del catálogo en WPM, mostrado en PPM (× 5).
+  const wpm = exercise.targetWpm === null ? '' : ` y ${exercise.targetWpm * CHARS_PER_WORD} PPM`;
   return `Objetivo: ${exercise.targetAccuracy} % de precisión${wpm}; prioriza no fallar, la velocidad llega `
     + 'con la práctica.';
 }

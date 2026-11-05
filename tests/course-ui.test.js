@@ -57,7 +57,7 @@ describe('formatAccuracyFloor', () => {
 
 describe('formatGoals', () => {
   it('describe los dos objetivos', () => {
-    assert.equal(formatGoals({ targetAccuracy: 92, targetWpm: 22 }), 'Objetivos: 92 % de precisión y 22 WPM');
+    assert.equal(formatGoals({ targetAccuracy: 92, targetWpm: 22 }), 'Objetivos: 92 % de precisión y 110 PPM');
   });
 
   it('indica cuándo la velocidad no se evalúa', () => {
@@ -79,7 +79,7 @@ describe('formatObjectiveResults', () => {
     assert.deepEqual(states(r), ['met', 'met']);
     assert.deepEqual(r.items.map((i) => i.text), [
       'Precisión 96,4 % (mínimo 90 %): cumplido',
-      'Velocidad 25 WPM (mínimo 20 WPM): cumplido',
+      'Velocidad 129 PPM (mínimo 100 PPM): cumplido',
     ]);
   });
 
@@ -88,7 +88,7 @@ describe('formatObjectiveResults', () => {
     assert.equal(r.passed, false);
     assert.equal(r.title, 'Ejercicio terminado, objetivo pendiente');
     assert.deepEqual(states(r), ['met', 'pending']);
-    assert.equal(r.items[1].text, 'Velocidad 15 WPM (mínimo 20 WPM): pendiente');
+    assert.equal(r.items[1].text, 'Velocidad 79 PPM (mínimo 100 PPM): pendiente');
   });
 
   it('velocidad cumplida y precisión pendiente (sin redondear hacia el objetivo)', () => {
@@ -97,9 +97,9 @@ describe('formatObjectiveResults', () => {
     assert.equal(r.items[0].text, 'Precisión 89,9 % (mínimo 90 %): pendiente');
   });
 
-  it('las WPM no se redondean hacia el objetivo', () => {
+  it('las PPM no se redondean hacia el objetivo', () => {
     assert.equal(results(95, 19.99).items[1].state, 'pending');
-    assert.match(results(95, 19.99).items[1].text, /^Velocidad 19 WPM/);
+    assert.match(results(95, 19.99).items[1].text, /^Velocidad 99 PPM/);
   });
 
   it('velocidad no aplicable (sin objetivo de WPM)', () => {
@@ -221,7 +221,7 @@ describe('Biblioteca simplificada (T15.3)', () => {
   });
 
   it('mejores marcas a demanda, o un aviso si aún no hay resultados', () => {
-    assert.equal(bestMarksText({ bestAccuracy: 97.14, bestWpm: 29.6 }), 'Mejor resultado: 97,1 % de precisión · 29 WPM');
+    assert.equal(bestMarksText({ bestAccuracy: 97.14, bestWpm: 29.6 }), 'Mejor resultado: 97,1 % de precisión · 148 PPM');
     assert.equal(bestMarksText({ bestAccuracy: null, bestWpm: null }), 'Todavía sin resultados');
   });
 });

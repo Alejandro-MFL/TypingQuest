@@ -1,6 +1,8 @@
 // Capa de interfaz: única que toca el DOM. No contiene reglas de juego.
 // Las funciones de formato y charStates son puras para poder probarlas con Node.
-import { summarizeHistory, chartScaleMax, chartPoints, describeSeries, formatDateTime } from './history.js';
+import { summarizeHistory, chartPoints, accuracyAxis, speedAxis, describeSeries, formatDateTime } from './history.js';
+import { wpmToCpm } from './metrics.js';
+import { formatVolume, volumeButtonLabel, volumeLevel } from './volume.js';
 
 const MAX_LISTED_CHARS = 10;
 
@@ -15,12 +17,19 @@ export function formatTime(ms) {
 }
 
 /**
- * WPM en vivo. Con muy poco tiempo transcurrido la fórmula da picos enormes
+ * PPM en vivo. Con muy poco tiempo transcurrido la fórmula da picos enormes
  * (1 carácter en 1 ms), así que se muestra «—» hasta alcanzar `minElapsedMs`.
  * Solo afecta a la presentación: getStats y metrics.js no cambian.
  */
-export function formatLiveWpm(stats, minElapsedMs) {
-  return stats.elapsedMs < minElapsedMs ? '—' : String(Math.round(stats.wpm));
+export function formatLiveCpm(stats, minElapsedMs) {
+  return stats.elapsedMs < minElapsedMs ? '—' : String(Math.round(stats.cpm));
+}
+
+/** Referencia secundaria en palabras por minuto, con cómo se obtiene. */
+export function formatWordsReference({ wpm }) {
+  if (!Number.isFinite(wpm) || wpm < 0) return '';
+  const words = Math.round(wpm);
+  return `Equivale a ${words} ${words === 1 ? 'palabra' : 'palabras'} por minuto (PPM ÷ 5).`;
 }
 
 const MODE_NAMES = { free: 'Libre', strict: 'Estricto' };
@@ -47,7 +56,7 @@ export function isModeLocked(screen, state) {
 export function formatResultsSummary(stats, mode) {
   const errors = stats.errors === 1 ? '1 error' : `${stats.errors} errores`;
   const modeText = mode ? ` Modo ${formatMode(mode).toLowerCase()}.` : '';
-  return `Partida terminada. ${Math.round(stats.wpm)} palabras por minuto, ` +
+  return `Partida terminada. ${Math.round(stats.cpm)} pulsaciones por minuto, ` +
     `${Math.round(stats.accuracy)} % de precisión, tiempo ${formatTime(stats.elapsedMs)} y ${errors}.${modeText}`;
 }
 
@@ -226,8 +235,22 @@ export function getElements(doc = document) {
     notice: byId('lane-notice'),
     input: byId('typing-input'),
     soundToggle: byId('sound-toggle'),
+    volume: {
+      panel: byId('volume-panel'),
+      range: byId('volume-range'),
+      value: byId('volume-value'),
+    },
     resultsTitle: byId('results-title'),
     resultWpm: byId('result-wpm'),
+    resultWordsReference: byId('result-words-reference'),
+    compare: {
+      section: byId('result-compare'),
+      icon: byId('result-compare-icon'),
+      title: byId('result-compare-title'),
+      lines: byId('result-compare-lines'),
+      advice: byId('result-compare-advice'),
+      note: byId('result-compare-note'),
+    },
     resultAccuracy: byId('result-accuracy'),
     resultTime: byId('result-time'),
     resultErrors: byId('result-errors'),
@@ -326,9 +349,20 @@ export function playChunkComplete(els, completedText, durationMs) {
   els.lane.append(ghost);
 }
 
-export function renderSoundToggle(els, enabled) {
-  els.soundToggle.setAttribute('aria-pressed', String(enabled));
-  els.soundToggle.title = enabled ? 'Silenciar sonido' : 'Activar sonido';
+/** Botón y panel de volumen (experimento 01): icono por nivel, valor y nombre accesible. */
+export function renderVolume(els, volume) {
+  const label = volumeButtonLabel(volume);
+  els.soundToggle.dataset.level = volumeLevel(volume);
+  els.soundToggle.setAttribute('aria-label', label);
+  els.soundToggle.title = label;
+  els.volume.range.value = String(volume);
+  els.volume.range.setAttribute('aria-valuetext', formatVolume(volume));
+  els.volume.value.textContent = formatVolume(volume);
+}
+
+export function renderVolumeOpen(els, open) {
+  els.volume.panel.hidden = !open;
+  els.soundToggle.setAttribute('aria-expanded', String(open));
 }
 
 export function showScreen(els, name) {
@@ -363,7 +397,7 @@ export function renderChunks(els, state, chunks) {
 }
 
 export function renderStats(els, stats, minWpmElapsedMs) {
-  els.wpm.textContent = formatLiveWpm(stats, minWpmElapsedMs);
+  els.wpm.textContent = formatLiveCpm(stats, minWpmElapsedMs);
   els.accuracy.textContent = String(Math.round(stats.accuracy));
   els.timer.textContent = formatTime(stats.elapsedMs);
 }
@@ -402,12 +436,36 @@ export function renderOptionsState(els, { locked }) {
 }
 
 export function renderResults(els, stats, mode) {
-  els.resultWpm.textContent = String(Math.round(stats.wpm));
+  els.resultWpm.textContent = String(Math.round(stats.cpm));
+  els.resultWordsReference.textContent = formatWordsReference(stats);
   els.resultAccuracy.textContent = `${Math.round(stats.accuracy)} %`;
   els.resultTime.textContent = formatTime(stats.elapsedMs);
   els.resultErrors.textContent = String(stats.errors);
   els.resultMode.textContent = formatSelectedMode(mode);
   els.resultsAnnouncer.textContent = formatResultsSummary(stats, mode);
+}
+
+/**
+ * Comparación con la referencia (experimento 01), con textos de describeComparison.
+ * Cada línea lleva icono y palabra («mejora», «empeora»): el color solo acompaña.
+ */
+export function renderComparison(els, view) {
+  const c = els.compare;
+  c.icon.textContent = view.icon;
+  c.title.textContent = view.title;
+  c.lines.replaceChildren(...view.lines.map((line) => {
+    const item = document.createElement('li');
+    item.className = `result-compare-line trend-${line.trend}`;
+    const icon = document.createElement('span');
+    icon.className = 'result-compare-line-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = line.icon;
+    item.append(icon, line.text);
+    return item;
+  }));
+  c.advice.textContent = view.advice;
+  c.advice.hidden = view.advice === '';
+  c.note.textContent = view.note;
 }
 
 /** Vacía el anunciador para que el siguiente resultado se anuncie de nuevo. */
@@ -467,6 +525,21 @@ function chartGridLine(y, label) {
   return group;
 }
 
+// Líneas de referencia: máximo, mínimo y, si el mínimo no es 0, también la mitad,
+// para que la escala ajustada se lea sin confundirla con una que empieza en 0.
+function chartGrid(minValue, maxValue) {
+  const lines = [
+    chartGridLine(CHART_BOX.top, String(maxValue)),
+    chartGridLine(CHART_BOX.top + CHART_BOX.height, String(minValue)),
+  ];
+  const middle = Math.round((minValue + maxValue) / 2);
+  if (minValue > 0 && middle > minValue && middle < maxValue) {
+    const y = CHART_BOX.top + CHART_BOX.height * (1 - (middle - minValue) / (maxValue - minValue));
+    lines.push(chartGridLine(y, String(middle)));
+  }
+  return lines;
+}
+
 function chartDot({ x, y }, tooltip) {
   const dot = svgElement('circle', { class: 'chart-dot', cx: x, cy: y, r: 3.5 });
   const title = svgElement('title');
@@ -480,22 +553,17 @@ function chartDot({ x, y }, tooltip) {
  * la descripción textual visible (describeSeries) da los datos y la tendencia.
  * @param {{ value: number, date: string }[]} points en orden cronológico
  */
-function renderChart(svg, description, points, { label, maxValue, unit }) {
+function renderChart(svg, description, points, { label, minValue = 0, maxValue, unit, scaleNote = '' }) {
   const values = points.map((p) => p.value);
-  const coords = chartPoints(values, { width: CHART_BOX.width, height: CHART_BOX.height, maxValue })
+  const coords = chartPoints(values, { width: CHART_BOX.width, height: CHART_BOX.height, minValue, maxValue })
     .map(({ x, y }) => ({ x: x + CHART_BOX.left, y: y + CHART_BOX.top }));
   const line = svgElement('polyline', {
     class: 'chart-line',
     points: coords.map(({ x, y }) => `${x},${y}`).join(' '),
   });
   const dots = coords.map((c, i) => chartDot(c, `${points[i].date}: ${Math.round(values[i])}${unit}`));
-  svg.replaceChildren(
-    chartGridLine(CHART_BOX.top, String(maxValue)),
-    chartGridLine(CHART_BOX.top + CHART_BOX.height, '0'),
-    line,
-    ...dots
-  );
-  description.textContent = describeSeries(label, values);
+  svg.replaceChildren(...chartGrid(minValue, maxValue), line, ...dots);
+  description.textContent = `${describeSeries(label, values)}${scaleNote ? ` ${scaleNote}` : ''}`;
 }
 
 // `exerciseName(id)` traduce el ID guardado al título del catálogo.
@@ -504,7 +572,7 @@ function createHistoryRow(session, exerciseName) {
   const cells = [
     formatDateTime(session.finishedAt),
     exerciseName(session.exercise),
-    String(Math.round(session.wpm)),
+    String(Math.round(wpmToCpm(session.wpm))),
     `${Math.round(session.accuracy)} %`,
     formatMode(session.mode),
   ];
@@ -536,36 +604,49 @@ function createDiagnosisCell(session, sessionText) {
 function renderHistorySummary(h, sessions) {
   const summary = summarizeHistory(sessions);
   h.count.textContent = String(summary.count);
-  h.bestWpm.textContent = summary.bestWpm === null ? '—' : String(Math.round(summary.bestWpm));
+  h.bestWpm.textContent = summary.bestWpm === null ? '—' : String(Math.round(wpmToCpm(summary.bestWpm)));
   h.averageAccuracy.textContent =
     summary.averageAccuracy === null ? '—' : `${Math.round(summary.averageAccuracy)} %`;
 }
 
-// Pinta las gráficas de WPM y precisión de las `recent` sesiones (cronológicas).
-function renderTrendCharts(target, recent) {
+// Pinta las gráficas de velocidad y precisión de las `recent` sesiones (cronológicas).
+// Todos los registros guardan WPM; la gráfica los convierte TODOS a PPM (× 5), así
+// que nunca mezcla unidades. `adaptiveScale` (solo Resultados, exp. 01.1 y 01.2) ajusta
+// los ejes de velocidad y precisión a los datos; el Historial conserva las escalas
+// originales (velocidad desde 0 y precisión 0-100 %).
+function renderTrendCharts(target, recent, { adaptiveScale = false } = {}) {
   const point = (value, s) => ({ value, date: formatDateTime(s.finishedAt) });
-  const wpm = recent.map((s) => point(s.wpm, s));
+  const wpm = recent.map((s) => point(wpmToCpm(s.wpm), s));
   const accuracy = recent.map((s) => point(s.accuracy, s));
   renderChart(target.chartWpm, target.chartWpmDescription, wpm, {
-    label: 'WPM', maxValue: chartScaleMax(wpm.map((p) => p.value)), unit: ' WPM',
+    label: 'Velocidad (PPM)', unit: ' PPM', ...speedAxis(wpm.map((p) => p.value), { adaptive: adaptiveScale }),
   });
   renderChart(target.chartAccuracy, target.chartAccuracyDescription, accuracy, {
-    label: 'Precisión (%)', maxValue: 100, unit: ' %',
+    label: 'Precisión (%)', unit: ' %', ...accuracyAxis(accuracy.map((p) => p.value), { adaptive: adaptiveScale }),
   });
 }
 
+// Exp. 01.2: una línea de evolución necesita al menos dos sesiones guardadas.
+const MIN_TREND_SESSIONS = 2;
+
+/** true si hay sesiones suficientes para las gráficas de Resultados. */
+export function hasEnoughTrendSessions(count) {
+  return count >= MIN_TREND_SESSIONS;
+}
+
 /**
- * Evolución permanente en la pantalla de resultados: gráficas de las últimas
- * `chartSessions` sesiones guardadas con su descripción textual (el listado de
- * sesiones está en Historial). Sin sesiones, solo un mensaje.
+ * «Tu evolución» en Resultados, siempre visible (exp. 01.2): gráficas de las últimas
+ * `chartSessions` sesiones guardadas con su descripción textual y escalas ajustadas
+ * (el listado de sesiones está en Historial). Con menos de dos, un mensaje breve.
  */
 export function renderResultsTrends(els, sessions, chartSessions) {
   const t = els.resultsTrends;
   const recent = sessions.slice(-chartSessions);
-  t.empty.hidden = recent.length > 0;
-  t.body.hidden = recent.length === 0;
-  if (recent.length === 0) return;
-  renderTrendCharts(t, recent);
+  const enough = hasEnoughTrendSessions(recent.length);
+  t.empty.hidden = enough;
+  t.body.hidden = !enough;
+  if (!enough) return;
+  renderTrendCharts(t, recent, { adaptiveScale: true });
 }
 
 /**

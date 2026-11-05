@@ -30,6 +30,10 @@ function typeChars(state, text, startAt = 1000, stepMs = 100) {
   return current;
 }
 
+function assertCloseTo(actual, expected, epsilon = 1e-9) {
+  assert.ok(Math.abs(actual - expected) < epsilon, `esperado ~${expected}, obtenido ${actual}`);
+}
+
 function backspace(state, now) {
   return applyInput(state, state.typed.slice(0, -1), now);
 }
@@ -270,6 +274,7 @@ describe('getStats', () => {
   it('devuelve ceros en idle', () => {
     assert.deepEqual(getStats(createGame('hola'), 0), {
       wpm: 0,
+      cpm: 0,
       accuracy: 0,
       elapsedMs: 0,
       errors: 0,
@@ -294,6 +299,52 @@ describe('getStats', () => {
     assert.equal(stats.accuracy, 80); // 4 correctas de 5 pulsaciones
     assert.equal(stats.errors, 1);
     assert.equal(stats.corrections, 1);
+  });
+
+  // Experimento 01: PPM = caracteres correctos presentes / minutos (misma base que el WPM).
+  it('PPM: cuenta los caracteres correctos actuales; un error visible no cuenta', () => {
+    const game = typeChars(createGame('abcdefghijkl'), 'abcdefghijX', 0, 600);
+    assert.equal(getStats(game, 6000).cpm, 100); // 10 correctos en 0,1 min
+  });
+
+  it('PPM: un error corregido cuenta una sola vez (el carácter final), no las pulsaciones', () => {
+    let game = typeChars(createGame('abcd'), 'abX', 0, 100);
+    game = backspace(game, 300);
+    game = typeChars(game, 'cd', 400, 100);
+    const stats = getStats(game, 10_000);
+    assert.equal(stats.cpm, 4 / (500 / 60_000)); // 4 caracteres en 500 ms
+    assert.equal(game.keystrokes.total, 5, 'la precisión sí ve las 5 pulsaciones');
+  });
+
+  it('PPM: un carácter correcto borrado deja de contar', () => {
+    let game = typeChars(createGame('abcd'), 'abc', 0, 1000);
+    game = backspace(game, 3000);
+    assert.equal(getStats(game, 6000).cpm, 2 / (6000 / 60_000));
+  });
+
+  it('PPM: caracteres repetidos, espacios y puntuación cuentan uno a uno', () => {
+    const text = 'aa, ¿sí? ¡ya!';
+    const game = typeChars(createGame(text), text, 0, 1000);
+    assert.equal(game.status, 'finished');
+    const minutes = game.finishedAt / 60_000;
+    assert.equal(getStats(game, 0).cpm, [...text].length / minutes);
+  });
+
+  it('PPM: ñ y vocales con tilde compuestas con tecla muerta cuentan como un carácter', () => {
+    // La tecla muerta llega como composición: el motor solo ve el valor final.
+    // La forma descompuesta (a + U+0301) se normaliza a NFC: un solo carácter.
+    let game = createGame('ñá');
+    game = applyInput(game, 'ñ', 0);
+    game = applyInput(game, 'ñá', 60_000);
+    assert.equal(game.typed, 'ñá');
+    assert.equal(getStats(game, 0).cpm, 2);
+    assert.equal(game.keystrokes.total, 2, 'ni Mayús ni la tecla muerta suman pulsaciones');
+  });
+
+  it('PPM = WPM × 5 en cualquier momento de la partida', () => {
+    const game = typeChars(createGame('hola mundo'), 'hola mXn', 0, 250);
+    const stats = getStats(game, 2345);
+    assertCloseTo(stats.cpm, stats.wpm * 5);
   });
 
   it('las estadísticas finales no cambian con el paso del tiempo', () => {
@@ -747,7 +798,7 @@ describe('applyInput: modo libre', () => {
 
 describe('restartGame durante la partida (botón «Reiniciar ejercicio»)', () => {
   const fresh = (mode) => createGame(SEG_TEXT, { segmentEnds: SEG_ENDS, mode });
-  const zeroStats = { wpm: 0, accuracy: 0, elapsedMs: 0, errors: 0, corrections: 0 };
+  const zeroStats = { wpm: 0, cpm: 0, accuracy: 0, elapsedMs: 0, errors: 0, corrections: 0 };
 
   for (const mode of ['free', 'strict']) {
     describe(`modo ${mode}`, () => {

@@ -20,6 +20,7 @@ import { isValidExerciseId } from './catalog.js';
 import { EXERCISE_STATUS, createProgress } from './progress.js';
 import { packAnalysis, unpackAnalysis } from './typing-analysis.js';
 import { THEME_KEY, parseThemePreference, serializeThemePreference } from './theme.js';
+import { VOLUME_KEY, normalizeVolume, parseVolumePreference, serializeVolumePreference } from './volume.js';
 
 export const HISTORY_KEY = 'typingquest:history:v1';
 // Campos permitidos de una sesión guardada, en el orden en que se escriben.
@@ -356,6 +357,35 @@ export function createThemeStore(storage) {
     if (!storage) return { ok: false, error: 'unavailable' };
     try {
       storage.setItem(THEME_KEY, serializeThemePreference(preference));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: classifyWriteError(error) };
+    }
+  }
+
+  return { load, save };
+}
+
+// --- Volumen (experimento 01) ----------------------------------------------------------
+//
+// Solo el volumen (0-100), en su propia clave (VOLUME_KEY): no toca el historial, el
+// progreso ni otras preferencias. load() devuelve null si no hay dato válido.
+
+export function createVolumeStore(storage) {
+  function load() {
+    if (!storage) return null;
+    try {
+      return parseVolumePreference(storage.getItem(VOLUME_KEY));
+    } catch {
+      return null;
+    }
+  }
+
+  function save(volume) {
+    if (normalizeVolume(volume) === null) return { ok: false, error: 'invalid' };
+    if (!storage) return { ok: false, error: 'unavailable' };
+    try {
+      storage.setItem(VOLUME_KEY, serializeVolumePreference(volume));
       return { ok: true };
     } catch (error) {
       return { ok: false, error: classifyWriteError(error) };

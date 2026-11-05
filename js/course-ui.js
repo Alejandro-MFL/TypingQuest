@@ -3,6 +3,7 @@
 // Los helpers del principio son puros y se prueban con Node.
 import { EXERCISE_STATUS } from './progress.js';
 import { DIFFICULTIES, CATEGORIES, difficultyLabel, kindLabel } from './catalog.js';
+import { wpmToCpm } from './metrics.js';
 
 const STATUS_INFO = Object.freeze({
   [EXERCISE_STATUS.NOT_STARTED]: { label: 'No realizado', icon: '○' },
@@ -58,7 +59,8 @@ export function formatGoals({ targetAccuracy, targetWpm }) {
   if (targetWpm === null) {
     return `Objetivo: ${targetAccuracy} % de precisión (la velocidad no se evalúa en esta práctica)`;
   }
-  return `Objetivos: ${targetAccuracy} % de precisión y ${targetWpm} WPM`;
+  // Los objetivos del catálogo siguen en WPM; se muestran en PPM (× 5, exacto).
+  return `Objetivos: ${targetAccuracy} % de precisión y ${wpmToCpm(targetWpm)} PPM`;
 }
 
 function wpmItem(wpm) {
@@ -66,8 +68,9 @@ function wpmItem(wpm) {
   if (!wpm.reliable) {
     return { state: 'unreliable', text: 'Velocidad: tiempo demasiado corto para medirla con fiabilidad; pendiente' };
   }
-  // WPM truncadas: 19,99 se muestra 19, nunca «20».
-  const value = `Velocidad ${Math.floor(wpm.value)} WPM (mínimo ${wpm.target} WPM)`;
+  // PPM truncadas: 99,95 se muestra 99, nunca «100». Cumplir en WPM equivale a
+  // cumplir en PPM (misma base × 5), así que el texto y el estado coinciden.
+  const value = `Velocidad ${Math.floor(wpmToCpm(wpm.value))} PPM (mínimo ${wpmToCpm(wpm.target)} PPM)`;
   return { state: wpm.met ? 'met' : 'pending', text: `${value}: ${wpm.met ? 'cumplido' : 'pendiente'}` };
 }
 
@@ -525,7 +528,7 @@ export function libraryLessonTitle({ code, title }) {
 /** Mejores marcas de una práctica, solo a demanda en la Biblioteca. */
 export function bestMarksText({ bestAccuracy, bestWpm }) {
   if (bestAccuracy === null || bestWpm === null) return 'Todavía sin resultados';
-  return `Mejor resultado: ${formatAccuracyFloor(bestAccuracy)} de precisión · ${Math.floor(bestWpm)} WPM`;
+  return `Mejor resultado: ${formatAccuracyFloor(bestAccuracy)} de precisión · ${Math.floor(wpmToCpm(bestWpm))} PPM`;
 }
 
 /** Aviso en Resultados cuando la velocidad se mide pero no forma parte del objetivo. */
