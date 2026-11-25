@@ -56,10 +56,22 @@ describe('index.html: recursos y enlaces', () => {
   it('declara una política de seguridad de contenidos (CSP) estricta', () => {
     const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1];
     assert.ok(csp, 'falta la CSP');
-    for (const directive of ["default-src 'self'", "script-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
+    for (const directive of ["default-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
       assert.ok(csp.includes(directive), directive);
     }
     assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|\*/);
+  });
+
+  // Música (experimento 02): los ÚNICOS orígenes externos, cada uno en su directiva.
+  it('solo permite YouTube (API y reproductor sin cookies) y LRCLIB, y nada más', () => {
+    const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1];
+    const directives = Object.fromEntries(csp.split(';').map((d) => d.trim().split(/\s+/)).map(([name, ...values]) => [name, values]));
+    assert.deepEqual(directives['script-src'], ["'self'", 'https://www.youtube.com']);
+    assert.deepEqual(directives['frame-src'], ['https://www.youtube-nocookie.com']);
+    assert.deepEqual(directives['connect-src'], ["'self'", 'https://lrclib.net']);
+    for (const name of ['default-src', 'style-src', 'img-src', 'font-src']) {
+      assert.deepEqual(directives[name], ["'self'"], name);
+    }
   });
 });
 

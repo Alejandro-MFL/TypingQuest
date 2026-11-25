@@ -20,6 +20,15 @@
       "port": 8001
     },
     {
+      "name": "typingquest-music",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "tools/dev-server.py",
+        "8002"
+      ],
+      "port": 8002
+    },
+    {
       "name": "typingquest-site",
       "runtimeExecutable": "python",
       "runtimeArgs": [

@@ -6,6 +6,8 @@ import { prepareText } from './text-prep.js';
 import { splitIntoChunks } from './chunks.js';
 import { createGame, applyInput, restartGame, getStats, getProgress } from './game.js';
 import { createSoundPlayer, finishSoundKind } from './sound.js';
+import { attachSequentialInput } from './typing-input.js';
+import { createMusicController } from './music.js';
 import { compareWithReference, describeComparison } from './session-compare.js';
 import {
   createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT, createGuideStore,
@@ -44,24 +46,10 @@ import {
 } from './keyboard.js';
 import { createKeyboard, createHands, renderGuide } from './keyboard-ui.js';
 
-// Escritura secuencial: solo se admite insertar al final y borrar hacia atrás.
-const ALLOWED_INPUT_TYPES = new Set([
-  'insertText',
-  'insertCompositionText',
-  'deleteContentBackward',
-  'deleteWordBackward',
-  'deleteSoftLineBackward',
-  'deleteHardLineBackward',
-]);
-// Teclas que moverían el cursor fuera del final del texto.
-const NAVIGATION_KEYS = new Set([
-  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown',
-]);
-// Atajos con Ctrl/Cmd: seleccionar todo, deshacer y rehacer.
-const BLOCKED_SHORTCUTS = new Set(['a', 'z', 'y']);
 // Pantalla de cada ruta de la navegación principal.
 const ROUTE_SCREENS = {
   home: 'home', academy: 'academy', library: 'library', history: 'history', practice: 'setup', ergonomics: 'ergonomics',
+  music: 'music',
 };
 const CATALOG_FILES = { exercises: 'data/exercises.json', course: 'data/course.json' };
 
@@ -74,6 +62,8 @@ const volumeStore = createVolumeStore(storage);
 const sound = createSoundPlayer({
   volume: initialVolume({ stored: volumeStore.load(), legacyEnabled: CONFIG.soundEnabled }),
 });
+// Música (experimento 02): pantalla propia; usa el modo elegido en Opciones y el sonido.
+const music = createMusicController({ sound, getMode: () => selectedMode });
 const historyStore = createHistoryStore(storage, { maxSessions: CONFIG.maxHistorySessions });
 const progressStore = createProgressStore(storage);
 // Catálogo validado (null si no se pudo cargar) y progreso académico en memoria.
@@ -97,7 +87,8 @@ let session = null;
 let currentScreen = 'home';
 // Modo elegido en Opciones para las partidas nuevas y los reintentos.
 let selectedMode = CONFIG.blockOnErrorsDefault ? 'strict' : 'free';
-let composing = false;
+// Control del campo de escritura (typing-input.js: escritura secuencial y composición).
+let typingControl = null;
 let statsTimer = null;
 // Avisos contextuales: estado de interfaz, ajeno al motor y a las métricas.
 const notices = { focusLost: false, errorsBlocking: false, spaceReady: false };
@@ -132,6 +123,7 @@ function navigate(route) {
 // volver a la Biblioteca con billete, se deja como estaba (una sola vez).
 function showRoute(route) {
   leaveGame();
+  music.leave();
   closeOptions();
   closeVolume();
   courseUi.renderNav(ce, route);
@@ -142,6 +134,7 @@ function showRoute(route) {
   }
   renderRoute(route);
   showScreen(ROUTE_SCREENS[route]);
+  if (route === 'music') music.enter();
   if (ticket) restoreLibraryPosition(ticket);
   else if (route === 'practice') els.sourceText.focus();
   else els.screens[ROUTE_SCREENS[route]].querySelector('.screen-title').focus();
@@ -419,7 +412,7 @@ function enterPlay() {
   ui.renderVolumeOpen(els, false);
   stopStatsTimer();
   resetNotices();
-  composing = false;
+  typingControl.reset();
   showScreen('play');
   ui.renderPlayMode(els, session.state.mode);
   courseUi.renderPlayExercise(ce, session.exercise, { canSkip: session.courseStep });
@@ -633,7 +626,7 @@ function leaveGame() {
   ui.clearChunkEffects(els);
   ui.clearResultsAnnouncement(els);
   ui.renderSaveError(els, null);
-  composing = false;
+  typingControl.reset();
   session = null;
   guideErrorCode = null;
   renderKeyboardGuide();
@@ -780,55 +773,18 @@ function stopStatsTimer() {
 
 // --- Control de la entrada (escritura secuencial) ------------------------------
 
-function isCaretAtEnd(input) {
-  const end = input.value.length;
-  return input.selectionStart === end && input.selectionEnd === end;
-}
-
-function handleBeforeInput(event) {
-  if (!ALLOWED_INPUT_TYPES.has(event.inputType)) {
-    event.preventDefault();
-    return;
-  }
-  // La composición no es cancelable; fuera de ella, solo se edita desde el final.
-  if (!event.isComposing && event.inputType !== 'insertCompositionText' && !isCaretAtEnd(els.input)) {
-    event.preventDefault();
-    ui.moveCaretToEnd(els.input);
-  }
-}
-
-function handleInput(event) {
-  // Durante una composición (teclas muertas, IME) se espera al compositionend.
-  if (composing || event.isComposing) return;
-  processInput();
-}
-
+// Las reglas (solo al final, sin pegar ni flechas, teclas muertas) están en typing-input.js.
 function handleKeyDown(event) {
   // Una pulsación es una interacción válida para crear o reanudar el audio.
   sound.unlock();
   // Posición física de la última tecla (para marcar un error en el teclado visual).
   if (!MODIFIER_CODES.has(event.code)) lastKeyCode = event.code;
-  const shortcut = (event.ctrlKey || event.metaKey) && BLOCKED_SHORTCUTS.has(event.key?.toLowerCase());
-  if (NAVIGATION_KEYS.has(event.key) || shortcut) event.preventDefault();
-}
-
-function keepCaretAtEnd() {
-  if (!composing) ui.moveCaretToEnd(els.input);
 }
 
 function bindTypingInput() {
   const { input } = els;
-  input.addEventListener('beforeinput', handleBeforeInput);
-  input.addEventListener('input', handleInput);
-  input.addEventListener('keydown', handleKeyDown);
-  input.addEventListener('compositionstart', () => { composing = true; });
-  input.addEventListener('compositionend', () => {
-    composing = false;
-    processInput();
-  });
   // El textarea tiene pointer-events: none; el ratón llega a través del carril.
-  for (const type of ['select', 'focus']) input.addEventListener(type, keepCaretAtEnd);
-  for (const type of ['paste', 'drop', 'cut']) input.addEventListener(type, (e) => e.preventDefault());
+  typingControl = attachSequentialInput(input, { onValue: processInput, onKeyDown: handleKeyDown });
   input.addEventListener('focus', () => {
     notices.focusLost = false;
     updateNotice();
@@ -1165,6 +1121,7 @@ async function init() {
   bindEvents();
   bindTheme();
   bindErgonomics();
+  music.bind();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderVolume(els, sound.getVolume());
   ui.renderSelectedMode(els, selectedMode);

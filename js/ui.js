@@ -2,6 +2,7 @@
 // Las funciones de formato y charStates son puras para poder probarlas con Node.
 import { summarizeHistory, chartPoints, accuracyAxis, speedAxis, describeSeries, formatDateTime } from './history.js';
 import { wpmToCpm } from './metrics.js';
+import { moveCaretToEnd } from './typing-input.js';
 import { formatVolume, volumeButtonLabel, volumeLevel } from './volume.js';
 
 const MAX_LISTED_CHARS = 10;
@@ -210,6 +211,7 @@ export function getElements(doc = document) {
       results: byId('results-screen'),
       history: byId('history-screen'),
       ergonomics: byId('ergonomics-screen'),
+      music: byId('music-screen'),
     },
     setupForm: byId('setup-form'),
     sourceText: byId('source-text'),
@@ -479,12 +481,8 @@ export function syncInput(input, typed) {
   moveCaretToEnd(input);
 }
 
-export function moveCaretToEnd(input) {
-  const end = input.value.length;
-  if (input.selectionStart !== end || input.selectionEnd !== end) {
-    input.setSelectionRange(end, end);
-  }
-}
+// El cursor al final: misma función que usa el control de la escritura (typing-input.js).
+export { moveCaretToEnd };
 
 /** Muestra u oculta el aviso de fallo al guardar la partida en el historial. */
 // Es una región role="status" siempre presente: solo cambia su texto, y solo si

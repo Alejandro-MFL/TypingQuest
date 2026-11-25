@@ -39,6 +39,27 @@ Detalles técnicos en `CLAUDE.md` («Experimento 01»).
 Pendiente: publicar la nueva versión (workflow manual, con autorización expresa) y comprobarla
 en la web real; calibrar con uso real los umbrales de la comparación.
 
+## Experimento 02: Música (rama `feature/typingquest-music-01`; en revisión, sin integrar ni publicar)
+
+Primera versión de «TypingQuest Música»: pegar un vídeo de YouTube, buscar su letra sincronizada
+en LRCLIB (o importar un `.lrc`), ajustar el desfase, escuchar cada frase y escribirla con el
+motor de siempre. Detalles en `CLAUDE.md` («Música»). Se prueba en http://localhost:8002.
+
+| Parte | Estado |
+|---|---|
+| Vídeo de YouTube (URL validada, IFrame API oficial sin cookies, errores del reproductor) | Implementado y probado (pruebas y navegador) |
+| Búsqueda en LRCLIB (`/api/search`, `Lrclib-Client`, 429 y `Retry-After`) e importación de `.lrc` | Implementado y probado (búsqueda real en navegador) |
+| Frases, desfase global y comprobación de la sincronización | Implementado y probado |
+| Escuchar y escribir por frases con métricas de tiempo activo; sin guardar nada | Sustituido en 02.1 por la escritura mientras suena |
+| 02.1: configuración entera en «Vídeo y letra», deslizador de desfase (±30 s) y escritura MIENTRAS suena (la frase aparece 1 s antes; pausa solo si no se termina 0,3 s antes de la siguiente; reanuda sin saltos) | Implementado y probado (pruebas deterministas y navegador) |
+| 02.2: marcador de escritura estable (las teclas ya no llegan a los atajos de YouTube: `disablekb=1` y el foco vuelve al campo si entra en el vídeo) | Corregido y probado (teclas reales en navegador) |
+| 02.3: diagnóstico de desarrollo del marcador (`?diagnostico=1`: traza de eventos, detector de divergencias, copiar/descargar) | Implementado |
+| 02.3: causa del marcador «quieto» (clic en zona no interactiva → foco en `<body>`, teclas perdidas sin aviso) corregida como en Academia (foco conservado + aviso) | Corregido y comprobado con la traza del usuario y clics y teclas reales |
+
+Pendiente: calibrar con uso real la anticipación (1 s) y el margen (0,3 s), revisión visual del usuario, probar más vídeos (no insertables, versiones distintas),
+Firefox y Safari, y decidir si se integra. Fuera de alcance en esta versión: SRT/VTT, editor de
+letras, biblioteca o historial musical, traducciones y cuentas.
+
 ## Mejoras futuras (sin fase asignada)
 
 - **Gamificación sutil (propuestas de T15.2, sin implementar):** resumen al completar un

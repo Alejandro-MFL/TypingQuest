@@ -10,6 +10,7 @@ describe('router', () => {
     assert.equal(parseRoute('#/historial'), 'history');
     assert.equal(parseRoute('#/practica-libre'), 'practice');
     assert.equal(parseRoute('#/ergonomia'), 'ergonomics');
+    assert.equal(parseRoute('#/musica'), 'music', 'Música (experimento 02)');
   });
 
   it('sin hash o con uno desconocido va a Inicio', () => {

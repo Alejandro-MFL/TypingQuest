@@ -39,7 +39,7 @@ js/catalog.js         # PURO: validación del catálogo y del curso; lecciones y
 js/progress.js        # PURO: estados de los ejercicios, posición del recorrido y vista de la Academia.
 js/objectives.js      # PURO: objetivos de precisión y WPM (aplicabilidad y fiabilidad).
 js/router.js          # PURO: rutas hash (#/inicio, #/academia, #/biblioteca, #/historial, #/practica-libre,
-                      # #/ergonomia).
+                      # #/ergonomia, #/musica).
 js/keyboard.js        # PURO: teclado español ISO, dedos, resolución carácter → teclas y ayudas.
 js/keyboard-ui.js     # Guía visual: teclado (HTML/CSS) y manos (SVG propio), solo presentación.
 js/typing-analysis.js # PURO: diagnóstico por carácter (transiciones aceptadas, resumen, formato guardado).
@@ -58,12 +58,24 @@ js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejerci
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías); volumen general (exp. 01).
 js/volume.js          # PURO (exp. 01): preferencia de volumen 0-100 %, curva de ganancia y textos.
 js/session-compare.js # PURO (exp. 01): comparación con el intento anterior del mismo ejercicio y modo.
+js/typing-input.js    # Control del textarea de escritura (secuencial, composición), compartido.
+js/youtube-url.js     # PURO (exp. 02): URL de YouTube → ID de vídeo y URL del reproductor.
+js/youtube-player.js  # Adaptador de la YouTube IFrame Player API (exp. 02).
+js/lrclib.js          # Cliente de lectura de LRCLIB (exp. 02; fetch y reloj inyectados).
+js/lrc.js             # PURO (exp. 02): analizador de letras LRC.
+js/music-sync.js      # PURO (exp. 02): frases, ventanas de reproducción y desfase.
+js/music-practice.js  # PURO (exp. 02): estado de la práctica de Música y métricas activas.
+js/music-ui.js        # Música (exp. 02): textos puros y pintado.
+js/music.js           # Música (exp. 02): coordinación de la pantalla.
+js/music-trace.js     # PURO (exp. 02.3): registro y detector de divergencias (diagnóstico de desarrollo).
+js/music-debug.js     # Diagnóstico de desarrollo de Música (?diagnostico=1): eventos, comprobaciones, exportar.
 js/main.js            # Coordinación: rutas, eventos, temporizadores, catálogo, progreso y pantallas.
 tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, storage, history,
                       # catalog (incluye los JSON reales), curriculum (pedagogía del temario real),
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
-                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, session-compare y volume (exp. 01), security, build-site, modules (imports y exports del grafo de
+                      # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, session-compare y volume (exp. 01), typing-input, youtube-url, youtube-player, lrclib, lrc,
+                      # music-sync, music-practice y music-ui (exp. 02), chart-scope, security, build-site, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 tools/build-site.mjs  # Artefacto de publicación (T18): copia y comprueba solo los archivos de la web.
@@ -73,7 +85,8 @@ TRADEMARKS.md         # Nombre y logotipos fuera de la licencia MIT (no se autor
 docs/                 # publicacion.md (guía de despliegue) y screenshots/ (capturas reales, datos de prueba).
 .github/workflows/    # pages.yml: pruebas + artefacto; publica solo a mano y desde la rama predeterminada.
 .gitignore            # _site/ y .site-preview/ (artefactos generados).
-.claude/launch.json   # Vista previa: «typingquest» (:8000), «typingquest-experimental» (exp. 01, :8001) y «typingquest-site»
+.claude/launch.json   # Vista previa: «typingquest» (:8000), «typingquest-experimental» (exp. 01, :8001), «typingquest-music» (exp. 02,
+                      # :8002) y «typingquest-site»
                       # (artefacto en .site-preview/, :8010, subruta /TypingQuest/).
 .claude/settings.json # Hook PostToolUse (Edit|Write) → .claude/hooks/check-js.cjs.
 .claude/hooks/        # check-js.cjs (sintaxis JS en su modo real) y sus tests .test.cjs.
@@ -679,7 +692,7 @@ docs/                 # publicacion.md (guía de despliegue) y screenshots/ (cap
 - `index.html`: CSP en `<meta>` (`default-src 'self'`, sin `unsafe-inline`/`unsafe-eval`,
   `object-src`, `base-uri` y `form-action` a `'none'`) y `referrer` `no-referrer`. Por eso: sin
   scripts, estilos ni manejadores en línea (los estilos dinámicos, con CSSOM: `el.style.x`),
-  recursos solo locales y enlaces externos `https` con `rel="noopener noreferrer"`. Un recurso
+  recursos solo locales (excepción: Música, exp. 02, con YouTube y LRCLIB) y enlaces externos `https` con `rel="noopener noreferrer"`. Un recurso
   nuevo de otro origen exige ampliar la CSP a propósito (el test lo detecta).
 - `prepareText` elimina también los controles de dirección (bidi: U+200E/F, U+202A-E,
   U+2066-9, U+061C): invisibles, imposibles de teclear y capaces de reordenar lo que se ve.
@@ -783,6 +796,138 @@ las correcciones 01.1 y 01.2 e integrado en la rama estable `chore/claude-md`. L
   de ejercicio); el de fragmento solo en fragmentos intermedios. Vista previa del volumen = fragmento.
 - Riesgos: si se fusionara, el formato guardado no cambia (bajo riesgo); los umbrales de la
   comparación son provisionales; la velocidad sigue siendo neta (no pulsaciones físicas).
+
+## Música (experimento 02 y 02.1, rama `feature/typingquest-music-01`; NO integrado ni publicado)
+
+Primera versión de «TypingQuest Música»: escuchar una frase de una canción en un vídeo de
+YouTube y escribirla con el motor de siempre. Sin traducciones, vocabulario, cuentas, backend
+ni historial musical. Probar en http://localhost:8002 (preview «typingquest-music»; otro origen,
+así que no comparte localStorage con :8000, :8001 ni la web publicada).
+
+- Módulos: `youtube-url.js` (PURO: URL → ID de 11 caracteres [A-Za-z0-9_-] solo de dominios
+  oficiales: watch, youtu.be, embed, shorts, live, nocookie, m., music.; rechaza otros esquemas,
+  credenciales, puertos y dominios parecidos), `youtube-player.js` (adaptador de la IFrame
+  Player API), `lrclib.js` (cliente de lectura), `lrc.js` (PURO: analizador), `music-sync.js`
+  (PURO: frases, ventanas, desfase), `music-practice.js` (PURO: estado de la práctica),
+  `typing-input.js` (control del textarea, COMPARTIDO con main.js; marcador: `tests/music-marker.test.js`), `music-ui.js` (textos puros
+  y pintado) y `music.js` (coordinación). `main.js` solo crea el controlador, lo enlaza y llama a
+  `music.leave()` en cada cambio de ruta y `music.enter()` en `#/musica`.
+- YouTube: la API oficial (`https://www.youtube.com/iframe_api`) se carga SOLO al pulsar «Cargar
+  vídeo» (`loadYouTubeApi`, una vez; si falla, se puede reintentar). El iframe lo crea
+  TypingQuest: reproductor oficial sin cookies (`www.youtube-nocookie.com/embed/ID?enablejsapi=1
+  &origin=…&playsinline=1&rel=0`), con sus controles, sin autoplay, y `referrerPolicy =
+  'strict-origin-when-cross-origin'` (la página usa `no-referrer` y YouTube exige conocer el
+  origen; sin él falla con el error 153). Errores 2, 5, 100, 101/150 y 153 con mensaje propio.
+  Sin claves de API, sin descargas y sin subtítulos (lo que muestre el propio reproductor es suyo).
+- LRCLIB (https://lrclib.net/docs, consultado el 23-11-2026): solo `GET /api/search?track_name=
+  &artist_name=` (estable v1; máx. 20 resultados con `syncedLyrics`, `plainLyrics`, `duration`,
+  `instrumental`). Identificación con la cabecera `Lrclib-Client` (el navegador no deja cambiar
+  `User-Agent`; CORS la admite). Una petición a la vez, timeout de 10 s, búsqueda solo al enviar
+  el formulario. 429/503: no se pide nada hasta que pase `Retry-After` (60 s si falta o es raro),
+  sin reintentos automáticos. 404 = sin resultados; 5xx = no disponible; JSON no válido o que no
+  es lista = datos no válidos; registros con tipos incorrectos se descartan. Las sincronizadas van
+  primero; el usuario elige (nunca se elige solo). No se usan `/api/get`, la v2 beta ni la
+  publicación. Las letras viven solo en memoria: ni localStorage, ni archivos, ni otros servicios.
+- LRC (`parseLrc`): `[mm:ss]`, `[mm:ss.x]`, `[mm:ss.xx]`, `[mm:ss.xxx]` y `[mm:ss:xx]`; varias
+  marcas por línea; metadatos `ti`, `ar`, `al`, `length` y `offset` (los demás se ignoran);
+  marcas de palabra `<mm:ss.xx>` eliminadas; BOM y CRLF. Marca duplicada: se conserva la primera
+  frase con texto (una pausa no borra una frase). Orden estable por tiempo. Texto por
+  `sanitizeText` (NFC, sin controles ni bidi; el HTML es texto). Errores: `empty`, `too-large`
+  (200 000 caracteres), `not-synced`, `no-text`. Archivo `.lrc`: extensión, ≤ 200 KB, leído con
+  `file.text()` en el navegador (nunca se sube).
+- Frases (`buildPhrases`): cada línea con texto escribible (se quitan emojis y marcas sueltas que
+  el motor no admite). La duración de LRCLIB nunca se usa como final; si difiere > 5 s de la del
+  vídeo, se avisa en el panel (`durationMismatchNote`). (`phraseWindow`/`phraseIndexAt` siguen
+  sirviendo para la comprobación en vivo.)
+- Organización (02.1): el desplegable «Vídeo y letra» (#music-setup) contiene TODA la
+  configuración: vídeo, búsqueda y resultados, importación, mensajes (#music-setup-status:
+  «Carga un vídeo y elige una letra para empezar», etc.), desfase, comprobación y aviso de
+  duración; su resumen muestra la canción elegida. Abierto mientras falte vídeo o letra
+  (`setupShouldOpen`), se cierra al pulsar «Empezar práctica» y abrirlo durante la práctica pausa
+  el vídeo (los datos se conservan). Cambiar de vídeo o de letra reinicia la práctica sin
+  resultados. La práctica (#music-stage) solo tiene vídeo, progreso, estado, frase, controles y
+  métricas; en escritorio (≥ 64rem) vídeo a la izquierda y escritura a la derecha; en móvil, en
+  columna. `tests/music-ui.test.js` comprueba la estructura de index.html.
+- Desfase (02.1): deslizador `<input type="range">` de −30 a +30 s en pasos de 0,1 s
+  (`offsetFromSlider`, `clampOffset`), valor siempre visible (`<output>`), `aria-valuetext` con el
+  significado (`offsetValueText`), botones finos ±0,1 s y «Restablecer a 0». Positivo = la letra
+  aparece MÁS TARDE (todas las marcas + desfase); negativo = antes. Efectivo = usuario − `[offset]`
+  del LRC. No toca el reproductor. Solo en memoria. «Comprobar sincronización» reproduce desde
+  2 s antes de la primera frase y muestra en vivo la frase que suena; mientras dura, la práctica
+  no da órdenes al reproductor (no se pierde) y se detiene al terminar el vídeo.
+- Escritura mientras suena (02.1, `music-practice.js`, `{ state, command }`; órdenes `play`
+  (saltar y reproducir), `resume` (seguir sin saltar) y `pause`). Por frase (`phraseTimes`):
+  APARICIÓN `showAtMs` = inicio − `leadMs`; INICIO = marca + desfase; LÍMITE `deadlineMs` =
+  inicio de la siguiente FRASE − `safetyMs` (las pausas instrumentales intermedias se escuchan y
+  se pueden aprovechar; última frase: sin límite). Valores EXPERIMENTALES en `DEFAULT_TIMING`:
+  `leadMs` 1000 y `safetyMs` 300 (configurables vía ctx en las pruebas). Flujo: la frase aparece
+  en su aparición (no se puede escribir antes) → se escribe con el vídeo sonando → si se termina,
+  NO se pausa ni se salta: se prepara la siguiente, que aparece en su aparición (o en seguida si
+  ya pasó) → si llega el límite sin terminar, `pause` y espera (`waiting`) → al terminarla,
+  `resume` desde donde se pausó (sin repetir ni saltar). Si la pausa llegó cuando ya sonaba la
+  siguiente frase (pausedAtMs ≥ su inicio), UN `play` a su inicio − margen (registro `rewind`).
+  Frases más próximas que el margen: el límite es su propio inicio (pausa al empezar; al terminar
+  continúa). Vídeo terminado con la frase a medias: espera (`waitReason: 'ended'`).
+- Arranque y navegación: Empezar, Frase siguiente/anterior y Reiniciar saltan a 1 s antes de la
+  aparición (`PRE_ROLL_MS`; 2 s antes del canto), con la escritura desde cero; Repetir fragmento
+  salta igual pero conserva lo escrito y la frase visible. Con la canción en pausa por el límite,
+  «Reproducir» se convierte en «Saltar frase y seguir» (sin resultado); reanudar con los controles
+  de YouTube hace lo mismo (nunca un bucle de pausas). Tras ordenar la pausa, 1 s de gracia
+  (`PAUSE_GRACE_MS`) para el «playing» residual. Si tras una orden de reproducir el vídeo no
+  arranca en 1,5 s (autoplay bloqueado), `blocked` y botón «Continuar».
+- Saltos manuales: se detectan por continuidad (diferencia > 1,5 s con el tiempo esperado, no por
+  posición); la frase pasa a la de ese momento (`phraseForTime`: la primera cuyo límite no ha
+  pasado), desde cero. Los saltos propios se ignoran hasta llegar al destino (1,5 s, máx. 20
+  lecturas). Un tiempo no válido se ignora.
+- Reloj (02.1): `getCurrentTime()` de YouTube se actualiza a saltos y con latencia; el
+  controlador estima el tiempo con el reloj local desde la última lectura distinta
+  (`estimatePlayerTime`, máx. 0,5 s) y usa UN `setTimeout` encadenado (nunca se acumulan) con
+  `nextTickDelay`: 200 ms lejos de una aparición o límite y cada vez más cerca (mín. 20 ms) al
+  acercarse; solo mientras hace falta. Medido en el navegador: aparición con 2 ms y pausa con
+  12 ms de retraso. Pausas con > 50 ms de retraso se registran (`late-pause`). Diagnóstico de
+  desarrollo con `?diagnostico=1` (#music-diagnostics, oculto por defecto): tiempos previstos y
+  observados, estado y últimos registros.
+- Métricas (02.1): PPM y precisión con `calcCpm`/`calcAccuracy`; tiempo ACTIVO = suma de los
+  intervalos entre teclas aceptadas de cada frase, cada uno como máximo `MAX_KEY_GAP_MS` (2 s):
+  la escucha antes de la primera tecla no cuenta, escribir mientras suena sí, y una espera en
+  pausa sin escribir cuenta como mucho 2 s (no infla ni desinfla). Cada frase empieza un motor
+  nuevo (sin caracteres duplicados). Repetir una frase sustituye su resultado. Nada se guarda.
+  El campo de escritura sigue activo y con el foco durante toda la práctica; el motor rechaza lo
+  escrito antes de que aparezca la frase.
+- Foco y teclado (02.2): con el foco dentro del iframe, las letras de la frase eran atajos de
+  YouTube («l»/«j» ±10 s, «k»/espacio pausa, números…): el vídeo saltaba, la detección de saltos
+  pasaba a otra frase desde cero y el marcador «retrocedía»; las teclas no llegaban al campo. El
+  marcador y el motor eran correctos (`tests/music-marker.test.js`: marcador = `game.typed.length`
+  en todos los casos). Corrección: `disablekb=1` en el reproductor y, durante la práctica con el
+  panel cerrado, si el foco entra en el vídeo (`blur` de la ventana) se devuelve al campo
+  (`shouldReclaimTypingFocus`). Los clics en los controles del vídeo siguen funcionando.
+- Diagnóstico de escritura (02.3, solo con `?diagnostico=1`; sin él, `music-debug.js` devuelve un
+  objeto vacío y nada cambia): `music-trace.js` (PURO) guarda los últimos 300 eventos (entrada:
+  keydown/beforeinput/input/keyup/composición/foco con `key` como clase de carácter, `code`,
+  `inputType`, longitud del campo y cursor; lecturas del vídeo; órdenes al reproductor;
+  transiciones de frase con su motivo `attemptReason`: inicio, navegación, completada, saltada,
+  saltada-al-reanudar, salto-del-vídeo o repetición) y, tras cada pulsación y cada lectura,
+  comprueba que el campo = texto del motor, que el marcador pintado = `game.typed.length` y que
+  el motor no retrocede ni cambia de frase sin motivo. Una divergencia congela la evidencia
+  (25 eventos previos + estado posterior, máx. 5) sin corregir nada. Botones «Copiar» y
+  «Descargar diagnóstico» y `window.typingquestMusicTrace()` en la consola. Sin letras: solo
+  longitudes, índices, estados y clases de carácter. También registra clics, foco de la ventana
+  y cada tecla que llega FUERA del campo durante la práctica (`recordLostKey`, divergencia «foco»).
+- Causa del marcador «quieto» o «sobre letras ya escritas» (02.3, demostrada con la traza del
+  usuario y un clic real): el estado siempre fue coherente (0 divergencias), pero un clic en una
+  zona no interactiva de la práctica dejaba el foco en `<body>` y las teclas dejaban de llegar al
+  campo, sin aviso. Corrección, igual que en Academia: `clickKeepsTypingFocus` (usa
+  `keepsTypingFocus` de ui.js) evita el blur en `mousedown` sobre la práctica y devuelve el foco
+  si ya se había perdido; `focusLostNotice` (usa `isRealFocusLoss`) muestra «Haz clic aquí para
+  seguir escribiendo» con `.lane-blurred` si el foco se pierde dentro de la página; al volver a
+  la ventana con el foco en `<body>`, vuelve al campo. Sin captura global de teclas.
+- Seguridad: CSP con SOLO tres orígenes nuevos, cada uno en su directiva (`script-src`
+  `https://www.youtube.com`, `frame-src` `https://www.youtube-nocookie.com`, `connect-src`
+  `https://lrclib.net`); `tests/security.test.js` fija la lista exacta. Todo texto externo va por
+  `textContent`. Limitaciones conocidas: vídeos no insertables o sin la canción esperada,
+  versiones con otra duración (ajustar el desfase), letras de LRCLIB aportadas por la comunidad
+  (sin garantía de derechos de redistribución: solo se consultan bajo demanda) y límite
+  aproximado de ~45 peticiones/min por IP sin registrar.
 
 ## Convenciones
 

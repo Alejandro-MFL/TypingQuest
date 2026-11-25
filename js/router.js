@@ -9,6 +9,8 @@ const ROUTE_HASHES = Object.freeze({
   history: '#/historial',
   practice: '#/practica-libre',
   ergonomics: '#/ergonomia',
+  // Experimento 02: Música (YouTube + letras sincronizadas).
+  music: '#/musica',
 });
 
 export const ROUTES = Object.freeze(Object.keys(ROUTE_HASHES));

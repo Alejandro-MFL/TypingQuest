@@ -5,7 +5,7 @@
   <!-- Seguridad (T17.2): solo recursos propios; sin scripts ni estilos en línea, plugins,
        <base> ni envío de formularios. Al publicar, enviarla también como cabecera HTTP
        (allí se puede añadir frame-ancestors, que no funciona en <meta>). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self'; img-src 'self'; connect-src 'self' https://lrclib.net; frame-src https://www.youtube-nocookie.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
@@ -120,6 +120,7 @@
         <li><a class="main-nav-link" href="#/historial" data-route="history">Historial</a></li>
         <li><a class="main-nav-link" href="#/practica-libre" data-route="practice">Práctica libre</a></li>
         <li><a class="main-nav-link" href="#/ergonomia" data-route="ergonomics">Ergonomía</a></li>
+        <li><a class="main-nav-link" href="#/musica" data-route="music">Música</a></li>
       </ul>
     </nav>
   </header>
@@ -480,6 +481,137 @@
         <div class="diagnosis-body" id="results-diagnosis-body"></div>
       </section>
       </details>
+    </section>
+
+    <!-- Música (experimento 02.1): vídeo de YouTube + letra sincronizada (LRCLIB o archivo .lrc).
+         Se escribe MIENTRAS suena la canción; el vídeo solo se pausa si una frase no se
+         termina a tiempo. No guarda historial ni letras. -->
+    <section class="screen music" id="music-screen" aria-labelledby="music-title" hidden>
+      <h2 class="screen-title" id="music-title" tabindex="-1">Música</h2>
+      <p class="screen-intro">Escribe cada frase mientras suena la canción. Experimento: estas prácticas no se guardan en tu historial.</p>
+
+      <!-- Toda la configuración: vídeo, letra, desfase y comprobación (02.1). -->
+      <details class="collapsible music-setup" id="music-setup" open>
+        <summary>Vídeo y letra<span class="music-setup-summary" id="music-setup-summary"></span></summary>
+        <div class="music-setup-body">
+          <p class="music-status music-setup-status" id="music-setup-status" role="status" aria-live="polite">Carga un vídeo y elige una letra para empezar.</p>
+          <div class="music-steps">
+            <section class="music-step" aria-labelledby="music-video-title">
+              <h3 class="music-step-title" id="music-video-title">1. Vídeo de YouTube</h3>
+              <form class="music-form" id="music-video-form" novalidate>
+                <label class="music-label" for="music-url">Enlace del vídeo</label>
+                <div class="music-row">
+                  <input class="filter-input" id="music-url" type="url" inputmode="url" autocomplete="off"
+                    spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…"
+                    aria-describedby="music-video-status">
+                  <button class="button" id="music-video-button" type="submit">Cargar vídeo</button>
+                </div>
+              </form>
+              <p class="music-status" id="music-video-status" role="status" aria-live="polite"></p>
+            </section>
+
+            <section class="music-step" aria-labelledby="music-lyrics-title">
+              <h3 class="music-step-title" id="music-lyrics-title">2. Letra sincronizada</h3>
+              <form class="music-form" id="music-search-form" novalidate>
+                <div class="music-fields">
+                  <label class="music-label" for="music-track">Título</label>
+                  <input class="filter-input" id="music-track" type="text" autocomplete="off" maxlength="300">
+                  <label class="music-label" for="music-artist">Artista</label>
+                  <input class="filter-input" id="music-artist" type="text" autocomplete="off" maxlength="300">
+                </div>
+                <button class="button button-secondary" id="music-search-button" type="submit">Buscar en LRCLIB</button>
+              </form>
+              <p class="music-status" id="music-search-status" role="status" aria-live="polite"></p>
+              <ul class="music-results" id="music-results" aria-label="Resultados de LRCLIB"></ul>
+              <div class="music-import">
+                <label class="music-label" for="music-file">O importa un archivo .lrc de tu ordenador</label>
+                <input class="music-file" id="music-file" type="file" accept=".lrc">
+                <p class="music-hint">El archivo se lee en tu navegador: no se sube a ningún servidor.</p>
+              </div>
+              <p class="music-status" id="music-lyrics-status" role="status" aria-live="polite"></p>
+            </section>
+
+            <!-- Desfase global: positivo = la letra aparece más tarde; negativo = antes. -->
+            <section class="music-step music-sync" aria-labelledby="music-sync-title">
+              <h3 class="music-step-title" id="music-sync-title">3. Sincronización</h3>
+              <div class="music-offset-row">
+                <label class="music-label" for="music-offset">Desfase de la letra</label>
+                <output class="music-offset-value" id="music-offset-value" for="music-offset">0,0 s</output>
+              </div>
+              <input class="music-offset-range" id="music-offset" type="range" min="-30" max="30" step="0.1" value="0"
+                aria-describedby="music-offset-help" aria-valuetext="0,0 s">
+              <div class="music-offset-scale" aria-hidden="true"><span>−30 s · antes</span><span>0</span><span>más tarde · +30 s</span></div>
+              <div class="music-offset-buttons">
+                <button class="button button-secondary button-small" type="button" data-offset-step="-100" aria-label="Adelantar la letra 0,1 segundos">−0,1 s</button>
+                <button class="button button-secondary button-small" type="button" data-offset-step="100" aria-label="Retrasar la letra 0,1 segundos">+0,1 s</button>
+                <button class="button-link" id="music-offset-reset" type="button">Restablecer a 0</button>
+              </div>
+              <p class="music-hint" id="music-offset-help">Sin desfase: la letra usa los tiempos originales.</p>
+              <p class="music-note" id="music-note" hidden></p>
+              <button class="button button-secondary button-small" id="music-check-button" type="button" disabled>Comprobar sincronización</button>
+              <p class="music-live-line" id="music-live-line"></p>
+            </section>
+          </div>
+          <p class="music-credit">
+            Las letras sincronizadas de <a href="https://lrclib.net" target="_blank" rel="noopener noreferrer">LRCLIB</a>
+            son aportaciones de su comunidad. TypingQuest solo las consulta cuando buscas y no las guarda.
+            El vídeo se reproduce con el reproductor oficial de YouTube.
+          </p>
+        </div>
+      </details>
+
+      <!-- Práctica: solo vídeo, frase, escritura, controles, progreso y métricas. -->
+      <section class="music-stage" id="music-stage" aria-labelledby="music-stage-title" hidden>
+        <h3 class="visually-hidden" id="music-stage-title">Práctica con la canción</h3>
+        <div class="music-video" id="music-video"></div>
+        <div class="music-typing">
+          <p class="music-progress" id="music-progress"></p>
+          <p class="music-phase" id="music-phase" role="status" aria-live="polite"></p>
+          <div class="lane music-lane" id="music-lane" role="group" aria-label="Frase para escribir">
+            <p class="chunk chunk-next" id="music-chunk-next" hidden></p>
+            <p class="chunk chunk-active music-chunk" id="music-chunk-active"></p>
+            <textarea
+              class="hidden-input"
+              id="music-input"
+              aria-label="Escribe aquí la frase de la canción"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              disabled></textarea>
+          </div>
+          <div class="actions music-controls" role="group" aria-label="Controles de la práctica">
+            <button class="button" id="music-start-button" type="button" disabled>Empezar práctica</button>
+            <button class="button" id="music-continue-button" type="button" hidden>Continuar</button>
+            <button class="button button-secondary" id="music-play-button" type="button" hidden>Pausar</button>
+            <button class="button button-secondary" id="music-repeat-button" type="button" hidden>Repetir fragmento</button>
+            <button class="button button-secondary" id="music-prev-button" type="button" hidden>Frase anterior</button>
+            <button class="button button-secondary" id="music-next-button" type="button" hidden>Frase siguiente</button>
+            <button class="button-link" id="music-restart-button" type="button" hidden>Reiniciar práctica</button>
+          </div>
+          <div class="stats music-stats" role="group" aria-label="Estadísticas de la práctica">
+            <div class="stat">
+              <span class="stat-value" id="music-cpm">—</span>
+              <span class="stat-label"><abbr title="Pulsaciones por minuto">PPM</abbr></span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="music-accuracy">—</span>
+              <span class="stat-label">% precisión</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="music-done">0</span>
+              <span class="stat-label">frases escritas</span>
+            </div>
+          </div>
+        </div>
+        <!-- Diagnóstico de desarrollo (?diagnostico=1): tiempos previstos y observados. -->
+        <pre class="music-diagnostics" id="music-diagnostics" hidden></pre>
+        <div class="music-trace-actions" id="music-trace-actions" hidden>
+          <button class="button button-secondary button-small" id="music-trace-copy" type="button">Copiar diagnóstico</button>
+          <button class="button button-secondary button-small" id="music-trace-download" type="button">Descargar diagnóstico</button>
+          <span class="music-hint" id="music-trace-status" role="status"></span>
+        </div>
+      </section>
     </section>
 
     <!-- Ergonomía (T16): recomendaciones generales, breves y a la vista; lista opcional sin guardar. -->
