@@ -57,6 +57,7 @@ js/ui.js              # Renderizado y DOM de partida, resultados e historial; he
 js/course-ui.js       # Renderizado de Inicio, Academia, Biblioteca y del ejercicio en partida/resultados.
 js/sound.js           # Efectos con Web Audio API (sin archivos ni librerías); volumen general (exp. 01).
 js/volume.js          # PURO (exp. 01): preferencia de volumen 0-100 %, curva de ganancia y textos.
+js/key-sound.js       # PURO (exp. 02.4): sonidos de teclado: preferencias por contexto y pulsación → sonido.
 js/session-compare.js # PURO (exp. 01): comparación con el intento anterior del mismo ejercicio y modo.
 js/typing-input.js    # Control del textarea de escritura (secuencial, composición), compartido.
 js/youtube-url.js     # PURO (exp. 02): URL de YouTube → ID de vídeo y URL del reproductor.
@@ -75,7 +76,7 @@ tests/*.test.js       # Tests de text-prep, chunks, game, metrics, ui, sound, st
                       # migration (posiciones y registros de T8/T9), progress, objectives,
                       # router, course-ui, keyboard, typing-analysis, analysis-ui, typing-trends,
                       # trends-ui, library-memory, recommendations, lesson-guide, theme, ergonomics, session-compare y volume (exp. 01), typing-input, youtube-url, youtube-player, lrclib, lrc,
-                      # music-sync, music-practice y music-ui (exp. 02), chart-scope, security, build-site, modules (imports y exports del grafo de
+                      # music-sync, music-practice y music-ui (exp. 02), key-sound (exp. 02.4), chart-scope, security, build-site, modules (imports y exports del grafo de
                       # js/) y dev-server (cabeceras del servidor local; se omite sin python).
 tools/dev-server.py   # Servidor local sin caché heurística (solo desarrollo).
 tools/build-site.mjs  # Artefacto de publicación (T18): copia y comprueba solo los archivos de la web.
@@ -780,8 +781,8 @@ las correcciones 01.1 y 01.2 e integrado en la rama estable `chore/claude-md`. L
 - Volumen (`js/volume.js`, `createVolumeStore`): clave `typingquest:sound:v1` con `{ version: 1,
   volume }` (entero 0-100; dato no válido → null). Sin preferencia: `initialVolume` usa
   `CONFIG.soundEnabled` (true → 70 %, false → 0 %: nunca se activa por sorpresa). La estable no
-  guardaba el sonido: no hay nada que migrar. Ganancia general = (volumen/100)² (curva conservada
-  en 01.1: la auditoría no encontró defectos en la ruta del volumen). Un `GainNode` general por
+  guardaba el sonido: no hay nada que migrar. Ganancia general = (volumen/100)^1,5
+  (`VOLUME_CURVE_EXPONENT`; era cuadrática hasta 02.5, ver «Sonidos de teclado»). Un `GainNode` general por
   AudioContext (creado en la primera interacción y nunca con 0 %), cambios suaves con
   `setTargetAtTime`. Botón de la cabecera (`aria-expanded`, icono silencio/bajo/alto con
   `data-level`) que abre #volume-panel con un `<input type="range">` (paso 5, `aria-valuetext`,
@@ -791,13 +792,67 @@ las correcciones 01.1 y 01.2 e integrado en la rama estable `chore/claude-md`. L
   volumen): fragmento intermedio = una nota breve (G6, 70 ms, seno); ejercicio terminado = arpegio
   ascendente C6-E6-G6 (triangular); objetivo superado = C6-E6-G6-C7 con la última nota más larga
   (≈ 0,6 s). Envolvente por nota: ataque lineal de 8 ms desde 0 y caída exponencial. Suma de picos
-  simultáneos ≤ `MAX_COMBINED_PEAK` (0,5; `peakSum`), así que ni solapados saturan. Al terminar suena
+  simultáneos ≤ `MAX_COMBINED_PEAK` (0,9 desde 02.5; `peakSum`) y limitador de salida. Al terminar suena
   UN solo sonido (`finishGame` → `playFinish(finishSoundKind(evaluation))`; la práctica libre usa el
   de ejercicio); el de fragmento solo en fragmentos intermedios. Vista previa del volumen = fragmento.
 - Riesgos: si se fusionara, el formato guardado no cambia (bajo riesgo); los umbrales de la
   comparación son provisionales; la velocidad sigue siendo neta (no pulsaciones físicas).
 
-## Música (experimento 02 y 02.1, rama `feature/typingquest-music-01`; NO integrado ni publicado)
+## Sonidos de teclado (experimentos 02.4 y 02.5; aprobados e integrados en `chore/claude-md`; AÚN NO publicados)
+
+- Tres sonidos sintetizados (`KEY_SOUNDS` en `sound.js`, sin archivos): correcta = «thock» ligero
+  (seno 320 → 160 Hz, 45 ms, + transitorio de 2,4 kHz y 12 ms); retroceso = clic más grave y seco
+  (seno 220 → 120 Hz, 40 ms, + 1,5 kHz y 10 ms). Misma envolvente que el resto (ataque 8 ms, caída
+  exponencial); el tono baja con `exponentialRampToValueAtTime`.
+- Error (02.5, sustituye al «pop» de 02.4, que sonaba a recompensa): «clonk» de tecla mecánica
+  defectuosa, ~260 ms: golpe de ruido filtrado (paso banda 2,2 kHz, 14 ms; búfer de ruido
+  determinista creado una vez por contexto), cuerpo grave triangular 190 → 165 Hz y dos parciales
+  INARMÓNICOS (524 y 1026 Hz, × 2,76 y × 5,4, como una barra metálica) que se apagan antes. Sin
+  melodía, campanillas ni tonos ascendentes. Se evaluó Kenney «Interface Sounds» (CC0, 100
+  archivos, confirmado en su web el 25-11-2026), pero la página no lista ni deja escuchar los
+  efectos sin descargar el paquete y no se pudo valorar de oído: no se incorporó ningún archivo
+  (si se quisiera uno, habría que ampliar `ALLOWED_EXTENSIONS` y la documentación de licencia).
+- Cuándo (`key-sound.js`, PURO): `classifyKeystroke(previous, next)` mira el RESULTADO del motor:
+  mismo estado (entrada rechazada: pegado, exceso, bloqueo del estricto, retroceso sin efecto,
+  composición incompleta) = silencio; un carácter más = correcta o incorrecta (nunca las dos);
+  menos = retroceso. `keySoundFor` además calla la pulsación que completa un fragmento o termina
+  la partida: entonces suena SOLO su confirmación (fragmento/frase o final, sin cambios). Nunca
+  desde `keydown`, renders, foco ni las lecturas del vídeo: una sola llamada `sound.playKey(keySoundFor(…))`
+  en `processInput` (main.js) y otra en `handleTyping` de Música (misma frase y mismo intento).
+- Audio: el mismo AudioContext y volumen general. Bus propio del teclado (un `GainNode` creado con
+  la primera tecla) → volumen general; frase completada y final van directos al general, así que
+  NO dependen del volumen del teclado. Silencio (sin crear el audio) si el teclado está desactivado,
+  a 0 % o el general a 0 %. Ráfagas: como máximo `MAX_KEY_VOICES` (2) sonidos de tecla a la vez
+  (`allowKeyVoice`), contando solo sus primeros 80 ms (`KEY_VOICE_WINDOW_S`; la cola ya está casi
+  apagada): errores cada 100 ms suenan todos. Picos × 2 ≤ `MAX_COMBINED_PEAK`.
+- Volumen: «Sonidos de teclado» (casilla) y «Volumen del teclado» 0-100 % en el panel de volumen de
+  siempre (sin otro botón). Ganancia del teclado = volumen/100 (LINEAL desde 02.5), RELATIVA al
+  general. Desactivados, el deslizador se ve pero está deshabilitado. Al cambiarlos suena una tecla
+  de prueba (`playKeyPreview`). «Probar» (02.5, `data-sound-test`, `playTest`): Acierto, Error,
+  Retroceso y Final con los volúmenes y la casilla actuales (con el teclado desactivado, sus tres
+  botones se deshabilitan; Final depende solo del general).
+- Calibración (02.5), medida con `OfflineAudioContext` (picos digitales, no acústicos): antes, al
+  100 %/100 % los efectos quedaban entre −14 y −20 dBFS (picos de nota pequeños, 0,13-0,2) y, con
+  los valores por defecto (70 %/50 %), el clic en −35 dBFS: dos curvas cuadráticas encadenadas
+  (0,49 × 0,25). Ahora: picos × ~2,2-2,6 (`SOUNDS`, `KEY_SOUNDS`), curva general de potencia 1,5 y
+  teclado lineal → clic −8 dBFS al 100 % (+8 dB) y −19 dBFS por defecto (+16 dB); 50 %/50 %: +17 dB.
+  El formato guardado no cambia (mismos 0-100): las preferencias anteriores siguen valiendo.
+- Protección de picos (02.5): limitador SUAVE a la salida (`WaveShaper` con `softLimitCurve`:
+  identidad hasta 0,8 y tanh hasta 0,98; `oversample` 2x), después del volumen general. Se descartó
+  `DynamicsCompressorNode`: medido, atenuaba ~12 dB los efectos breves aunque no llegaran al umbral.
+  Peor caso medido (frase + final + errores a la vez, todo al 100 %): pico −0,5 dBFS, sin saturar.
+- Audio del vídeo: independiente. Los efectos usan su propio AudioContext; nada llama a
+  `setVolume`/`mute` del reproductor de YouTube (un test lo vigila). La calidad acústica la valora
+  el usuario con altavoces reales.
+- Preferencias por CONTEXTO (no perfiles): `typing` (todas las rutas salvo Música) y `music`.
+  Por defecto: `typing` activados al 50 %; `music` desactivados al 50 % (no compiten con la
+  canción). Clave `typingquest:keys:v1` con `{ version: 1, typing?, music? }`: solo se guarda el
+  contexto que el usuario cambia (`updateKeySound`); lo demás, por defecto. Activarlos en Música se
+  conserva y nunca se fuerza el apagado. `showRoute` aplica el contexto de la ruta
+  (`applyKeyContext`) y el panel dice a qué se aplica («Ajuste para Música…»). localStorage no
+  fiable: `parseKeySoundPreference` descarta contextos o valores no válidos.
+
+## Música (experimento 02, desarrollado en `feature/typingquest-music-01`; aprobado e integrado en `chore/claude-md`; AÚN NO publicado)
 
 Primera versión de «TypingQuest Música»: escuchar una frase de una canción en un vídeo de
 YouTube y escribirla con el motor de siempre. Sin traducciones, vocabulario, cuentas, backend
@@ -845,9 +900,18 @@ así que no comparte localStorage con :8000, :8001 ni la web publicada).
   duración; su resumen muestra la canción elegida. Abierto mientras falte vídeo o letra
   (`setupShouldOpen`), se cierra al pulsar «Empezar práctica» y abrirlo durante la práctica pausa
   el vídeo (los datos se conservan). Cambiar de vídeo o de letra reinicia la práctica sin
-  resultados. La práctica (#music-stage) solo tiene vídeo, progreso, estado, frase, controles y
-  métricas; en escritorio (≥ 64rem) vídeo a la izquierda y escritura a la derecha; en móvil, en
-  columna. `tests/music-ui.test.js` comprueba la estructura de index.html.
+  resultados. La práctica (#music-stage) solo tiene vídeo, frase, estado, métricas y controles.
+  `tests/music-ui.test.js` comprueba la estructura de index.html.
+- Distribución (02.4): UNA sola columna centrada también en escritorio (`.game` de Música y
+  #music-stage con máx. 52rem; antes, dos columnas desde 64rem). De arriba abajo: «Vídeo y letra»,
+  vídeo 16:9, frase (carril de siempre; reserva 2 líneas, 3 por debajo de 30rem, y crece sin
+  recortar), estado (#music-progress «Frase N de M» + #music-phase; las completadas solo en las
+  métricas), métricas (PPM, precisión y «frases completadas») y controles: principal
+  (`.music-controls-main`: Empezar, Continuar, Pausar/Reproducir/«Saltar frase y seguir»),
+  «Navegación por frases» (`.music-controls-nav`: anterior, repetir, siguiente; en móvil, tres
+  botones iguales) y «Reiniciar práctica» como enlace. Un grupo sin botones visibles se oculta (`:has`).
+- Navegación principal (02.4): Inicio, Academia, Biblioteca, Historial, Práctica libre, Música y
+  Ergonomía (el test de `music-ui` fija el orden).
 - Desfase (02.1): deslizador `<input type="range">` de −30 a +30 s en pasos de 0,1 s
   (`offsetFromSlider`, `clampOffset`), valor siempre visible (`<output>`), `aria-valuetext` con el
   significado (`offsetValueText`), botones finos ±0,1 s y «Restablecer a 0». Positivo = la letra

@@ -72,9 +72,9 @@ export function practicePhaseText(state) {
   return state.results[state.index - 1] ? 'Frase completada. La siguiente aparecerá en breve…' : 'La frase aparecerá un momento antes de cantarse…';
 }
 
+/** Frase actual y total (02.4: las completadas solo en las métricas, sin duplicar). */
 export function phraseProgressText(state) {
-  const done = Object.keys(state.results).length;
-  return `Frase ${state.index + 1} de ${state.phrases.length} · ${done} ${done === 1 ? 'escrita' : 'escritas'}`;
+  return `Frase ${state.index + 1} de ${state.phrases.length}`;
 }
 
 /** Milisegundos del deslizador (segundos con un decimal), limitados a ±30 s. */

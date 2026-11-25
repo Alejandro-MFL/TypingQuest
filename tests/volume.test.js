@@ -79,9 +79,13 @@ describe('volumeGain (curva de volumen)', () => {
     assert.equal(volumeGain(100), 1);
   });
 
-  it('curva cuadrática: los niveles intermedios suenan graduales, no lineales', () => {
-    assert.equal(volumeGain(50), 0.25);
+  // Exp. 02.5: la curva cuadrática dejaba medio recorrido casi mudo (50 % = −12 dB, y −24 dB
+  // combinada con el teclado). Potencia 1,5: progresiva y útil en los valores intermedios.
+  it('curva calibrada (potencia 1,5): progresiva y sin medio recorrido casi mudo', () => {
+    assert.ok(Math.abs(volumeGain(50) - 0.5 ** 1.5) < 1e-12);
+    assert.ok(volumeGain(50) > 0.25, 'más que la curva cuadrática anterior');
     assert.ok(volumeGain(20) < volumeGain(40) && volumeGain(40) < volumeGain(80));
+    assert.ok(volumeGain(5) > 0 && volumeGain(10) < 0.05, 'los niveles bajos siguen siendo bajos');
   });
 
   it('valores no válidos se tratan como silencio', () => {

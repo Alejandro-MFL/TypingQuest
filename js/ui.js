@@ -4,6 +4,7 @@ import { summarizeHistory, chartPoints, accuracyAxis, speedAxis, describeSeries,
 import { wpmToCpm } from './metrics.js';
 import { moveCaretToEnd } from './typing-input.js';
 import { formatVolume, volumeButtonLabel, volumeLevel } from './volume.js';
+import { keySoundContextText } from './key-sound.js';
 
 const MAX_LISTED_CHARS = 10;
 
@@ -241,6 +242,11 @@ export function getElements(doc = document) {
       panel: byId('volume-panel'),
       range: byId('volume-range'),
       value: byId('volume-value'),
+      keyEnabled: byId('key-sound-enabled'),
+      keyRange: byId('key-volume-range'),
+      keyValue: byId('key-volume-value'),
+      keyContext: byId('key-sound-context'),
+      tests: [...document.querySelectorAll('[data-sound-test]')],
     },
     resultsTitle: byId('results-title'),
     resultWpm: byId('result-wpm'),
@@ -360,6 +366,21 @@ export function renderVolume(els, volume) {
   els.volume.range.value = String(volume);
   els.volume.range.setAttribute('aria-valuetext', formatVolume(volume));
   els.volume.value.textContent = formatVolume(volume);
+}
+
+/** Exp. 02.4: sonidos de teclado del contexto actual; desactivados, el volumen se ve pero no se usa. */
+export function renderKeySound(els, setting, context) {
+  const { keyEnabled, keyRange, keyValue, keyContext } = els.volume;
+  keyEnabled.checked = setting.enabled;
+  keyRange.value = String(setting.volume);
+  keyRange.disabled = !setting.enabled;
+  keyRange.setAttribute('aria-valuetext', formatVolume(setting.volume));
+  keyValue.textContent = formatVolume(setting.volume);
+  keyContext.textContent = keySoundContextText(context);
+  // Exp. 02.5: con el teclado desactivado, sus botones de prueba tampoco se pueden usar.
+  for (const button of els.volume.tests) {
+    if (button.dataset.soundTest !== 'finish') button.disabled = !setting.enabled;
+  }
 }
 
 export function renderVolumeOpen(els, open) {

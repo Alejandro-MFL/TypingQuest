@@ -107,6 +107,28 @@
           <output class="volume-value" id="volume-value" for="volume-range">70 %</output>
         </div>
         <p class="volume-hint">0 % silencia los sonidos. Se guarda en este navegador.</p>
+        <!-- Exp. 02.4: sonidos de teclado, relativos al volumen general y por contexto. -->
+        <div class="key-sound" role="group" aria-labelledby="key-sound-label">
+          <div class="mode-option">
+            <input class="mode-checkbox" id="key-sound-enabled" type="checkbox" aria-describedby="key-sound-context">
+            <label class="mode-label" id="key-sound-label" for="key-sound-enabled">Sonidos de teclado</label>
+            <p class="mode-hint" id="key-sound-context">Ajuste para Academia, Biblioteca y Práctica libre.</p>
+          </div>
+          <label class="volume-label key-volume-label" for="key-volume-range">Volumen del teclado</label>
+          <div class="volume-row">
+            <input class="volume-range" id="key-volume-range" type="range" min="0" max="100" step="5" value="50"
+              aria-valuetext="50 %">
+            <output class="volume-value" id="key-volume-value" for="key-volume-range">50 %</output>
+          </div>
+        </div>
+        <!-- Exp. 02.5: escuchar cada efecto con los volúmenes elegidos, sin empezar una práctica. -->
+        <div class="sound-test" role="group" aria-labelledby="sound-test-label">
+          <span class="sound-test-label" id="sound-test-label">Probar</span>
+          <button class="button button-secondary button-small" type="button" data-sound-test="correct">Acierto</button>
+          <button class="button button-secondary button-small" type="button" data-sound-test="error">Error</button>
+          <button class="button button-secondary button-small" type="button" data-sound-test="backspace">Retroceso</button>
+          <button class="button button-secondary button-small" type="button" data-sound-test="finish">Final</button>
+        </div>
       </div>
     </div>
     </div>
@@ -119,8 +141,8 @@
         <li><a class="main-nav-link" href="#/biblioteca" data-route="library">Biblioteca</a></li>
         <li><a class="main-nav-link" href="#/historial" data-route="history">Historial</a></li>
         <li><a class="main-nav-link" href="#/practica-libre" data-route="practice">Práctica libre</a></li>
-        <li><a class="main-nav-link" href="#/ergonomia" data-route="ergonomics">Ergonomía</a></li>
         <li><a class="main-nav-link" href="#/musica" data-route="music">Música</a></li>
+        <li><a class="main-nav-link" href="#/ergonomia" data-route="ergonomics">Ergonomía</a></li>
       </ul>
     </nav>
   </header>
@@ -563,46 +585,51 @@
       <!-- Práctica: solo vídeo, frase, escritura, controles, progreso y métricas. -->
       <section class="music-stage" id="music-stage" aria-labelledby="music-stage-title" hidden>
         <h3 class="visually-hidden" id="music-stage-title">Práctica con la canción</h3>
+        <!-- 02.4: una sola columna: vídeo, frase, estado, métricas y controles. -->
         <div class="music-video" id="music-video"></div>
-        <div class="music-typing">
+        <div class="lane music-lane" id="music-lane" role="group" aria-label="Frase para escribir">
+          <p class="chunk chunk-next" id="music-chunk-next" hidden></p>
+          <p class="chunk chunk-active music-chunk" id="music-chunk-active"></p>
+          <textarea
+            class="hidden-input"
+            id="music-input"
+            aria-label="Escribe aquí la frase de la canción"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            disabled></textarea>
+        </div>
+        <div class="music-status">
           <p class="music-progress" id="music-progress"></p>
           <p class="music-phase" id="music-phase" role="status" aria-live="polite"></p>
-          <div class="lane music-lane" id="music-lane" role="group" aria-label="Frase para escribir">
-            <p class="chunk chunk-next" id="music-chunk-next" hidden></p>
-            <p class="chunk chunk-active music-chunk" id="music-chunk-active"></p>
-            <textarea
-              class="hidden-input"
-              id="music-input"
-              aria-label="Escribe aquí la frase de la canción"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              disabled></textarea>
+        </div>
+        <div class="stats music-stats" role="group" aria-label="Estadísticas de la práctica">
+          <div class="stat">
+            <span class="stat-value" id="music-cpm">—</span>
+            <span class="stat-label"><abbr title="Pulsaciones por minuto">PPM</abbr></span>
           </div>
-          <div class="actions music-controls" role="group" aria-label="Controles de la práctica">
+          <div class="stat">
+            <span class="stat-value" id="music-accuracy">—</span>
+            <span class="stat-label">% precisión</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="music-done">0</span>
+            <span class="stat-label">frases completadas</span>
+          </div>
+        </div>
+        <div class="music-controls" role="group" aria-label="Controles de la práctica">
+          <div class="music-controls-main">
             <button class="button" id="music-start-button" type="button" disabled>Empezar práctica</button>
             <button class="button" id="music-continue-button" type="button" hidden>Continuar</button>
-            <button class="button button-secondary" id="music-play-button" type="button" hidden>Pausar</button>
-            <button class="button button-secondary" id="music-repeat-button" type="button" hidden>Repetir fragmento</button>
+            <button class="button" id="music-play-button" type="button" hidden>Pausar</button>
+          </div>
+          <div class="music-controls-nav" role="group" aria-label="Navegación por frases">
             <button class="button button-secondary" id="music-prev-button" type="button" hidden>Frase anterior</button>
+            <button class="button button-secondary" id="music-repeat-button" type="button" hidden>Repetir fragmento</button>
             <button class="button button-secondary" id="music-next-button" type="button" hidden>Frase siguiente</button>
-            <button class="button-link" id="music-restart-button" type="button" hidden>Reiniciar práctica</button>
           </div>
-          <div class="stats music-stats" role="group" aria-label="Estadísticas de la práctica">
-            <div class="stat">
-              <span class="stat-value" id="music-cpm">—</span>
-              <span class="stat-label"><abbr title="Pulsaciones por minuto">PPM</abbr></span>
-            </div>
-            <div class="stat">
-              <span class="stat-value" id="music-accuracy">—</span>
-              <span class="stat-label">% precisión</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value" id="music-done">0</span>
-              <span class="stat-label">frases escritas</span>
-            </div>
-          </div>
+          <button class="button-link" id="music-restart-button" type="button" hidden>Reiniciar práctica</button>
         </div>
         <!-- Diagnóstico de desarrollo (?diagnostico=1): tiempos previstos y observados. -->
         <pre class="music-diagnostics" id="music-diagnostics" hidden></pre>

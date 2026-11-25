@@ -45,10 +45,14 @@ export function initialVolume({ stored, legacyEnabled }) {
   return legacyEnabled ? DEFAULT_VOLUME : 0;
 }
 
-/** Ganancia general (0-1) con curva cuadrática: el oído percibe el volumen de forma no lineal. */
+// Exp. 02.5: exponente de la curva. La cuadrática (2) dejaba medio recorrido casi mudo
+// (50 % = −12 dB); con 1,5 el 50 % queda en −9 dB, el 10 % en −30 dB y el 0 % en silencio.
+export const VOLUME_CURVE_EXPONENT = 1.5;
+
+/** Ganancia general (0-1) con curva de potencia: el oído percibe el volumen de forma no lineal. */
 export function volumeGain(volume) {
   const v = normalizeVolume(volume);
-  return v === null ? 0 : (v / 100) ** 2;
+  return v === null ? 0 : (v / 100) ** VOLUME_CURVE_EXPONENT;
 }
 
 /** Icono del botón: 'muted' (0 %), 'low' (< 50 %) o 'high'. */

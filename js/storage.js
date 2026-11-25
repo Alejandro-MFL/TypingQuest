@@ -21,6 +21,7 @@ import { EXERCISE_STATUS, createProgress } from './progress.js';
 import { packAnalysis, unpackAnalysis } from './typing-analysis.js';
 import { THEME_KEY, parseThemePreference, serializeThemePreference } from './theme.js';
 import { VOLUME_KEY, normalizeVolume, parseVolumePreference, serializeVolumePreference } from './volume.js';
+import { KEY_SOUND_KEY, parseKeySoundPreference, serializeKeySoundPreference } from './key-sound.js';
 
 export const HISTORY_KEY = 'typingquest:history:v1';
 // Campos permitidos de una sesión guardada, en el orden en que se escriben.
@@ -386,6 +387,33 @@ export function createVolumeStore(storage) {
     if (!storage) return { ok: false, error: 'unavailable' };
     try {
       storage.setItem(VOLUME_KEY, serializeVolumePreference(volume));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: classifyWriteError(error) };
+    }
+  }
+
+  return { load, save };
+}
+
+/**
+ * Exp. 02.4: preferencias de los sonidos de teclado por contexto (`key-sound.js`). Solo
+ * lo que el usuario ha cambiado; nunca lanza (sin almacenamiento, `load()` da {}).
+ */
+export function createKeySoundStore(storage) {
+  function load() {
+    if (!storage) return {};
+    try {
+      return parseKeySoundPreference(storage.getItem(KEY_SOUND_KEY));
+    } catch {
+      return {};
+    }
+  }
+
+  function save(stored) {
+    if (!storage) return { ok: false, error: 'unavailable' };
+    try {
+      storage.setItem(KEY_SOUND_KEY, serializeKeySoundPreference(stored));
       return { ok: true };
     } catch (error) {
       return { ok: false, error: classifyWriteError(error) };

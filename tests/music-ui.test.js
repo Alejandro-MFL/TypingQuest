@@ -99,7 +99,8 @@ describe('estado de la práctica en una frase (02.1)', () => {
   });
 
   it('progreso', () => {
-    assert.equal(phraseProgressText(started()), 'Frase 1 de 2 · 0 escritas');
+    // 02.4: solo la frase actual; las completadas ya están en las métricas (sin duplicar).
+    assert.equal(phraseProgressText(started()), 'Frase 1 de 2');
   });
 });
 
@@ -172,6 +173,25 @@ describe('estructura de la pantalla (index.html)', () => {
     assert.ok(setup.includes('<output class="music-offset-value" id="music-offset-value" for="music-offset">'));
   });
 
+  // 02.4: una sola columna: vídeo, frase, estado, métricas y controles, en ese orden.
+  it('orden vertical de la práctica', () => {
+    const order = ['id="music-video"', 'id="music-lane"', 'id="music-progress"', 'id="music-phase"',
+      'class="stats music-stats"', 'class="music-controls"'].map((marker) => stage.indexOf(marker));
+    assert.ok(order.every((i) => i >= 0), JSON.stringify(order));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+    assert.ok(screen.indexOf('id="music-setup"') < screen.indexOf('id="music-stage"'), '«Vídeo y letra», encima');
+  });
+
+  it('controles agrupados: principal, navegación por frases y reiniciar al final', () => {
+    const controls = stage.slice(stage.indexOf('class="music-controls"'), stage.indexOf('class="music-diagnostics"'));
+    const main = controls.slice(controls.indexOf('music-controls-main'), controls.indexOf('music-controls-nav'));
+    const nav = controls.slice(controls.indexOf('music-controls-nav'), controls.indexOf('music-restart-button'));
+    for (const id of ['music-start-button', 'music-continue-button', 'music-play-button']) assert.ok(main.includes(id), id);
+    for (const id of ['music-prev-button', 'music-repeat-button', 'music-next-button']) assert.ok(nav.includes(id), id);
+    assert.match(nav, /role="group" aria-label="Navegación por frases"/);
+    assert.match(stage, /<span class="stat-label">frases completadas<\/span>/);
+  });
+
   it('el diagnóstico de desarrollo está oculto por defecto', () => {
     assert.match(stage, /<pre class="music-diagnostics" id="music-diagnostics" hidden>/);
   });
@@ -230,5 +250,27 @@ describe('foco del campo durante la práctica (como en Academia)', () => {
     assert.equal(focusLostNotice({ practiceActive: true, inputFocused: false, windowFocused: false }), '');
     assert.equal(focusLostNotice({ practiceActive: true, inputFocused: true, windowFocused: true }), '');
     assert.equal(focusLostNotice({ practiceActive: false, inputFocused: false, windowFocused: true }), '');
+  });
+});
+
+// 02.4: diseño en una sola columna (también en escritorio) y orden de la navegación.
+describe('distribución de Música y navegación', () => {
+  const css = readFileSync(new URL('../css/styles.css', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+  it('la práctica es una sola columna centrada en cualquier ancho', () => {
+    const rules = [...css.matchAll(/\.music-stage\s*\{([^}]*)\}/g)].map((m) => m[1]);
+    assert.ok(rules.length > 0);
+    for (const body of rules) {
+      const columns = body.match(/grid-template-columns:\s*([^;]+);/);
+      if (columns) assert.equal(columns[1].trim(), 'minmax(0, 1fr)', 'nunca dos columnas');
+    }
+    assert.match(rules.join(''), /max-width:/);
+    assert.match(rules.join(''), /margin-inline:\s*auto/);
+  });
+
+  it('orden de la navegación: … Práctica libre → Música → Ergonomía', () => {
+    const routes = [...html.matchAll(/class="main-nav-link" href="[^"]+" data-route="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(routes, ['home', 'academy', 'library', 'history', 'practice', 'music', 'ergonomics']);
   });
 });

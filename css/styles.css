@@ -843,7 +843,7 @@ body:has(#play-screen:not([hidden])) .subtitle {
   top: calc(100% + 0.5rem);
   right: 0;
   z-index: 10;
-  width: min(16rem, calc(100vw - 1.5rem));
+  width: min(18rem, calc(100vw - 1.5rem));
   padding: 0.875rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -883,6 +883,45 @@ body:has(#play-screen:not([hidden])) .subtitle {
   margin: 0.375rem 0 0;
   color: var(--color-muted);
   font-size: var(--text-xs);
+}
+
+/* Exp. 02.5: botones de prueba de los efectos, en una fila compacta al final del panel. */
+.sound-test {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: center;
+  margin-top: 0.875rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.sound-test-label {
+  width: 100%;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+.sound-test .button-small {
+  padding: 0.25rem 0.625rem;
+}
+
+/* Exp. 02.4: sonidos de teclado, separados del volumen general por una línea. */
+.key-sound {
+  margin-top: 0.875rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.key-volume-label {
+  margin: 0.75rem 0 0.375rem;
+  font-weight: normal;
+}
+
+.key-sound .volume-range:disabled,
+.key-sound .volume-range:disabled + .volume-value {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 /* Anclado a .header-tools (no al botón): su borde derecho es el de la página,
@@ -2758,9 +2797,10 @@ body:has(#library-screen:not([hidden])) .game {
 
 /* --- Música (experimento 02.1): configuración en el panel y práctica limpia --------- */
 
-/* Más ancho que el resto de pantallas: vídeo y escritura caben lado a lado. */
+/* 02.4: una sola columna algo más ancha que el resto de pantallas (vídeo cómodo sin ocupar
+   todo el monitor). El panel «Vídeo y letra» y la práctica comparten ese ancho. */
 body:has(#music-screen:not([hidden])) .game {
-  max-width: 72rem;
+  max-width: 52rem;
 }
 
 .music-setup-summary {
@@ -2945,11 +2985,15 @@ body:has(#music-screen:not([hidden])) .game {
   font-family: var(--font-mono);
 }
 
-/* Práctica: vídeo y escritura, sin bloques de configuración. */
+/* Práctica (02.4): UNA columna centrada, también en escritorio. De arriba abajo: vídeo,
+   frase, estado, métricas y controles. Ancho cómodo: el vídeo no ocupa todo el monitor. */
 .music-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem 1.5rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin-inline: auto;
 }
 
 .music-video {
@@ -2977,27 +3021,11 @@ body:has(#music-screen:not([hidden])) .game {
   border: 0;
 }
 
-.music-typing {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.music-progress {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-}
-
-.music-phase {
-  min-height: 1.5rem;
-  margin: 0.25rem 0 0.75rem;
-}
-
-/* La frase de una canción puede ser larga: letra algo menor que en la partida. */
+/* La frase es lo más importante tras el vídeo. Reserva dos líneas (tres en móvil) para
+   que no salte al cambiar de frase; las frases largas crecen sin recortarse. */
 .music-lane .chunk-active {
-  min-height: calc(3 * var(--chunk-line-height) * 1.375rem);
-  padding-bottom: 0.75rem;
+  min-height: calc(2 * var(--chunk-line-height) * 1.375rem);
+  padding-bottom: 0.5rem;
   font-size: 1.375rem;
 }
 
@@ -3005,12 +3033,57 @@ body:has(#music-screen:not([hidden])) .game {
   color: var(--color-muted);
 }
 
-.music-controls {
-  margin: 1rem 0;
+/* Estado: frase actual a la izquierda y la situación de la canción a continuación. */
+.music-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  min-height: 1.5rem;
+}
+
+.music-progress {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.music-progress:empty {
+  display: none;
+}
+
+.music-phase {
+  flex: 1 1 16rem;
+  margin: 0;
+  color: var(--color-muted);
 }
 
 .music-stats {
-  margin-top: auto;
+  justify-content: center;
+}
+
+/* Controles: acción principal, navegación por frases agrupada y «Reiniciar» discreto. */
+.music-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.music-controls-main,
+.music-controls-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.music-controls-main:not(:has(> :not([hidden]))),
+.music-controls-nav:not(:has(> :not([hidden]))) {
+  display: none;
 }
 
 .music-diagnostics {
@@ -3035,20 +3108,27 @@ body:has(#music-screen:not([hidden])) .game {
   }
 }
 
-@media (min-width: 64rem) {
-  .music-stage {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    align-items: start;
-  }
-}
-
 @media (max-width: 30rem) {
   .music-lane .chunk-active {
+    min-height: calc(3 * var(--chunk-line-height) * 1.125rem);
     font-size: 1.125rem;
   }
 
   .music-stats {
     gap: 1.25rem;
+  }
+
+  /* Móvil: navegación por frases en tres botones del mismo ancho. */
+  .music-controls-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .music-controls-nav .button {
+    padding: 0.5rem;
+    font-size: var(--text-sm);
+    line-height: 1.25;
   }
 }
 

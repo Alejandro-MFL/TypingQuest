@@ -39,7 +39,7 @@ Detalles técnicos en `CLAUDE.md` («Experimento 01»).
 Pendiente: publicar la nueva versión (workflow manual, con autorización expresa) y comprobarla
 en la web real; calibrar con uso real los umbrales de la comparación.
 
-## Experimento 02: Música (rama `feature/typingquest-music-01`; en revisión, sin integrar ni publicar)
+## Experimento 02: Música (aprobado e integrado en `chore/claude-md` desde `feature/typingquest-music-01`; sin publicar)
 
 Primera versión de «TypingQuest Música»: pegar un vídeo de YouTube, buscar su letra sincronizada
 en LRCLIB (o importar un `.lrc`), ajustar el desfase, escuchar cada frase y escribirla con el
@@ -55,9 +55,13 @@ motor de siempre. Detalles en `CLAUDE.md` («Música»). Se prueba en http://loc
 | 02.2: marcador de escritura estable (las teclas ya no llegan a los atajos de YouTube: `disablekb=1` y el foco vuelve al campo si entra en el vídeo) | Corregido y probado (teclas reales en navegador) |
 | 02.3: diagnóstico de desarrollo del marcador (`?diagnostico=1`: traza de eventos, detector de divergencias, copiar/descargar) | Implementado |
 | 02.3: causa del marcador «quieto» (clic en zona no interactiva → foco en `<body>`, teclas perdidas sin aviso) corregida como en Academia (foco conservado + aviso) | Corregido y comprobado con la traza del usuario y clics y teclas reales |
+| Commit de seguridad del experimento (`328b6ed`, local) | Hecho |
+| 02.4: Música en una sola columna (vídeo, frase, estado, métricas y controles agrupados) y «Música» antes de «Ergonomía» en la navegación | Implementado y probado (pruebas y navegador: escritorio y móvil, temas claro y oscuro) |
+| 02.4: sonidos de teclado (correcta, error y retroceso) según el resultado del motor, con casilla y volumen propios relativos al general; activados en la mecanografía y desactivados en Música por defecto, con preferencia por contexto | Implementado, probado (Web Audio simulado y teclas reales) y aprobado por el usuario |
+| 02.5: nuevo error «clonk» mecánico (sintetizado; Kenney evaluado, sin archivo), volumen máximo mucho mayor (picos recalibrados, curva 1,5 y teclado lineal), limitador suave de salida y botones «Probar» en el panel | Implementado, medido (+8 dB al 100 %, +16 dB por defecto, sin saturar) y aprobado de oído por el usuario |
 
-Pendiente: calibrar con uso real la anticipación (1 s) y el margen (0,3 s), revisión visual del usuario, probar más vídeos (no insertables, versiones distintas),
-Firefox y Safari, y decidir si se integra. Fuera de alcance en esta versión: SRT/VTT, editor de
+Pendiente: calibrar con uso real la anticipación (1 s) y el margen (0,3 s), probar más vídeos (no insertables, versiones distintas),
+Firefox y Safari, y publicar la web (workflow manual). Fuera de alcance en esta versión: SRT/VTT, editor de
 letras, biblioteca o historial musical, traducciones y cuentas.
 
 ## Mejoras futuras (sin fase asignada)

@@ -13,8 +13,10 @@ import {
   createHistoryStore, createProgressStore, createSessionRecord, EXERCISE_CUSTOM_TEXT, createGuideStore,
   createThemeStore,
   createVolumeStore,
+  createKeySoundStore,
 } from './storage.js';
 import { initialVolume } from './volume.js';
+import { keySoundContext, resolveKeySound, updateKeySound, keySoundFor } from './key-sound.js';
 import { THEME_PREFERENCES, resolveTheme } from './theme.js';
 import { createCatalog, libraryLessons, filterLessons, exerciseTitle } from './catalog.js';
 import {
@@ -59,8 +61,14 @@ const de = analysisUi.getDiagnosisElements();
 const storage = getLocalStorage();
 // Volumen (experimento 01): guardado en su propia clave; sin dato, CONFIG.soundEnabled.
 const volumeStore = createVolumeStore(storage);
+// Exp. 02.4: sonidos de teclado por contexto (mecanografía o Música); solo se guarda lo
+// que el usuario cambia en cada uno.
+const keySoundStore = createKeySoundStore(storage);
+let keySoundPrefs = keySoundStore.load();
+let keyContext = 'typing';
 const sound = createSoundPlayer({
   volume: initialVolume({ stored: volumeStore.load(), legacyEnabled: CONFIG.soundEnabled }),
+  keySound: resolveKeySound(keySoundPrefs).typing,
 });
 // Música (experimento 02): pantalla propia; usa el modo elegido en Opciones y el sonido.
 const music = createMusicController({ sound, getMode: () => selectedMode });
@@ -127,6 +135,7 @@ function showRoute(route) {
   closeOptions();
   closeVolume();
   courseUi.renderNav(ce, route);
+  applyKeyContext(keySoundContext(route));
   const ticket = route === 'library' && catalog ? libraryReturn : null;
   if (route === 'library') {
     if (ticket) courseUi.writeLibraryFilters(ce, sanitizeLibraryFilters(ticket.filters, courseUi.libraryFilterOptions(ce)));
@@ -506,6 +515,9 @@ function processInput() {
   // Rechazada: restaura el textarea. Aceptada: lo alinea con el texto normalizado.
   ui.syncInput(els.input, session.state.typed);
   render();
+  // Exp. 02.4: sonido de tecla según el resultado del motor (nada si se rechazó, y solo
+  // la confirmación si la pulsación completa un fragmento o termina la partida).
+  sound.playKey(keySoundFor(previous, session.state));
   if (session.state.segmentIndex > previous.segmentIndex) celebrateChunk(previous.segmentIndex);
   if (session.state.status === 'finished') {
     finishGame();
@@ -1022,6 +1034,44 @@ function handleVolumeChange() {
   sound.playPreview();
 }
 
+// Exp. 02.4: el panel muestra y aplica el ajuste del teclado del contexto actual.
+function applyKeyContext(context) {
+  keyContext = context;
+  const setting = resolveKeySound(keySoundPrefs)[context];
+  sound.setKeySound(setting);
+  ui.renderKeySound(els, setting, context);
+}
+
+function changeKeySound(patch, { save }) {
+  const next = updateKeySound(keySoundPrefs, keyContext, patch);
+  const setting = resolveKeySound(next)[keyContext];
+  sound.setKeySound(setting);
+  ui.renderKeySound(els, setting, keyContext);
+  if (!save) return;
+  keySoundPrefs = next;
+  keySoundStore.save(keySoundPrefs);
+  sound.playKeyPreview();
+}
+
+function handleKeySoundToggle() {
+  changeKeySound({ enabled: els.volume.keyEnabled.checked }, { save: true });
+}
+
+// Mientras se arrastra: cambia al momento; al soltar, se guarda y suena una tecla.
+function handleKeyVolumeInput() {
+  changeKeySound({ volume: els.volume.keyRange.value }, { save: false });
+}
+
+function handleKeyVolumeChange() {
+  changeKeySound({ volume: els.volume.keyRange.value }, { save: true });
+}
+
+// Exp. 02.5: «Probar» del panel: suena con los volúmenes y la casilla actuales.
+function handleSoundTest(event) {
+  const button = event.target.closest('[data-sound-test]');
+  if (button) sound.playTest(button.dataset.soundTest);
+}
+
 // --- Inicio --------------------------------------------------------------------
 
 function bindEvents() {
@@ -1047,6 +1097,10 @@ function bindEvents() {
   els.soundToggle.addEventListener('click', handleSoundToggle);
   els.volume.range.addEventListener('input', handleVolumeInput);
   els.volume.range.addEventListener('change', handleVolumeChange);
+  els.volume.keyEnabled.addEventListener('change', handleKeySoundToggle);
+  els.volume.keyRange.addEventListener('input', handleKeyVolumeInput);
+  els.volume.keyRange.addEventListener('change', handleKeyVolumeChange);
+  els.volume.panel.addEventListener('click', handleSoundTest);
   els.options.toggle.addEventListener('click', handleOptionsToggle);
   els.blockOnErrors.addEventListener('change', handleModeChange);
   els.helpOption.addEventListener('change', handleHelpChange);
@@ -1124,6 +1178,7 @@ async function init() {
   music.bind();
   ui.setChunkAnimationMs(els, CONFIG.chunkAnimationMs);
   ui.renderVolume(els, sound.getVolume());
+  applyKeyContext(keyContext);
   ui.renderSelectedMode(els, selectedMode);
   updateSourceCount();
   await loadCatalog();

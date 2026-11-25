@@ -17,6 +17,7 @@ import {
 import * as musicUi from './music-ui.js';
 import { syncInput } from './ui.js';
 import { attachSequentialInput } from './typing-input.js';
+import { keySoundFor } from './key-sound.js';
 import { createMusicDebugger } from './music-debug.js';
 
 // Identificación ante LRCLIB (cabecera Lrclib-Client): nombre, versión y proyecto.
@@ -328,8 +329,12 @@ export function createMusicController({ sound, getMode, doc = document, win = wi
     run({ state, command });
     syncInput(els.input, practice.game?.typed ?? '');
     debug.check('input');
-    // Los resultados solo se sustituyen al terminar una frase.
-    if (state.results === previous.results) return;
+    // Los resultados solo se sustituyen al terminar una frase. Exp. 02.4: mientras no
+    // termine, sonido de tecla según el motor (misma frase y mismo intento).
+    if (state.results === previous.results) {
+      if (state.attempt === previous.attempt) sound.playKey(keySoundFor(previous.game, state.game));
+      return;
+    }
     if (state.status === 'finished') sound.playFinish('exercise');
     else sound.playChunkComplete();
   }
